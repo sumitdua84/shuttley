@@ -19,6 +19,9 @@ export default function ModeratorDashboard() {
   const [sessionForm, setSessionForm] = useState({ day_of_week:'monday', start_time:'', location:'', notes:'' })
   const [loading, setLoading] = useState(true)
   const [linkCopied, setLinkCopied] = useState(false)
+  const [guestName, setGuestName] = useState('')
+  const [addingGuest, setAddingGuest] = useState(false)
+  const [showGuestForm, setShowGuestForm] = useState(false)
 
   useEffect(() => { fetchData() }, [clubId])
 
@@ -55,6 +58,27 @@ export default function ModeratorDashboard() {
     await supabase.from('memberships').delete().eq('id', membershipId)
     showToast('Member removed')
     fetchData()
+  }
+
+  async function addGuest() {
+    if (!guestName.trim()) return
+    setAddingGuest(true)
+    const guestId = crypto.randomUUID()
+    const { error } = await supabase.rpc('create_guest_profile', {
+      guest_id: guestId,
+      guest_name: guestName.trim(),
+      p_club_id: clubId
+    })
+    if (!error) {
+      showToast(`Guest "${guestName.trim()}" added!`)
+      setGuestName('')
+      setShowGuestForm(false)
+      fetchData()
+    } else {
+      console.error('Guest error:', error)
+      showToast('Error adding guest')
+    }
+    setAddingGuest(false)
   }
 
   async function openAssignments(member) {
@@ -210,7 +234,33 @@ export default function ModeratorDashboard() {
           </>}
 
           {/* Approved */}
-          <div className="section-label">Members ({approved.length})</div>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
+            <div className="section-label" style={{ margin:0 }}>Members ({approved.filter(m => !m.is_guest).length})</div>
+            <button className="btn btn-ghost btn-sm" onClick={() => setShowGuestForm(!showGuestForm)}>
+              + Add Guest
+            </button>
+          </div>
+
+          {/* Guest form */}
+          {showGuestForm && (
+            <div className="card" style={{ marginBottom:12, background:'var(--bg3)' }}>
+              <div style={{ fontSize:13, color:'var(--text2)', marginBottom:8 }}>
+                Guest players can be selected in matches but won't appear on the leaderboard.
+              </div>
+              <div style={{ display:'flex', gap:8 }}>
+                <input className="input" placeholder="Guest name e.g. John"
+                  value={guestName} onChange={e => setGuestName(e.target.value)}
+                  style={{ flex:1 }}
+                  onKeyDown={e => e.key === 'Enter' && addGuest()}
+                />
+                <button className="btn btn-primary btn-sm" onClick={addGuest}
+                  disabled={!guestName.trim() || addingGuest}>
+                  {addingGuest ? '…' : 'Add'}
+                </button>
+              </div>
+            </div>
+          )}
+
           {approved.length === 0 ? (
             <div className="empty"><p>No approved members yet</p></div>
           ) : approved.map(m => (
@@ -225,6 +275,7 @@ export default function ModeratorDashboard() {
                 <div className="member-name">{m.profiles?.full_name}</div>
                 <div style={{ display:'flex', gap:4, marginTop:2 }}>
                   {m.role === 'moderator' && <span className="badge badge-mod">mod</span>}
+                  {m.is_guest && <span className="badge" style={{ background:'rgba(255,200,50,0.12)', color:'#ffc832' }}>guest</span>}
                 </div>
               </div>
               <div className="member-actions">

@@ -31,9 +31,9 @@ export default function MatchesPage() {
 
     const { data: mems } = await supabase
       .from('memberships')
-      .select('user_id, profiles(id, full_name, avatar_url)')
+      .select('user_id, is_guest, profiles(id, full_name, avatar_url, is_guest)')
       .eq('club_id', clubId).eq('status', 'approved')
-    setMembers((mems || []).map(m => m.profiles).filter(Boolean))
+    setMembers((mems || []).map(m => ({ ...m.profiles, is_guest: m.is_guest })).filter(Boolean))
 
     const { data: matchData } = await supabase
       .from('matches')
@@ -59,7 +59,7 @@ export default function MatchesPage() {
   // Calculate leaderboard stats
   function calcStats() {
     const stats = {}
-    members.forEach(m => {
+    members.filter(m => !m.is_guest).forEach(m => {
       stats[m.id] = { id: m.id, name: m.full_name, avatar: m.avatar_url, wins: 0, losses: 0, points_for: 0, points_against: 0 }
     })
 
