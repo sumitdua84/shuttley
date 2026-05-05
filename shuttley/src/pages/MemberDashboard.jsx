@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase'
 const DAYS = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday']
 
 export default function MemberDashboard() {
+
   const { clubId } = useParams()
   const { user } = useAuth()
   const navigate = useNavigate()
@@ -63,6 +64,11 @@ export default function MemberDashboard() {
             <h2 style={{ fontSize:26, marginBottom:4 }}>My sessions</h2>
             <p style={{ color:'var(--text2)', fontSize:13 }}>Days you've been assigned to</p>
           </div>
+
+          <button className="btn btn-primary" style={{ marginBottom:24 }}
+            onClick={() => navigate(`/club/${clubId}/matches`)}>
+            🏸 View Matches &amp; Leaderboard
+          </button>
 
           {myDays.length === 0 ? (
             <div className="empty">

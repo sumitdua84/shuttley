@@ -1,0 +1,304 @@
+import { useState, useEffect } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
+import { useAuth } from '../hooks/useAuth'
+import { supabase } from '../lib/supabase'
+
+export default function RecordMatch() {
+  const { clubId } = useParams()
+  const { user } = useAuth()
+  const navigate = useNavigate()
+
+  const [members, setMembers] = useState([])
+  const [type, setType] = useState('singles') // singles | doubles
+  const [team1, setTeam1] = useState([])
+  const [team2, setTeam2] = useState([])
+  const [score1, setScore1] = useState('')
+  const [score2, setScore2] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [toast, setToast] = useState('')
+  const [step, setStep] = useState(1) // 1=type, 2=players, 3=score
+
+  useEffect(() => { fetchMembers() }, [clubId])
+
+  async function fetchMembers() {
+    const { data } = await supabase
+      .from('memberships')
+      .select('user_id, profiles(id, full_name, avatar_url)')
+      .eq('club_id', clubId)
+      .eq('status', 'approved')
+    setMembers((data || []).map(m => m.profiles).filter(Boolean))
+  }
+
+  function togglePlayer(side, memberId) {
+    const maxSize = type === 'singles' ? 1 : 2
+    if (side === 'team1') {
+      if (team1.includes(memberId)) {
+        setTeam1(team1.filter(id => id !== memberId))
+      } else if (team1.length < maxSize && !team2.includes(memberId)) {
+        setTeam1([...team1, memberId])
+      }
+    } else {
+      if (team2.includes(memberId)) {
+        setTeam2(team2.filter(id => id !== memberId))
+      } else if (team2.length < maxSize && !team1.includes(memberId)) {
+        setTeam2([...team2, memberId])
+      }
+    }
+  }
+
+  function getPlayerName(id) {
+    return members.find(m => m.id === id)?.full_name || 'Unknown'
+  }
+
+  const maxPlayers = type === 'singles' ? 1 : 2
+  const playersReady = team1.length === maxPlayers && team2.length === maxPlayers
+  const scoreReady = score1 !== '' && score2 !== '' && score1 !== score2
+
+  async function submitMatch() {
+    if (!scoreReady) return
+    setSubmitting(true)
+
+    const s1 = parseInt(score1)
+    const s2 = parseInt(score2)
+    const winner_side = s1 > s2 ? 'team1' : 'team2'
+
+    const { data: match, error } = await supabase
+      .from('matches')
+      .insert({
+        club_id: clubId,
+        type,
+        team1_score: s1,
+        team2_score: s2,
+        winner_side,
+        recorded_by: user.id
+      })
+      .select().single()
+
+    if (error) { showToast('Error saving match'); setSubmitting(false); return }
+
+    const players = [
+      ...team1.map(id => ({ match_id: match.id, user_id: id, side: 'team1' })),
+      ...team2.map(id => ({ match_id: match.id, user_id: id, side: 'team2' }))
+    ]
+    await supabase.from('match_players').insert(players)
+
+    setSubmitting(false)
+    navigate(`/club/${clubId}/matches`, { state: { success: true } })
+  }
+
+  function showToast(msg) {
+    setToast(msg)
+    setTimeout(() => setToast(''), 2500)
+  }
+
+  return (
+    <div className="page">
+      <div className="topnav">
+        <button onClick={() => step > 1 ? setStep(step - 1) : navigate(-1)}
+          style={{ background:'none',border:'none',color:'var(--text2)',cursor:'pointer',fontSize:22,padding:0 }}>←</button>
+        <span style={{ fontFamily:"'DM Serif Display',serif", fontSize:18 }}>Record Match</span>
+        <span style={{ opacity:0 }}>·</span>
+      </div>
+
+      {/* Step indicator */}
+      <div style={{ display:'flex', gap:6, padding:'16px 20px 0' }}>
+        {[1,2,3].map(s => (
+          <div key={s} style={{
+            flex:1, height:3, borderRadius:99,
+            background: s <= step ? 'var(--accent)' : 'var(--bg3)',
+            transition:'background 0.2s'
+          }}/>
+        ))}
+      </div>
+
+      <div className="content">
+
+        {/* Step 1 — Match type */}
+        {step === 1 && <>
+          <h2 style={{ fontSize:26, marginBottom:6 }}>Match type</h2>
+          <p style={{ color:'var(--text2)', fontSize:14, marginBottom:28 }}>Singles or doubles?</p>
+
+          <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+            {['singles','doubles'].map(t => (
+              <div key={t} onClick={() => setType(t)}
+                style={{
+                  padding:'20px', borderRadius:'var(--radius)',
+                  border: `1.5px solid ${type===t ? 'var(--accent)' : 'var(--border2)'}`,
+                  background: type===t ? 'var(--accent-dim)' : 'var(--bg2)',
+                  cursor:'pointer', transition:'all 0.15s'
+                }}>
+                <div style={{ fontSize:32, marginBottom:8 }}>{t==='singles'?'🏸':'🏸🏸'}</div>
+                <div style={{ fontWeight:500, fontSize:16, color: type===t ? 'var(--accent)' : 'var(--text)', textTransform:'capitalize' }}>{t}</div>
+                <div style={{ fontSize:13, color:'var(--text2)', marginTop:2 }}>
+                  {t==='singles' ? '1 player vs 1 player' : '2 players vs 2 players'}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <button className="btn btn-primary" style={{ marginTop:28 }} onClick={() => setStep(2)}>
+            Next →
+          </button>
+        </>}
+
+        {/* Step 2 — Select players */}
+        {step === 2 && <>
+          <h2 style={{ fontSize:26, marginBottom:6 }}>Select players</h2>
+          <p style={{ color:'var(--text2)', fontSize:14, marginBottom:20 }}>
+            {type === 'singles' ? 'Pick 1 player per side' : 'Pick 2 players per side'}
+          </p>
+
+          {/* Team labels */}
+          <div style={{ display:'flex', gap:10, marginBottom:16 }}>
+            {['Team 1','Team 2'].map((label, i) => {
+              const team = i === 0 ? team1 : team2
+              return (
+                <div key={label} style={{
+                  flex:1, background:'var(--bg2)', border:`0.5px solid ${i===0?'var(--accent)':'#ff5c5c'}`,
+                  borderRadius:'var(--radius)', padding:'10px 12px'
+                }}>
+                  <div style={{ fontSize:11, color: i===0?'var(--accent)':'#ff5c5c', fontWeight:600, marginBottom:4 }}>{label}</div>
+                  {team.length === 0
+                    ? <div style={{ fontSize:12, color:'var(--text3)' }}>No players yet</div>
+                    : team.map(id => <div key={id} style={{ fontSize:13, color:'var(--text)' }}>{getPlayerName(id)}</div>)
+                  }
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Player list */}
+          <div className="section-label">Tap to assign</div>
+          {members.map(m => {
+            const inTeam1 = team1.includes(m.id)
+            const inTeam2 = team2.includes(m.id)
+            return (
+              <div key={m.id} style={{
+                display:'flex', alignItems:'center', gap:12,
+                padding:'10px 0', borderBottom:'0.5px solid var(--border)'
+              }}>
+                <div className="member-avatar">
+                  {m.avatar_url
+                    ? <img src={m.avatar_url} alt="" />
+                    : <div className="member-avatar-init">{(m.full_name||'?')[0]}</div>
+                  }
+                </div>
+                <div style={{ flex:1, fontSize:14, fontWeight:500 }}>{m.full_name}</div>
+                <div style={{ display:'flex', gap:6 }}>
+                  <button onClick={() => togglePlayer('team1', m.id)}
+                    style={{
+                      padding:'5px 12px', borderRadius:99, fontSize:12, fontWeight:600,
+                      border: `1.5px solid ${inTeam1 ? 'var(--accent)' : 'var(--border2)'}`,
+                      background: inTeam1 ? 'var(--accent-dim)' : 'transparent',
+                      color: inTeam1 ? 'var(--accent)' : 'var(--text2)', cursor:'pointer'
+                    }}>T1</button>
+                  <button onClick={() => togglePlayer('team2', m.id)}
+                    style={{
+                      padding:'5px 12px', borderRadius:99, fontSize:12, fontWeight:600,
+                      border: `1.5px solid ${inTeam2 ? '#ff5c5c' : 'var(--border2)'}`,
+                      background: inTeam2 ? 'rgba(255,92,92,0.1)' : 'transparent',
+                      color: inTeam2 ? '#ff5c5c' : 'var(--text2)', cursor:'pointer'
+                    }}>T2</button>
+                </div>
+              </div>
+            )
+          })}
+
+          <button className="btn btn-primary" style={{ marginTop:24 }}
+            onClick={() => setStep(3)} disabled={!playersReady}
+            style={{ marginTop:24, opacity: playersReady ? 1 : 0.4 }}>
+            Next →
+          </button>
+        </>}
+
+        {/* Step 3 — Enter score */}
+        {step === 3 && <>
+          <h2 style={{ fontSize:26, marginBottom:6 }}>Enter score</h2>
+          <p style={{ color:'var(--text2)', fontSize:14, marginBottom:24 }}>What was the final score?</p>
+
+          {/* Match summary */}
+          <div className="card" style={{ marginBottom:24, textAlign:'center' }}>
+            <div style={{ fontSize:13, color:'var(--text2)', marginBottom:8 }}>
+              {type === 'singles' ? 'Singles' : 'Doubles'}
+            </div>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:12 }}>
+              <div style={{ flex:1 }}>
+                {team1.map(id => <div key={id} style={{ fontSize:14, fontWeight:500 }}>{getPlayerName(id)}</div>)}
+              </div>
+              <div style={{ fontSize:13, color:'var(--text3)' }}>vs</div>
+              <div style={{ flex:1, textAlign:'right' }}>
+                {team2.map(id => <div key={id} style={{ fontSize:14, fontWeight:500 }}>{getPlayerName(id)}</div>)}
+              </div>
+            </div>
+          </div>
+
+          {/* Score inputs */}
+          <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:8 }}>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:12, color:'var(--accent)', fontWeight:600, marginBottom:8, textAlign:'center' }}>
+                {team1.map(id => getPlayerName(id)).join(' + ')}
+              </div>
+              <input
+                type="number" min="0" max="100"
+                value={score1}
+                onChange={e => setScore1(e.target.value)}
+                placeholder="0"
+                style={{
+                  width:'100%', background:'var(--bg3)',
+                  border:`2px solid ${score1 && parseInt(score1) > parseInt(score2||0) ? 'var(--accent)' : 'var(--border2)'}`,
+                  borderRadius:'var(--radius)', padding:'20px',
+                  color:'var(--text)', fontSize:36, fontWeight:700,
+                  textAlign:'center', outline:'none', fontFamily:"'DM Sans',sans-serif"
+                }}
+              />
+            </div>
+            <div style={{ fontSize:24, color:'var(--text3)', fontWeight:300, paddingTop:32 }}>–</div>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:12, color:'#ff5c5c', fontWeight:600, marginBottom:8, textAlign:'center' }}>
+                {team2.map(id => getPlayerName(id)).join(' + ')}
+              </div>
+              <input
+                type="number" min="0" max="100"
+                value={score2}
+                onChange={e => setScore2(e.target.value)}
+                placeholder="0"
+                style={{
+                  width:'100%', background:'var(--bg3)',
+                  border:`2px solid ${score2 && parseInt(score2) > parseInt(score1||0) ? '#ff5c5c' : 'var(--border2)'}`,
+                  borderRadius:'var(--radius)', padding:'20px',
+                  color:'var(--text)', fontSize:36, fontWeight:700,
+                  textAlign:'center', outline:'none', fontFamily:"'DM Sans',sans-serif"
+                }}
+              />
+            </div>
+          </div>
+
+          {score1 !== '' && score2 !== '' && score1 === score2 && (
+            <p style={{ color:'#ffc832', fontSize:13, textAlign:'center', marginBottom:12 }}>
+              Scores can't be equal — there must be a winner!
+            </p>
+          )}
+
+          {score1 !== '' && score2 !== '' && score1 !== score2 && (
+            <div style={{ textAlign:'center', padding:'12px 0', color:'var(--text2)', fontSize:14, marginBottom:8 }}>
+              🏆 Winner: <strong style={{ color:'var(--accent)' }}>
+                {parseInt(score1) > parseInt(score2)
+                  ? team1.map(id => getPlayerName(id)).join(' + ')
+                  : team2.map(id => getPlayerName(id)).join(' + ')
+                }
+              </strong>
+            </div>
+          )}
+
+          <button className="btn btn-primary" onClick={submitMatch}
+            disabled={!scoreReady || submitting}
+            style={{ marginTop:8, opacity: scoreReady && !submitting ? 1 : 0.4 }}>
+            {submitting ? 'Saving…' : '✓ Save Match'}
+          </button>
+        </>}
+
+      </div>
+      {toast && <div className="toast">{toast}</div>}
+    </div>
+  )
+}

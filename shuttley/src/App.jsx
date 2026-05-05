@@ -7,6 +7,8 @@ import MemberDashboard from './pages/MemberDashboard'
 import ModeratorDashboard from './pages/ModeratorDashboard'
 import ClubPage from './pages/ClubPage'
 import JoinClub from './pages/JoinClub'
+import RecordMatch from './pages/RecordMatch'
+import MatchesPage from './pages/MatchesPage'
 import './index.css'
 
 function AppRoutes() {
@@ -27,6 +29,8 @@ function AppRoutes() {
       <Route path="/club/:clubId" element={user ? <ClubPage /> : <Navigate to="/login" />} />
       <Route path="/club/:clubId/member" element={user ? <MemberDashboard /> : <Navigate to="/login" />} />
       <Route path="/club/:clubId/mod" element={user ? <ModeratorDashboard /> : <Navigate to="/login" />} />
+      <Route path="/club/:clubId/matches" element={user ? <MatchesPage /> : <Navigate to="/login" />} />
+      <Route path="/club/:clubId/record" element={user ? <RecordMatch /> : <Navigate to="/login" />} />
     </Routes>
   )
 }

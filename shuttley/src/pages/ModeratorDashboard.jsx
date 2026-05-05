@@ -128,6 +128,15 @@ export default function ModeratorDashboard() {
         </button>
       </div>
 
+      {/* Matches shortcut */}
+      <div style={{ padding:'10px 20px 0' }}>
+        <button className="btn btn-secondary btn-sm"
+          onClick={() => navigate(`/club/${clubId}/matches`)}
+          style={{ width:'100%', marginBottom:0 }}>
+          🏸 Matches &amp; Leaderboard
+        </button>
+      </div>
+
       {/* Assign sessions modal */}
       {selectedMember && (
         <div style={{
