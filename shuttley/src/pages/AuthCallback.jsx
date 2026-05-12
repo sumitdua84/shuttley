@@ -7,8 +7,18 @@ export default function AuthCallback() {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) navigate('/', { replace: true })
-      else navigate('/login', { replace: true })
+      if (session) {
+        // Check if user was trying to join a club via invite link
+        const pendingInviteCode = localStorage.getItem('pendingInviteCode')
+        if (pendingInviteCode) {
+          localStorage.removeItem('pendingInviteCode')
+          navigate(`/join/${pendingInviteCode}`, { replace: true })
+        } else {
+          navigate('/', { replace: true })
+        }
+      } else {
+        navigate('/login', { replace: true })
+      }
     })
   }, [navigate])
 

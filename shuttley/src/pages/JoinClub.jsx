@@ -8,7 +8,7 @@ export default function JoinClub() {
   const { user, signInWithGoogle } = useAuth()
   const navigate = useNavigate()
   const [club, setClub] = useState(null)
-  const [status, setStatus] = useState('loading') // loading | found | joining | done | error
+  const [status, setStatus] = useState('loading')
 
   useEffect(() => {
     supabase.from('clubs')
@@ -21,8 +21,20 @@ export default function JoinClub() {
       })
   }, [inviteCode])
 
+  // If user just came back from Google login and club is loaded, auto-join
+  useEffect(() => {
+    if (user && club && status === 'found') {
+      joinClub()
+    }
+  }, [user, club])
+
   async function joinClub() {
-    if (!user) { signInWithGoogle(); return }
+    if (!user) {
+      // Save invite code so we can redirect back after login
+      localStorage.setItem('pendingInviteCode', inviteCode)
+      signInWithGoogle()
+      return
+    }
     setStatus('joining')
     const { data: existing } = await supabase.from('memberships')
       .select('id,status').eq('user_id', user.id).eq('club_id', club.id).single()
@@ -41,9 +53,7 @@ export default function JoinClub() {
   return (
     <div style={{ minHeight:'100dvh',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'32px 24px',background:'var(--bg)' }}>
       <div style={{ fontFamily:"'DM Serif Display',serif",fontSize:22,color:'var(--accent)',marginBottom:40 }}>Shuttley</div>
-
       {status === 'loading' && <div style={{ color:'var(--text2)' }}>Loading…</div>}
-
       {status === 'error' && (
         <div style={{ textAlign:'center' }}>
           <div style={{ fontSize:48,marginBottom:16 }}>🚫</div>
@@ -52,7 +62,6 @@ export default function JoinClub() {
           <button className="btn btn-ghost" style={{ marginTop:24 }} onClick={() => navigate('/')}>Go home</button>
         </div>
       )}
-
       {(status === 'found' || status === 'joining') && club && (
         <div style={{ textAlign:'center',width:'100%' }}>
           <div style={{ fontSize:48,marginBottom:16 }}>🏸</div>
@@ -72,7 +81,6 @@ export default function JoinClub() {
           </p>
         </div>
       )}
-
       {status === 'done' && (
         <div style={{ textAlign:'center' }}>
           <div style={{ fontSize:48,marginBottom:16 }}>✅</div>
