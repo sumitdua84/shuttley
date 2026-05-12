@@ -9,14 +9,14 @@ export default function RecordMatch() {
   const navigate = useNavigate()
 
   const [members, setMembers] = useState([])
-  const [type, setType] = useState('singles') // singles | doubles
+  const [type, setType] = useState('singles')
   const [team1, setTeam1] = useState([])
   const [team2, setTeam2] = useState([])
   const [score1, setScore1] = useState('')
   const [score2, setScore2] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [toast, setToast] = useState('')
-  const [step, setStep] = useState(1) // 1=type, 2=players, 3=score
+  const [step, setStep] = useState(1)
 
   useEffect(() => { fetchMembers() }, [clubId])
 
@@ -51,11 +51,16 @@ export default function RecordMatch() {
   }
 
   const maxPlayers = type === 'singles' ? 1 : 2
+  const allSelectedPlayers = [...team1, ...team2]
+
+  // Enforce: current user must be one of the selected players
+  const userIsInMatch = allSelectedPlayers.includes(user.id)
   const playersReady = team1.length === maxPlayers && team2.length === maxPlayers
+  const canProceed = playersReady && userIsInMatch
   const scoreReady = score1 !== '' && score2 !== '' && score1 !== score2
 
   async function submitMatch() {
-    if (!scoreReady) return
+    if (!scoreReady || !userIsInMatch) return
     setSubmitting(true)
 
     const s1 = parseInt(score1)
@@ -70,7 +75,8 @@ export default function RecordMatch() {
         team1_score: s1,
         team2_score: s2,
         winner_side,
-        recorded_by: user.id
+        recorded_by: user.id,
+        status: 'pending'
       })
       .select().single()
 
@@ -144,9 +150,14 @@ export default function RecordMatch() {
         {/* Step 2 — Select players */}
         {step === 2 && <>
           <h2 style={{ fontSize:26, marginBottom:6 }}>Select players</h2>
-          <p style={{ color:'var(--text2)', fontSize:14, marginBottom:20 }}>
+          <p style={{ color:'var(--text2)', fontSize:14, marginBottom:8 }}>
             {type === 'singles' ? 'Pick 1 player per side' : 'Pick 2 players per side'}
           </p>
+
+          {/* You must be in the match notice */}
+          <div style={{ background:'rgba(255,200,50,0.1)', border:'1px solid rgba(255,200,50,0.3)', borderRadius:'var(--radius-sm)', padding:'10px 14px', marginBottom:16, fontSize:13, color:'#ffc832' }}>
+            ⚠ You must be one of the players to record this match
+          </div>
 
           {/* Team labels */}
           <div style={{ display:'flex', gap:10, marginBottom:16 }}>
@@ -172,6 +183,7 @@ export default function RecordMatch() {
           {members.map(m => {
             const inTeam1 = team1.includes(m.id)
             const inTeam2 = team2.includes(m.id)
+            const isCurrentUser = m.id === user.id
             return (
               <div key={m.id} style={{
                 display:'flex', alignItems:'center', gap:12,
@@ -183,7 +195,10 @@ export default function RecordMatch() {
                     : <div className="member-avatar-init">{(m.full_name||'?')[0]}</div>
                   }
                 </div>
-                <div style={{ flex:1, fontSize:14, fontWeight:500 }}>{m.full_name}</div>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontSize:14, fontWeight:500 }}>{m.full_name}</div>
+                  {isCurrentUser && <div style={{ fontSize:11, color:'var(--accent)' }}>You</div>}
+                </div>
                 <div style={{ display:'flex', gap:6 }}>
                   <button onClick={() => togglePlayer('team1', m.id)}
                     style={{
@@ -204,9 +219,16 @@ export default function RecordMatch() {
             )
           })}
 
-          <button className="btn btn-primary" style={{ marginTop:24 }}
-            onClick={() => setStep(3)} disabled={!playersReady}
-            style={{ marginTop:24, opacity: playersReady ? 1 : 0.4 }}>
+          {playersReady && !userIsInMatch && (
+            <div style={{ marginTop:16, padding:'10px 14px', background:'rgba(255,92,92,0.1)', border:'1px solid rgba(255,92,92,0.3)', borderRadius:'var(--radius-sm)', fontSize:13, color:'#ff5c5c' }}>
+              ✕ You must be one of the selected players to record this match
+            </div>
+          )}
+
+          <button className="btn btn-primary"
+            onClick={() => setStep(3)}
+            disabled={!canProceed}
+            style={{ marginTop:24, opacity: canProceed ? 1 : 0.4 }}>
             Next →
           </button>
         </>}
@@ -281,7 +303,7 @@ export default function RecordMatch() {
 
           {score1 !== '' && score2 !== '' && score1 !== score2 && (
             <div style={{ textAlign:'center', padding:'12px 0', color:'var(--text2)', fontSize:14, marginBottom:8 }}>
-              🏆 Winner: <strong style={{ color:'var(--accent)' }}>
+              🏅 Winner: <strong style={{ color:'var(--accent)' }}>
                 {parseInt(score1) > parseInt(score2)
                   ? team1.map(id => getPlayerName(id)).join(' + ')
                   : team2.map(id => getPlayerName(id)).join(' + ')
@@ -290,10 +312,15 @@ export default function RecordMatch() {
             </div>
           )}
 
+          {/* Confirmation notice */}
+          <div style={{ background:'rgba(100,200,255,0.08)', border:'1px solid rgba(100,200,255,0.2)', borderRadius:'var(--radius-sm)', padding:'10px 14px', marginBottom:16, fontSize:12, color:'var(--text2)' }}>
+            ℹ️ This result will be sent to the opposing team for confirmation before it counts.
+          </div>
+
           <button className="btn btn-primary" onClick={submitMatch}
             disabled={!scoreReady || submitting}
             style={{ marginTop:8, opacity: scoreReady && !submitting ? 1 : 0.4 }}>
-            {submitting ? 'Saving…' : '✓ Save Match'}
+            {submitting ? 'Saving…' : '✔ Submit for Confirmation'}
           </button>
         </>}
 

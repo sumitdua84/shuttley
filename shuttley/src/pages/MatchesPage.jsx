@@ -9,7 +9,7 @@ export default function MatchesPage() {
   const navigate = useNavigate()
   const location = useLocation()
 
-  const [tab, setTab] = useState('history') // history | leaderboard | stats
+  const [tab, setTab] = useState('history')
   const [matches, setMatches] = useState([])
   const [members, setMembers] = useState([])
   const [loading, setLoading] = useState(true)
@@ -19,7 +19,7 @@ export default function MatchesPage() {
 
   useEffect(() => {
     if (location.state?.success) {
-      showToast('✓ Match recorded!')
+      showToast('⏳ Match submitted — awaiting opponent confirmation!')
       window.history.replaceState({}, '')
     }
     fetchAll()
@@ -56,14 +56,22 @@ export default function MatchesPage() {
     return new Date(ts).toLocaleDateString('en-AU', { weekday:'short', day:'numeric', month:'short' })
   }
 
-  // Calculate leaderboard stats
+  function getStatusBadge(status) {
+    if (status === 'pending') return { label:'⏳ Pending', color:'#ffc832', bg:'rgba(255,200,50,0.1)' }
+    if (status === 'disputed') return { label:'⚠ Disputed', color:'#ff5c5c', bg:'rgba(255,92,92,0.1)' }
+    return null
+  }
+
+  // Only confirmed matches count for leaderboard/stats
+  const confirmedMatches = matches.filter(m => m.status === 'confirmed')
+
   function calcStats() {
     const stats = {}
     members.filter(m => !m.is_guest).forEach(m => {
       stats[m.id] = { id: m.id, name: m.full_name, avatar: m.avatar_url, wins: 0, losses: 0, points_for: 0, points_against: 0 }
     })
 
-    matches.forEach(match => {
+    confirmedMatches.forEach(match => {
       const team1Players = getTeam(match, 'team1').map(p => p.user_id)
       const team2Players = getTeam(match, 'team2').map(p => p.user_id)
       const team1Won = match.winner_side === 'team1'
@@ -86,16 +94,15 @@ export default function MatchesPage() {
 
     return Object.values(stats)
       .sort((a, b) => {
+        if (b.wins !== a.wins) return b.wins - a.wins
         const aRate = a.wins + a.losses > 0 ? a.wins / (a.wins + a.losses) : 0
         const bRate = b.wins + b.losses > 0 ? b.wins / (b.wins + b.losses) : 0
-        if (b.wins !== a.wins) return b.wins - a.wins
         return bRate - aRate
       })
   }
 
-  // Stats for selected player
   function getPlayerStats(playerId) {
-    const playerMatches = matches.filter(m =>
+    const playerMatches = confirmedMatches.filter(m =>
       m.match_players?.some(p => p.user_id === playerId)
     )
     let wins = 0, losses = 0, pointsFor = 0, pointsAgainst = 0
@@ -112,14 +119,12 @@ export default function MatchesPage() {
       pointsFor += myScore
       pointsAgainst += oppScore
 
-      // Track opponents
       match.match_players?.filter(p => p.side !== myTeam).forEach(p => {
         if (!opponents[p.user_id]) opponents[p.user_id] = { name: p.profiles?.full_name, wins: 0, losses: 0 }
         if (won) opponents[p.user_id].wins++
         else opponents[p.user_id].losses++
       })
 
-      // Track partners (doubles)
       if (match.type === 'doubles') {
         match.match_players?.filter(p => p.side === myTeam && p.user_id !== playerId).forEach(p => {
           if (!partners[p.user_id]) partners[p.user_id] = { name: p.profiles?.full_name, wins: 0, losses: 0 }
@@ -130,14 +135,13 @@ export default function MatchesPage() {
     })
 
     const bestPartner = Object.values(partners).sort((a,b) => b.wins - a.wins)[0]
-    const nemesis = Object.values(opponents).sort((a,b) => b.losses - a.losses)[0]
 
-    return { wins, losses, pointsFor, pointsAgainst, total: playerMatches.length, bestPartner, nemesis, opponents: Object.values(opponents) }
+    return { wins, losses, pointsFor, pointsAgainst, total: playerMatches.length, bestPartner, opponents: Object.values(opponents) }
   }
 
   function showToast(msg) {
     setToast(msg)
-    setTimeout(() => setToast(''), 2500)
+    setTimeout(() => setToast(''), 3000)
   }
 
   const leaderboard = calcStats()
@@ -157,7 +161,7 @@ export default function MatchesPage() {
 
         {/* Tabs */}
         <div style={{ display:'flex', gap:0, marginBottom:20, background:'var(--bg2)', borderRadius:'var(--radius)', padding:4 }}>
-          {[['history','📋 History'],['leaderboard','🏆 Leaders'],['stats','📊 Stats']].map(([id,label]) => (
+          {[['history','📋 History'],['leaderboard','🏅 Leaders'],['stats','📈 Stats']].map(([id,label]) => (
             <button key={id} onClick={() => { setTab(id); setSelectedPlayer(null) }}
               style={{
                 flex:1, padding:'8px 4px', borderRadius:'var(--radius-sm)',
@@ -180,20 +184,28 @@ export default function MatchesPage() {
             </div>
           ) : matches.map(match => {
             const team1Won = match.winner_side === 'team1'
+            const badge = getStatusBadge(match.status)
             return (
               <div key={match.id} className="card" style={{ marginBottom:10 }}>
                 <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8 }}>
                   <span style={{ fontSize:11, color:'var(--text3)', textTransform:'uppercase', fontWeight:600 }}>
                     {match.type}
                   </span>
-                  <span style={{ fontSize:11, color:'var(--text3)' }}>{formatDate(match.played_at)}</span>
+                  <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                    {badge && (
+                      <span style={{ fontSize:11, fontWeight:600, color:badge.color, background:badge.bg, padding:'2px 8px', borderRadius:99 }}>
+                        {badge.label}
+                      </span>
+                    )}
+                    <span style={{ fontSize:11, color:'var(--text3)' }}>{formatDate(match.played_at)}</span>
+                  </div>
                 </div>
                 <div style={{ display:'flex', alignItems:'center', gap:8 }}>
                   <div style={{ flex:1 }}>
                     <div style={{ fontSize:14, fontWeight: team1Won ? 600 : 400, color: team1Won ? 'var(--text)' : 'var(--text2)' }}>
                       {getTeamNames(match, 'team1')}
                     </div>
-                    {team1Won && <div style={{ fontSize:11, color:'var(--accent)', marginTop:2 }}>🏆 Winner</div>}
+                    {team1Won && match.status === 'confirmed' && <div style={{ fontSize:11, color:'var(--accent)', marginTop:2 }}>🏅 Winner</div>}
                   </div>
                   <div style={{ textAlign:'center', minWidth:70 }}>
                     <div style={{ fontFamily:'monospace', fontSize:22, fontWeight:700 }}>
@@ -206,7 +218,7 @@ export default function MatchesPage() {
                     <div style={{ fontSize:14, fontWeight: !team1Won ? 600 : 400, color: !team1Won ? 'var(--text)' : 'var(--text2)' }}>
                       {getTeamNames(match, 'team2')}
                     </div>
-                    {!team1Won && <div style={{ fontSize:11, color:'#ff5c5c', marginTop:2 }}>🏆 Winner</div>}
+                    {!team1Won && match.status === 'confirmed' && <div style={{ fontSize:11, color:'#ff5c5c', marginTop:2 }}>🏅 Winner</div>}
                   </div>
                 </div>
               </div>
@@ -216,11 +228,13 @@ export default function MatchesPage() {
 
         {/* Leaderboard */}
         {!loading && tab === 'leaderboard' && <>
-          {leaderboard.length === 0 ? (
-            <div className="empty"><p>No matches recorded yet</p></div>
+          <p style={{ fontSize:12, color:'var(--text3)', marginBottom:12 }}>Based on confirmed matches only</p>
+          {leaderboard.filter(p => p.wins + p.losses > 0).length === 0 ? (
+            <div className="empty"><p>No confirmed matches yet</p></div>
           ) : leaderboard.map((p, i) => {
             const total = p.wins + p.losses
-            const rate = total > 0 ? Math.round(p.wins / total * 100) : 0
+            if (total === 0) return null
+            const rate = Math.round(p.wins / total * 100)
             const medals = ['🥇','🥈','🥉']
             return (
               <div key={p.id} className="card" style={{ marginBottom:10, cursor:'pointer' }}
@@ -246,11 +260,9 @@ export default function MatchesPage() {
                     <div style={{ fontSize:11, color:'var(--text3)' }}>wins</div>
                   </div>
                 </div>
-                {total > 0 && (
-                  <div style={{ marginTop:10, height:4, borderRadius:99, background:'var(--bg3)', overflow:'hidden' }}>
-                    <div style={{ width:`${rate}%`, height:'100%', background:'var(--accent)', borderRadius:99, transition:'width 0.5s' }}/>
-                  </div>
-                )}
+                <div style={{ marginTop:10, height:4, borderRadius:99, background:'var(--bg3)', overflow:'hidden' }}>
+                  <div style={{ width:`${rate}%`, height:'100%', background:'var(--accent)', borderRadius:99, transition:'width 0.5s' }}/>
+                </div>
               </div>
             )
           })}
@@ -258,7 +270,6 @@ export default function MatchesPage() {
 
         {/* Stats */}
         {!loading && tab === 'stats' && <>
-          {/* Player selector */}
           <div style={{ marginBottom:16 }}>
             <div className="section-label">Select player</div>
             <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
@@ -287,15 +298,14 @@ export default function MatchesPage() {
             return <>
               <div style={{ marginBottom:16 }}>
                 <h2 style={{ fontSize:22, marginBottom:2 }}>{name}</h2>
-                <p style={{ fontSize:13, color:'var(--text2)' }}>{s.total} matches played</p>
+                <p style={{ fontSize:13, color:'var(--text2)' }}>{s.total} confirmed matches</p>
               </div>
 
-              {/* Stats grid */}
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:20 }}>
                 {[
-                  ['🏆', s.wins, 'Wins'],
+                  ['🏅', s.wins, 'Wins'],
                   ['❌', s.losses, 'Losses'],
-                  ['📈', `${rate}%`, 'Win Rate'],
+                  ['📊', `${rate}%`, 'Win Rate'],
                   ['🎯', s.pointsFor, 'Points Scored'],
                 ].map(([icon, val, label]) => (
                   <div key={label} className="card" style={{ textAlign:'center', padding:'14px 10px' }}>
@@ -306,7 +316,6 @@ export default function MatchesPage() {
                 ))}
               </div>
 
-              {/* Win rate bar */}
               <div className="card" style={{ marginBottom:16 }}>
                 <div style={{ display:'flex', justifyContent:'space-between', marginBottom:8 }}>
                   <span style={{ fontSize:13, color:'var(--text2)' }}>Win rate</span>
@@ -317,7 +326,6 @@ export default function MatchesPage() {
                 </div>
               </div>
 
-              {/* Best partner */}
               {s.bestPartner && (
                 <div className="card" style={{ marginBottom:10 }}>
                   <div style={{ fontSize:11, color:'var(--text3)', marginBottom:4 }}>BEST DOUBLES PARTNER</div>
@@ -328,7 +336,6 @@ export default function MatchesPage() {
                 </div>
               )}
 
-              {/* H2H */}
               {s.opponents.length > 0 && <>
                 <div className="section-label" style={{ marginTop:16 }}>Head-to-Head</div>
                 {s.opponents.sort((a,b) => (b.wins+b.losses)-(a.wins+a.losses)).map(opp => {

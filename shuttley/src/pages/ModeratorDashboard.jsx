@@ -3,20 +3,15 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
 
-const DAYS = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday']
-
 export default function ModeratorDashboard() {
   const { clubId } = useParams()
   const { user } = useAuth()
   const navigate = useNavigate()
   const [club, setClub] = useState(null)
   const [members, setMembers] = useState([])
-  const [sessions, setSessions] = useState([])
-  const [tab, setTab] = useState('members') // members | sessions | settings
+  const [disputedMatches, setDisputedMatches] = useState([])
+  const [tab, setTab] = useState('members') // members | disputes | settings
   const [toast, setToast] = useState('')
-  const [selectedMember, setSelectedMember] = useState(null)
-  const [memberAssignments, setMemberAssignments] = useState([])
-  const [sessionForm, setSessionForm] = useState({ day_of_week:'monday', start_time:'', location:'', notes:'' })
   const [loading, setLoading] = useState(true)
   const [linkCopied, setLinkCopied] = useState(false)
   const [guestName, setGuestName] = useState('')
@@ -36,14 +31,19 @@ export default function ModeratorDashboard() {
       .order('joined_at', { ascending: false })
     setMembers(mems || [])
 
-    const { data: sess } = await supabase.from('sessions').select('*').eq('club_id', clubId)
-    setSessions(sess || [])
+    const { data: disputed } = await supabase
+      .from('matches')
+      .select('*, match_players(user_id, side, profiles(full_name))')
+      .eq('club_id', clubId)
+      .eq('status', 'disputed')
+    setDisputedMatches(disputed || [])
+
     setLoading(false)
   }
 
   async function updateMemberStatus(membershipId, status) {
     await supabase.from('memberships').update({ status }).eq('id', membershipId)
-    showToast(status === 'approved' ? '✓ Member approved' : '✗ Member rejected')
+    showToast(status === 'approved' ? '✔ Member approved' : '✘ Member rejected')
     fetchData()
   }
 
@@ -75,49 +75,27 @@ export default function ModeratorDashboard() {
       setShowGuestForm(false)
       fetchData()
     } else {
-      console.error('Guest error:', error)
       showToast('Error adding guest')
     }
     setAddingGuest(false)
   }
 
-  async function openAssignments(member) {
-    setSelectedMember(member)
-    const { data } = await supabase
-      .from('session_assignments')
-      .select('*, sessions(*)')
-      .eq('membership_id', member.id)
-    setMemberAssignments((data || []).map(a => a.session_id))
-  }
-
-  async function toggleAssignment(sessionId) {
-    if (!selectedMember) return
-    const isAssigned = memberAssignments.includes(sessionId)
-    if (isAssigned) {
-      await supabase.from('session_assignments')
-        .delete()
-        .eq('membership_id', selectedMember.id)
-        .eq('session_id', sessionId)
-      setMemberAssignments(prev => prev.filter(id => id !== sessionId))
+  async function resolveDispute(matchId, resolution) {
+    // resolution: 'confirmed' = keep as is, 'void' = delete match
+    if (resolution === 'void') {
+      if (!confirm('This will delete the match entirely. Are you sure?')) return
+      await supabase.from('match_players').delete().eq('match_id', matchId)
+      await supabase.from('matches').delete().eq('id', matchId)
+      showToast('Match voided')
     } else {
-      await supabase.from('session_assignments')
-        .insert({ membership_id: selectedMember.id, session_id: sessionId })
-      setMemberAssignments(prev => [...prev, sessionId])
+      await supabase.from('matches').update({ status: 'confirmed' }).eq('id', matchId)
+      showToast('Match confirmed')
     }
-  }
-
-  async function addSession() {
-    if (!sessionForm.day_of_week) return
-    await supabase.from('sessions').insert({ ...sessionForm, club_id: clubId })
-    showToast('Session added')
-    setSessionForm({ day_of_week:'monday', start_time:'', location:'', notes:'' })
     fetchData()
   }
 
-  async function deleteSession(sessionId) {
-    if (!confirm('Delete this session?')) return
-    await supabase.from('sessions').delete().eq('id', sessionId)
-    fetchData()
+  function getTeamNames(match, side) {
+    return match.match_players?.filter(p => p.side === side).map(p => p.profiles?.full_name || '?').join(' + ')
   }
 
   function copyInviteLink() {
@@ -148,7 +126,7 @@ export default function ModeratorDashboard() {
           <div style={{ fontSize:11, color:'var(--accent)' }}>Moderator</div>
         </div>
         <button onClick={copyInviteLink} style={{ background:'none',border:'none',color:'var(--text2)',cursor:'pointer',fontSize:20,padding:0 }} title="Copy invite link">
-          {linkCopied ? '✓' : '🔗'}
+          {linkCopied ? '✔' : '🔗'}
         </button>
       </div>
 
@@ -157,47 +135,9 @@ export default function ModeratorDashboard() {
         <button className="btn btn-secondary btn-sm"
           onClick={() => navigate(`/club/${clubId}/matches`)}
           style={{ width:'100%', marginBottom:0 }}>
-          🏸 Matches &amp; Leaderboard
+          🏸 Matches & Leaderboard
         </button>
       </div>
-
-      {/* Assign sessions modal */}
-      {selectedMember && (
-        <div style={{
-          position:'fixed',inset:0,zIndex:50,
-          background:'rgba(0,0,0,0.8)',
-          display:'flex',alignItems:'flex-end',
-          maxWidth:430, margin:'0 auto'
-        }} onClick={e => e.target === e.currentTarget && setSelectedMember(null)}>
-          <div style={{ background:'var(--bg2)', borderRadius:'20px 20px 0 0', padding:24, width:'100%' }}>
-            <div style={{ display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20 }}>
-              <div>
-                <div style={{ fontWeight:500,fontSize:16 }}>{selectedMember.profiles?.full_name}</div>
-                <div style={{ fontSize:12,color:'var(--text2)' }}>Assign session days</div>
-              </div>
-              <button onClick={() => setSelectedMember(null)} style={{ background:'none',border:'none',color:'var(--text2)',cursor:'pointer',fontSize:24 }}>×</button>
-            </div>
-            {sessions.length === 0 ? (
-              <p style={{ color:'var(--text3)',fontSize:14,textAlign:'center',padding:'20px 0' }}>
-                No sessions yet. Add sessions in the Sessions tab first.
-              </p>
-            ) : (
-              <div className="day-grid">
-                {sessions.map(s => (
-                  <div key={s.id} className={`day-pill ${memberAssignments.includes(s.id) ? 'active' : ''}`}
-                    onClick={() => toggleAssignment(s.id)} style={{ cursor:'pointer' }}>
-                    {s.day_of_week?.charAt(0).toUpperCase() + s.day_of_week?.slice(1)}
-                    {s.start_time ? ` ${s.start_time}` : ''}
-                  </div>
-                ))}
-              </div>
-            )}
-            <button className="btn btn-primary" style={{ marginTop:20 }} onClick={() => { setSelectedMember(null); showToast('Assignments saved') }}>
-              Done
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Tab content */}
       <div className="content">
@@ -279,9 +219,8 @@ export default function ModeratorDashboard() {
                 </div>
               </div>
               <div className="member-actions">
-                <button className="btn btn-ghost btn-sm" onClick={() => openAssignments(m)}>📅</button>
                 {m.role !== 'moderator' && (
-                  <button className="btn btn-ghost btn-sm" onClick={() => promoteMod(m.id)} title="Promote to mod">⭐</button>
+                  <button className="btn btn-ghost btn-sm" onClick={() => promoteMod(m.id)} title="Promote to mod">⭑</button>
                 )}
                 {m.user_id !== user.id && (
                   <button className="btn btn-danger btn-sm" onClick={() => removeMember(m.id)} title="Remove">✕</button>
@@ -291,49 +230,41 @@ export default function ModeratorDashboard() {
           ))}
         </>}
 
-        {tab === 'sessions' && <>
-          <div style={{ marginBottom:20 }}>
-            <div className="section-label">Add a session</div>
-            <div className="card">
-              <div className="input-wrap">
-                <label className="input-label">Day</label>
-                <select className="input" value={sessionForm.day_of_week}
-                  onChange={e => setSessionForm(p => ({...p, day_of_week:e.target.value}))}>
-                  {DAYS.map(d => <option key={d} value={d}>{d.charAt(0).toUpperCase()+d.slice(1)}</option>)}
-                </select>
-              </div>
-              <div className="input-wrap">
-                <label className="input-label">Start time</label>
-                <input className="input" type="time" value={sessionForm.start_time}
-                  onChange={e => setSessionForm(p => ({...p, start_time:e.target.value}))} />
-              </div>
-              <div className="input-wrap">
-                <label className="input-label">Location</label>
-                <input className="input" placeholder="e.g. Sports Hall B" value={sessionForm.location}
-                  onChange={e => setSessionForm(p => ({...p, location:e.target.value}))} />
-              </div>
-              <div className="input-wrap">
-                <label className="input-label">Notes (optional)</label>
-                <input className="input" placeholder="Any extra info…" value={sessionForm.notes}
-                  onChange={e => setSessionForm(p => ({...p, notes:e.target.value}))} />
-              </div>
-              <button className="btn btn-primary" onClick={addSession}>Add session</button>
-            </div>
+        {tab === 'disputes' && <>
+          <div style={{ marginBottom:16 }}>
+            <h2 style={{ fontSize:22, marginBottom:4 }}>Disputed Matches</h2>
+            <p style={{ fontSize:13, color:'var(--text2)' }}>Review and resolve matches that players have disputed.</p>
           </div>
-
-          <div className="section-label">Current sessions</div>
-          {sessions.length === 0 ? (
-            <div className="empty"><p>No sessions yet</p></div>
-          ) : sessions.map(s => (
-            <div key={s.id} className="card" style={{ marginBottom:10 }}>
-              <div style={{ display:'flex',justifyContent:'space-between',alignItems:'flex-start' }}>
-                <div>
-                  <div style={{ fontWeight:500,fontSize:15,textTransform:'capitalize',marginBottom:4 }}>{s.day_of_week}</div>
-                  {s.start_time && <div style={{ fontSize:13,color:'var(--text2)' }}>🕐 {s.start_time}</div>}
-                  {s.location && <div style={{ fontSize:13,color:'var(--text2)' }}>📍 {s.location}</div>}
-                  {s.notes && <div style={{ fontSize:12,color:'var(--text3)',marginTop:4 }}>{s.notes}</div>}
+          {disputedMatches.length === 0 ? (
+            <div className="empty">
+              <div className="empty-icon">✅</div>
+              <p>No disputed matches. All clear!</p>
+            </div>
+          ) : disputedMatches.map(match => (
+            <div key={match.id} className="card" style={{ marginBottom:12 }}>
+              <div style={{ fontSize:11, color:'#ff5c5c', fontWeight:600, marginBottom:8, textTransform:'uppercase' }}>⚠ Disputed</div>
+              <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12 }}>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontSize:14, fontWeight:500 }}>{getTeamNames(match, 'team1')}</div>
                 </div>
-                <button className="btn btn-danger btn-sm" onClick={() => deleteSession(s.id)}>Delete</button>
+                <div style={{ textAlign:'center', minWidth:60 }}>
+                  <div style={{ fontFamily:'monospace', fontSize:20, fontWeight:700 }}>
+                    {match.team1_score} – {match.team2_score}
+                  </div>
+                </div>
+                <div style={{ flex:1, textAlign:'right' }}>
+                  <div style={{ fontSize:14, fontWeight:500 }}>{getTeamNames(match, 'team2')}</div>
+                </div>
+              </div>
+              <div style={{ display:'flex', gap:8 }}>
+                <button className="btn btn-primary btn-sm" style={{ flex:1 }}
+                  onClick={() => resolveDispute(match.id, 'confirmed')}>
+                  ✔ Confirm Result
+                </button>
+                <button className="btn btn-danger btn-sm" style={{ flex:1 }}
+                  onClick={() => resolveDispute(match.id, 'void')}>
+                  ✕ Void Match
+                </button>
               </div>
             </div>
           ))}
@@ -349,7 +280,7 @@ export default function ModeratorDashboard() {
               {window.location.origin}/join/{club?.invite_code}
             </div>
             <button className="btn btn-primary" onClick={copyInviteLink}>
-              {linkCopied ? '✓ Copied!' : '🔗 Copy invite link'}
+              {linkCopied ? '✔ Copied!' : '🔗 Copy invite link'}
             </button>
           </div>
 
@@ -369,12 +300,19 @@ export default function ModeratorDashboard() {
       <div className="tabbar">
         {[
           { id:'members', icon:'👥', label:'Members' },
-          { id:'sessions', icon:'📅', label:'Sessions' },
-          { id:'settings', icon:'⚙️', label:'Settings' },
+          { id:'disputes', icon:'⚠', label:'Disputes', badge: disputedMatches.length },
+          { id:'settings', icon:'⚙', label:'Settings' },
         ].map(t => (
           <button key={t.id} className={`tab ${tab===t.id?'active':''}`} onClick={() => setTab(t.id)}
-            style={{ background:'none',border:'none',cursor:'pointer' }}>
+            style={{ background:'none',border:'none',cursor:'pointer', position:'relative' }}>
             <span className="tab-icon">{t.icon}</span>
+            {t.badge > 0 && (
+              <span style={{
+                position:'absolute', top:0, right:'50%', transform:'translateX(12px)',
+                background:'#ff5c5c', color:'#fff', borderRadius:99,
+                fontSize:10, fontWeight:700, padding:'1px 5px', minWidth:16, textAlign:'center'
+              }}>{t.badge}</span>
+            )}
             <span>{t.label}</span>
           </button>
         ))}

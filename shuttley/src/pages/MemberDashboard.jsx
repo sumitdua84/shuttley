@@ -3,17 +3,15 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
 
-const DAYS = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday']
-
 export default function MemberDashboard() {
-
   const { clubId } = useParams()
   const { user } = useAuth()
   const navigate = useNavigate()
   const [club, setClub] = useState(null)
   const [membership, setMembership] = useState(null)
-  const [assignments, setAssignments] = useState([])
+  const [pendingMatches, setPendingMatches] = useState([])
   const [loading, setLoading] = useState(true)
+  const [toast, setToast] = useState('')
 
   useEffect(() => { fetchData() }, [clubId, user])
 
@@ -26,25 +24,54 @@ export default function MemberDashboard() {
     setMembership(mem)
 
     if (mem?.status === 'approved') {
-      const { data: assigns } = await supabase
-        .from('session_assignments')
-        .select('*, sessions(*)')
-        .eq('membership_id', mem.id)
-      setAssignments(assigns || [])
+      // Fetch matches pending confirmation where current user is on the opposing team
+      const { data: matchData } = await supabase
+        .from('matches')
+        .select('*, match_players(user_id, side, profiles(full_name))')
+        .eq('club_id', clubId)
+        .eq('status', 'pending')
+
+      // Filter to matches where user is a player but NOT the one who recorded it
+      const toConfirm = (matchData || []).filter(match => {
+        const isPlayer = match.match_players?.some(p => p.user_id === user.id)
+        const isRecorder = match.recorded_by === user.id
+        return isPlayer && !isRecorder
+      })
+      setPendingMatches(toConfirm)
     }
+
     setLoading(false)
   }
 
-  if (loading) return <div className="splash"><div className="splash-logo">S</div></div>
+  async function confirmMatch(matchId) {
+    await supabase.from('matches').update({ status: 'confirmed', confirmed_by: user.id }).eq('id', matchId)
+    showToast('✔ Match confirmed!')
+    fetchData()
+  }
 
-  const myDays = assignments.map(a => a.sessions?.day_of_week).filter(Boolean)
+  async function disputeMatch(matchId) {
+    await supabase.from('matches').update({ status: 'disputed' }).eq('id', matchId)
+    showToast('⚠ Match disputed — moderator will review')
+    fetchData()
+  }
+
+  function getTeamNames(match, side) {
+    return match.match_players?.filter(p => p.side === side).map(p => p.profiles?.full_name || '?').join(' + ')
+  }
+
+  function showToast(msg) {
+    setToast(msg)
+    setTimeout(() => setToast(''), 2500)
+  }
+
+  if (loading) return <div className="splash"><div className="splash-logo">S</div></div>
 
   return (
     <div className="page">
       <div className="topnav">
         <button onClick={() => navigate('/')} style={{ background:'none',border:'none',color:'var(--text2)',cursor:'pointer',fontSize:22,padding:0 }}>←</button>
         <span style={{ fontFamily:"'DM Serif Display',serif", fontSize:18 }}>{club?.name}</span>
-        <span className="badge badge-mod" style={{ opacity: 0 }}>.</span>
+        <span style={{ opacity:0 }}>·</span>
       </div>
 
       <div className="content">
@@ -60,50 +87,63 @@ export default function MemberDashboard() {
         )}
 
         {membership?.status === 'approved' && <>
+
+          {/* Pending confirmations */}
+          {pendingMatches.length > 0 && <>
+            <div className="section-label" style={{ color:'#ffc832' }}>
+              ⏳ Awaiting your confirmation ({pendingMatches.length})
+            </div>
+            {pendingMatches.map(match => {
+              const team1Won = match.winner_side === 'team1'
+              return (
+                <div key={match.id} className="card" style={{ marginBottom:12, border:'1px solid rgba(255,200,50,0.3)' }}>
+                  <div style={{ fontSize:11, color:'#ffc832', fontWeight:600, marginBottom:8, textTransform:'uppercase' }}>
+                    Confirm this result?
+                  </div>
+                  <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12 }}>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontSize:14, fontWeight: team1Won ? 600 : 400 }}>{getTeamNames(match, 'team1')}</div>
+                      {team1Won && <div style={{ fontSize:11, color:'var(--accent)' }}>🏅 Winner</div>}
+                    </div>
+                    <div style={{ textAlign:'center', minWidth:60 }}>
+                      <div style={{ fontFamily:'monospace', fontSize:20, fontWeight:700 }}>
+                        {match.team1_score} – {match.team2_score}
+                      </div>
+                    </div>
+                    <div style={{ flex:1, textAlign:'right' }}>
+                      <div style={{ fontSize:14, fontWeight: !team1Won ? 600 : 400 }}>{getTeamNames(match, 'team2')}</div>
+                      {!team1Won && <div style={{ fontSize:11, color:'#ff5c5c' }}>🏅 Winner</div>}
+                    </div>
+                  </div>
+                  <div style={{ display:'flex', gap:8 }}>
+                    <button className="btn btn-primary btn-sm" style={{ flex:1 }}
+                      onClick={() => confirmMatch(match.id)}>
+                      ✔ Confirm
+                    </button>
+                    <button className="btn btn-danger btn-sm" style={{ flex:1 }}
+                      onClick={() => disputeMatch(match.id)}>
+                      ✕ Dispute
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
+            <hr className="divider" />
+          </>}
+
+          {/* Main actions */}
           <div style={{ marginBottom:24 }}>
-            <h2 style={{ fontSize:26, marginBottom:4 }}>My sessions</h2>
-            <p style={{ color:'var(--text2)', fontSize:13 }}>Days you've been assigned to</p>
+            <h2 style={{ fontSize:26, marginBottom:16 }}>Welcome back 🏸</h2>
+            <button className="btn btn-primary" style={{ width:'100%', marginBottom:10 }}
+              onClick={() => navigate(`/club/${clubId}/record`)}>
+              + Record a Match
+            </button>
+            <button className="btn btn-secondary" style={{ width:'100%' }}
+              onClick={() => navigate(`/club/${clubId}/matches`)}>
+              🏅 View Matches & Leaderboard
+            </button>
           </div>
 
-          <button className="btn btn-primary" style={{ marginBottom:24 }}
-            onClick={() => navigate(`/club/${clubId}/matches`)}>
-            🏸 View Matches &amp; Leaderboard
-          </button>
-
-          {myDays.length === 0 ? (
-            <div className="empty">
-              <div className="empty-icon">📅</div>
-              <p>No sessions assigned yet.<br />Your moderator will assign you to days soon.</p>
-            </div>
-          ) : (
-            <>
-              <div className="day-grid" style={{ marginBottom:24 }}>
-                {DAYS.filter(d => myDays.includes(d)).map(day => (
-                  <div key={day} className="day-pill active" style={{ cursor:'default' }}>
-                    {day.charAt(0).toUpperCase() + day.slice(1)}
-                  </div>
-                ))}
-              </div>
-
-              <div className="section-label">Session details</div>
-              {assignments.map(a => a.sessions && (
-                <div key={a.id} className="card" style={{ marginBottom:10 }}>
-                  <div style={{ fontWeight:500, fontSize:15, marginBottom:4, textTransform:'capitalize' }}>
-                    {a.sessions.day_of_week}
-                  </div>
-                  {a.sessions.start_time && (
-                    <div style={{ fontSize:13, color:'var(--text2)' }}>🕐 {a.sessions.start_time}</div>
-                  )}
-                  {a.sessions.location && (
-                    <div style={{ fontSize:13, color:'var(--text2)', marginTop:2 }}>📍 {a.sessions.location}</div>
-                  )}
-                  {a.sessions.notes && (
-                    <div style={{ fontSize:12, color:'var(--text3)', marginTop:6 }}>{a.sessions.notes}</div>
-                  )}
-                </div>
-              ))}
-            </>
-          )}
         </>}
 
         {membership?.status === 'rejected' && (
@@ -117,6 +157,8 @@ export default function MemberDashboard() {
           </div>
         )}
       </div>
+
+      {toast && <div className="toast">{toast}</div>}
     </div>
   )
 }
