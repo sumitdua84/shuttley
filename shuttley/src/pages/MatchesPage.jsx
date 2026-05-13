@@ -204,9 +204,9 @@ export default function MatchesPage() {
                   </div>
                 </div>
                 <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                  <div style={{ flex:1 }}>
+                  <div style={{ flex:1, minWidth:0 }}>
                     {getTeam(match, winnerSide).map(p => (
-                      <div key={p.user_id} style={{ fontSize:14, color:'var(--text)' }}>
+                      <div key={p.user_id} style={{ fontSize:14, color:'var(--text)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
                         {p.profiles?.full_name || '?'}
                       </div>
                     ))}
@@ -218,9 +218,9 @@ export default function MatchesPage() {
                       <span style={{ color:'#ff5c5c' }}>{loserScore}</span>
                     </div>
                   </div>
-                  <div style={{ flex:1, textAlign:'right' }}>
+                  <div style={{ flex:1, minWidth:0, textAlign:'right' }}>
                     {getTeam(match, loserSide).map(p => (
-                      <div key={p.user_id} style={{ fontSize:14, color:'var(--text)' }}>
+                      <div key={p.user_id} style={{ fontSize:14, color:'var(--text)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
                         {p.profiles?.full_name || '?'}
                       </div>
                     ))}
