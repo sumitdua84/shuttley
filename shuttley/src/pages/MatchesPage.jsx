@@ -183,7 +183,10 @@ export default function MatchesPage() {
               <p>No matches yet.<br />Tap "+ Match" to record the first one!</p>
             </div>
           ) : matches.map(match => {
-            const team1Won = match.winner_side === 'team1'
+            const winnerSide = match.winner_side
+            const loserSide = winnerSide === 'team1' ? 'team2' : 'team1'
+            const winnerScore = winnerSide === 'team1' ? match.team1_score : match.team2_score
+            const loserScore = loserSide === 'team1' ? match.team1_score : match.team2_score
             const badge = getStatusBadge(match.status)
             return (
               <div key={match.id} className="card" style={{ marginBottom:10 }}>
@@ -202,23 +205,25 @@ export default function MatchesPage() {
                 </div>
                 <div style={{ display:'flex', alignItems:'center', gap:8 }}>
                   <div style={{ flex:1 }}>
-                    <div style={{ fontSize:14, fontWeight: team1Won ? 600 : 400, color: team1Won ? 'var(--text)' : 'var(--text2)' }}>
-                      {getTeamNames(match, 'team1')}
-                    </div>
-                    {team1Won && match.status === 'confirmed' && <div style={{ fontSize:11, color:'var(--accent)', marginTop:2 }}>🏅 Winner</div>}
+                    {getTeam(match, winnerSide).map(p => (
+                      <div key={p.user_id} style={{ fontSize:14, color:'var(--text)' }}>
+                        {p.profiles?.full_name || '?'}
+                      </div>
+                    ))}
                   </div>
                   <div style={{ textAlign:'center', minWidth:70 }}>
                     <div style={{ fontFamily:'monospace', fontSize:22, fontWeight:700 }}>
-                      <span style={{ color: team1Won ? 'var(--accent)' : 'var(--text2)' }}>{match.team1_score}</span>
+                      <span style={{ color:'var(--accent)' }}>{winnerScore}</span>
                       <span style={{ color:'var(--text3)', margin:'0 4px' }}>–</span>
-                      <span style={{ color: !team1Won ? '#ff5c5c' : 'var(--text2)' }}>{match.team2_score}</span>
+                      <span style={{ color:'#ff5c5c' }}>{loserScore}</span>
                     </div>
                   </div>
                   <div style={{ flex:1, textAlign:'right' }}>
-                    <div style={{ fontSize:14, fontWeight: !team1Won ? 600 : 400, color: !team1Won ? 'var(--text)' : 'var(--text2)' }}>
-                      {getTeamNames(match, 'team2')}
-                    </div>
-                    {!team1Won && match.status === 'confirmed' && <div style={{ fontSize:11, color:'#ff5c5c', marginTop:2 }}>🏅 Winner</div>}
+                    {getTeam(match, loserSide).map(p => (
+                      <div key={p.user_id} style={{ fontSize:14, color:'var(--text)' }}>
+                        {p.profiles?.full_name || '?'}
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
