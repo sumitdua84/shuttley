@@ -52,9 +52,14 @@ export default function MatchesPage() {
     return getTeam(match, side).map(p => p.profiles?.full_name || '?').join(' + ')
   }
 
+  function properCase(str) {
+    if (!str) return ''
+    return str.trim().split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+  }
+
   function shortName(fullName) {
     if (!fullName) return '?'
-    const parts = fullName.trim().split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1))
+    const parts = properCase(fullName).split(' ')
     if (parts.length === 1) return parts[0]
     return `${parts[0]} ${parts[parts.length - 1][0]}`
   }
@@ -112,11 +117,15 @@ export default function MatchesPage() {
     const playerMatches = confirmedMatches.filter(m =>
       m.match_players?.some(p => p.user_id === playerId)
     )
+    const sorted = [...playerMatches].sort((a, b) => new Date(b.played_at) - new Date(a.played_at))
+
     let wins = 0, losses = 0, pointsFor = 0, pointsAgainst = 0
     const opponents = {}
     const partners = {}
+    let streak = 0, streakType = null
+    const form = []
 
-    playerMatches.forEach(match => {
+    sorted.forEach((match, idx) => {
       const myTeam = match.match_players?.find(p => p.user_id === playerId)?.side
       const won = match.winner_side === myTeam
       const myScore = myTeam === 'team1' ? match.team1_score : match.team2_score
@@ -125,6 +134,10 @@ export default function MatchesPage() {
       if (won) wins++; else losses++
       pointsFor += myScore
       pointsAgainst += oppScore
+
+      if (idx < 5) form.push(won ? 'W' : 'L')
+      if (streakType === null) { streakType = won ? 'W' : 'L'; streak = 1 }
+      else if ((won && streakType === 'W') || (!won && streakType === 'L')) streak++
 
       match.match_players?.filter(p => p.side !== myTeam).forEach(p => {
         if (!opponents[p.user_id]) opponents[p.user_id] = { name: p.profiles?.full_name, wins: 0, losses: 0 }
@@ -141,9 +154,20 @@ export default function MatchesPage() {
       }
     })
 
-    const bestPartner = Object.values(partners).sort((a,b) => b.wins - a.wins)[0]
+    const oppList = Object.values(opponents)
+    const partnerList = Object.values(partners).map(p => ({
+      ...p, total: p.wins + p.losses,
+      rate: p.wins + p.losses > 0 ? Math.round(p.wins / (p.wins + p.losses) * 100) : 0
+    }))
+    const bestPartner = partnerList.sort((a, b) => b.wins - a.wins)[0]
+    const nemesis = oppList.filter(o => o.losses > 0).sort((a, b) => b.losses - a.losses)[0]
+    const victim = oppList.filter(o => o.wins > 0).sort((a, b) => b.wins - a.wins)[0]
 
-    return { wins, losses, pointsFor, pointsAgainst, total: playerMatches.length, bestPartner, opponents: Object.values(opponents) }
+    return {
+      wins, losses, pointsFor, pointsAgainst, total: playerMatches.length,
+      bestPartner, opponents: oppList, nemesis, victim, form, streak, streakType,
+      avgScore: playerMatches.length > 0 ? (pointsFor / playerMatches.length).toFixed(1) : '0.0'
+    }
   }
 
   function showToast(msg) {
@@ -184,6 +208,47 @@ export default function MatchesPage() {
 
         {/* Match History */}
         {!loading && tab === 'history' && <>
+
+          {/* Daily snapshot */}
+          {(() => {
+            const today = new Date().toDateString()
+            const todayMatches = confirmedMatches.filter(m => m.played_at && new Date(m.played_at).toDateString() === today)
+            if (todayMatches.length === 0) return null
+            const todayWins = {}
+            todayMatches.forEach(match => {
+              getTeam(match, match.winner_side).forEach(p => {
+                if (!todayWins[p.user_id]) todayWins[p.user_id] = { name: p.profiles?.full_name, wins: 0 }
+                todayWins[p.user_id].wins++
+              })
+            })
+            const mvp = Object.values(todayWins).sort((a, b) => b.wins - a.wins)[0]
+            return (
+              <div style={{
+                background: 'linear-gradient(135deg, rgba(100,210,120,0.12) 0%, rgba(50,120,220,0.12) 100%)',
+                border: '1px solid rgba(100,210,120,0.2)',
+                borderRadius: 'var(--radius)', padding: '16px 18px', marginBottom: 16,
+                position: 'relative', overflow: 'hidden'
+              }}>
+                <div style={{ position:'absolute', right:-8, top:-8, fontSize:60, opacity:0.07, pointerEvents:'none' }}>🏸</div>
+                <div style={{ fontSize:11, color:'var(--text3)', fontWeight:600, textTransform:'uppercase', marginBottom:10 }}>
+                  Today · {new Date().toLocaleDateString('en-AU', { weekday:'long', day:'numeric', month:'short' })}
+                </div>
+                <div style={{ display:'flex', gap:28, alignItems:'center' }}>
+                  <div>
+                    <div style={{ fontSize:30, fontWeight:800, color:'var(--accent)', lineHeight:1 }}>{todayMatches.length}</div>
+                    <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>match{todayMatches.length > 1 ? 'es' : ''} played</div>
+                  </div>
+                  {mvp && (
+                    <div>
+                      <div style={{ fontSize:15, fontWeight:700, color:'var(--text)' }}>🏆 {shortName(mvp.name)}</div>
+                      <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>{mvp.wins}W today · MVP</div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )
+          })()}
+
           {matches.length === 0 ? (
             <div className="empty">
               <div className="empty-icon">🏸</div>
@@ -262,7 +327,7 @@ export default function MatchesPage() {
                     }
                   </div>
                   <div style={{ flex:1 }}>
-                    <div style={{ fontWeight:500, fontSize:15 }}>{p.name}</div>
+                    <div style={{ fontWeight:500, fontSize:15 }}>{properCase(p.name)}</div>
                     <div style={{ fontSize:12, color:'var(--text2)', marginTop:1 }}>
                       {p.wins}W · {p.losses}L · {rate}% win rate
                     </div>
@@ -293,7 +358,7 @@ export default function MatchesPage() {
                     background: selectedPlayer===m.id ? 'var(--accent-dim)' : 'var(--bg2)',
                     color: selectedPlayer===m.id ? 'var(--accent)' : 'var(--text2)',
                     cursor:'pointer'
-                  }}>{m.full_name?.split(' ')[0]}</button>
+                  }}>{shortName(m.full_name)}</button>
               ))}
             </div>
           </div>
@@ -309,55 +374,107 @@ export default function MatchesPage() {
 
             return <>
               <div style={{ marginBottom:16 }}>
-                <h2 style={{ fontSize:22, marginBottom:2 }}>{name}</h2>
+                <h2 style={{ fontSize:22, marginBottom:2 }}>{properCase(name)}</h2>
                 <p style={{ fontSize:13, color:'var(--text2)' }}>{s.total} confirmed matches</p>
               </div>
 
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:20 }}>
+              {/* Overview grid */}
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:14 }}>
                 {[
-                  ['🏅', s.wins, 'Wins'],
-                  ['❌', s.losses, 'Losses'],
-                  ['📊', `${rate}%`, 'Win Rate'],
-                  ['🎯', s.pointsFor, 'Points Scored'],
-                ].map(([icon, val, label]) => (
+                  ['🏅', s.wins, 'Wins', 'var(--accent)'],
+                  ['❌', s.losses, 'Losses', '#ff5c5c'],
+                  ['📊', `${rate}%`, 'Win Rate', rate >= 50 ? 'var(--accent)' : '#ff5c5c'],
+                  ['🔥', s.streak > 0 ? `${s.streak}${s.streakType}` : '–', 'Streak', s.streakType === 'W' ? 'var(--accent)' : '#ff5c5c'],
+                ].map(([icon, val, label, color]) => (
                   <div key={label} className="card" style={{ textAlign:'center', padding:'14px 10px' }}>
                     <div style={{ fontSize:20, marginBottom:4 }}>{icon}</div>
-                    <div style={{ fontSize:24, fontWeight:700, color:'var(--accent)' }}>{val}</div>
+                    <div style={{ fontSize:24, fontWeight:700, color }}>{val}</div>
                     <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>{label}</div>
                   </div>
                 ))}
               </div>
 
-              <div className="card" style={{ marginBottom:16 }}>
-                <div style={{ display:'flex', justifyContent:'space-between', marginBottom:8 }}>
-                  <span style={{ fontSize:13, color:'var(--text2)' }}>Win rate</span>
-                  <span style={{ fontSize:13, fontWeight:600, color:'var(--accent)' }}>{rate}%</span>
-                </div>
-                <div style={{ height:6, borderRadius:99, background:'var(--bg3)', overflow:'hidden' }}>
-                  <div style={{ width:`${rate}%`, height:'100%', background:'var(--accent)', borderRadius:99 }}/>
-                </div>
-              </div>
-
-              {s.bestPartner && (
-                <div className="card" style={{ marginBottom:10 }}>
-                  <div style={{ fontSize:11, color:'var(--text3)', marginBottom:4 }}>BEST DOUBLES PARTNER</div>
-                  <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-                    <div style={{ fontSize:15, fontWeight:500 }}>🤝 {s.bestPartner.name}</div>
-                    <div style={{ fontSize:13, color:'var(--text2)' }}>{s.bestPartner.wins}W together</div>
+              {/* Form: last 5 */}
+              {s.form.length > 0 && (
+                <div className="card" style={{ marginBottom:14 }}>
+                  <div style={{ fontSize:11, color:'var(--text3)', fontWeight:600, textTransform:'uppercase', marginBottom:10 }}>
+                    Last {s.form.length} Results
+                  </div>
+                  <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+                    {s.form.map((r, i) => (
+                      <div key={i} style={{
+                        width:34, height:34, borderRadius:99,
+                        background: r === 'W' ? 'rgba(100,220,120,0.12)' : 'rgba(255,92,92,0.12)',
+                        border: `1.5px solid ${r === 'W' ? 'var(--accent)' : '#ff5c5c'}`,
+                        color: r === 'W' ? 'var(--accent)' : '#ff5c5c',
+                        display:'flex', alignItems:'center', justifyContent:'center',
+                        fontSize:12, fontWeight:700
+                      }}>{r}</div>
+                    ))}
+                    <div style={{ fontSize:11, color:'var(--text3)', marginLeft:4 }}>← recent</div>
                   </div>
                 </div>
               )}
 
+              {/* Avg score */}
+              <div className="card" style={{ marginBottom:14, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                <span style={{ fontSize:14, color:'var(--text2)' }}>🎯 Avg points per match</span>
+                <span style={{ fontSize:18, fontWeight:700, color:'var(--accent)' }}>{s.avgScore}</span>
+              </div>
+
+              {/* Best partner */}
+              {s.bestPartner && (
+                <div className="card" style={{ marginBottom:10 }}>
+                  <div style={{ fontSize:11, color:'var(--text3)', fontWeight:600, textTransform:'uppercase', marginBottom:8 }}>
+                    Best Doubles Partner
+                  </div>
+                  <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                    <div style={{ fontSize:15, fontWeight:500 }}>🤝 {shortName(s.bestPartner.name)}</div>
+                    <div style={{ textAlign:'right' }}>
+                      <div style={{ fontSize:14, fontWeight:600, color:'var(--accent)' }}>{s.bestPartner.rate}% wins</div>
+                      <div style={{ fontSize:12, color:'var(--text3)' }}>{s.bestPartner.wins}W · {s.bestPartner.losses}L together</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Nemesis */}
+              {s.nemesis && (
+                <div className="card" style={{ marginBottom:10 }}>
+                  <div style={{ fontSize:11, color:'var(--text3)', fontWeight:600, textTransform:'uppercase', marginBottom:8 }}>
+                    😈 Nemesis
+                  </div>
+                  <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                    <div style={{ fontSize:15, fontWeight:500 }}>{shortName(s.nemesis.name)}</div>
+                    <div style={{ fontSize:14, fontWeight:600, color:'#ff5c5c' }}>{s.nemesis.wins}W – {s.nemesis.losses}L</div>
+                  </div>
+                </div>
+              )}
+
+              {/* Favourite opponent */}
+              {s.victim && s.victim.name !== s.nemesis?.name && (
+                <div className="card" style={{ marginBottom:14 }}>
+                  <div style={{ fontSize:11, color:'var(--text3)', fontWeight:600, textTransform:'uppercase', marginBottom:8 }}>
+                    🎯 Favourite Opponent
+                  </div>
+                  <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                    <div style={{ fontSize:15, fontWeight:500 }}>{shortName(s.victim.name)}</div>
+                    <div style={{ fontSize:14, fontWeight:600, color:'var(--accent)' }}>{s.victim.wins}W – {s.victim.losses}L</div>
+                  </div>
+                </div>
+              )}
+
+              {/* Head-to-Head */}
               {s.opponents.length > 0 && <>
-                <div className="section-label" style={{ marginTop:16 }}>Head-to-Head</div>
+                <div className="section-label" style={{ marginTop:4 }}>Head-to-Head</div>
                 {s.opponents.sort((a,b) => (b.wins+b.losses)-(a.wins+a.losses)).map(opp => {
                   const total = opp.wins + opp.losses
                   const oppRate = total > 0 ? Math.round(opp.wins/total*100) : 0
                   return (
                     <div key={opp.name} className="card" style={{ marginBottom:8 }}>
                       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:6 }}>
-                        <span style={{ fontSize:14, fontWeight:500 }}>vs {opp.name}</span>
-                        <span style={{ fontSize:13, color: opp.wins >= opp.losses ? 'var(--accent)' : '#ff5c5c' }}>
+                        <span style={{ fontSize:14, fontWeight:500 }}>vs {shortName(opp.name)}</span>
+                        <span style={{ fontSize:13, fontWeight:600, color: opp.wins >= opp.losses ? 'var(--accent)' : '#ff5c5c' }}>
                           {opp.wins}–{opp.losses}
                         </span>
                       </div>
