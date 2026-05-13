@@ -80,14 +80,13 @@ export default function MatchesPage() {
   function calcStats() {
     const stats = {}
     members.filter(m => !m.is_guest).forEach(m => {
-      stats[m.id] = { id: m.id, name: m.full_name, avatar: m.avatar_url, wins: 0, losses: 0, points_for: 0, points_against: 0 }
+      stats[m.id] = { id: m.id, name: m.full_name, avatar: m.avatar_url, wins: 0, losses: 0, points_for: 0, points_against: 0, streak: 0, streakType: null }
     })
 
     confirmedMatches.forEach(match => {
       const team1Players = getTeam(match, 'team1').map(p => p.user_id)
       const team2Players = getTeam(match, 'team2').map(p => p.user_id)
       const team1Won = match.winner_side === 'team1'
-
       team1Players.forEach(id => {
         if (!stats[id]) return
         if (team1Won) stats[id].wins++
@@ -102,6 +101,23 @@ export default function MatchesPage() {
         stats[id].points_for += match.team2_score
         stats[id].points_against += match.team1_score
       })
+    })
+
+    // Current streak per player (most-recent-first)
+    const sortedByDate = [...confirmedMatches].sort((a, b) => new Date(b.played_at) - new Date(a.played_at))
+    Object.keys(stats).forEach(id => {
+      const pm = sortedByDate.filter(m => m.match_players?.some(p => p.user_id === id))
+      if (pm.length === 0) return
+      const myTeam0 = pm[0].match_players?.find(p => p.user_id === id)?.side
+      const first = pm[0].winner_side === myTeam0 ? 'W' : 'L'
+      stats[id].streakType = first
+      let s = 0
+      for (const m of pm) {
+        const myTeam = m.match_players?.find(p => p.user_id === id)?.side
+        if ((m.winner_side === myTeam ? 'W' : 'L') === first) s++
+        else break
+      }
+      stats[id].streak = s
     })
 
     return Object.values(stats)
@@ -163,11 +179,75 @@ export default function MatchesPage() {
     const nemesis = oppList.filter(o => o.losses > 0).sort((a, b) => b.losses - a.losses)[0]
     const victim = oppList.filter(o => o.wins > 0).sort((a, b) => b.wins - a.wins)[0]
 
+    // Biggest win by margin
+    let biggestWin = null
+    sorted.forEach(m => {
+      const myTeam = m.match_players?.find(p => p.user_id === playerId)?.side
+      if (m.winner_side !== myTeam) return
+      const myScore = myTeam === 'team1' ? m.team1_score : m.team2_score
+      const oppScore = myTeam === 'team1' ? m.team2_score : m.team1_score
+      const margin = myScore - oppScore
+      if (!biggestWin || margin > biggestWin.margin) biggestWin = { myScore, oppScore, margin }
+    })
+
+    // Last 30 days record
+    const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 30)
+    const recent = sorted.filter(m => m.played_at && new Date(m.played_at) >= cutoff)
+    const recentWins = recent.filter(m => {
+      const myTeam = m.match_players?.find(p => p.user_id === playerId)?.side
+      return m.winner_side === myTeam
+    }).length
+    const last30 = {
+      total: recent.length, wins: recentWins, losses: recent.length - recentWins,
+      rate: recent.length > 0 ? Math.round(recentWins / recent.length * 100) : 0
+    }
+
     return {
       wins, losses, pointsFor, pointsAgainst, total: playerMatches.length,
       bestPartner, opponents: oppList, nemesis, victim, form, streak, streakType,
-      avgScore: playerMatches.length > 0 ? (pointsFor / playerMatches.length).toFixed(1) : '0.0'
+      avgScore: playerMatches.length > 0 ? (pointsFor / playerMatches.length).toFixed(1) : '0.0',
+      biggestWin, last30
     }
+  }
+
+  function calcPartnerships() {
+    const pairs = {}
+    confirmedMatches.filter(m => m.type === 'doubles').forEach(match => {
+      ['team1', 'team2'].forEach(side => {
+        const sideTeam = getTeam(match, side)
+        if (sideTeam.length !== 2) return
+        const key = sideTeam.map(p => p.user_id).sort().join('|')
+        if (!pairs[key]) pairs[key] = { names: sideTeam.map(p => p.profiles?.full_name), wins: 0, losses: 0 }
+        if (match.winner_side === side) pairs[key].wins++
+        else pairs[key].losses++
+      })
+    })
+    return Object.values(pairs)
+      .filter(p => p.wins + p.losses >= 2)
+      .map(p => ({ ...p, total: p.wins + p.losses, rate: Math.round(p.wins / (p.wins + p.losses) * 100) }))
+      .sort((a, b) => b.rate - a.rate || b.wins - a.wins)
+  }
+
+  function calcClubRecords(lb) {
+    if (confirmedMatches.length === 0) return null
+    let highScore = 0, biggestMargin = 0, biggestMarginScore = ''
+    confirmedMatches.forEach(m => {
+      const winScore = m.winner_side === 'team1' ? m.team1_score : m.team2_score
+      const loseScore = m.winner_side === 'team1' ? m.team2_score : m.team1_score
+      if (winScore > highScore) highScore = winScore
+      const margin = winScore - loseScore
+      if (margin > biggestMargin) { biggestMargin = margin; biggestMarginScore = `${winScore} – ${loseScore}` }
+    })
+    const dayCount = {}
+    confirmedMatches.forEach(m => {
+      if (!m.played_at) return
+      const d = new Date(m.played_at).toLocaleDateString('en-AU', { weekday:'short', day:'numeric', month:'short' })
+      dayCount[d] = (dayCount[d] || 0) + 1
+    })
+    const busiestDay = Object.entries(dayCount).sort((a, b) => b[1] - a[1])[0]
+    const topPlayer = lb.filter(p => p.wins > 0)[0]
+    const topStreak = lb.filter(p => p.streakType === 'W' && p.streak >= 3).sort((a, b) => b.streak - a.streak)[0]
+    return { highScore, biggestMargin, biggestMarginScore, busiestDay, topPlayer, topStreak }
   }
 
   function showToast(msg) {
@@ -176,6 +256,8 @@ export default function MatchesPage() {
   }
 
   const leaderboard = calcStats()
+  const partnerships = calcPartnerships()
+  const clubRecords = calcClubRecords(leaderboard)
 
   return (
     <div className="page">
@@ -327,7 +409,10 @@ export default function MatchesPage() {
                     }
                   </div>
                   <div style={{ flex:1 }}>
-                    <div style={{ fontWeight:500, fontSize:15 }}>{properCase(p.name)}</div>
+                    <div style={{ fontWeight:500, fontSize:15 }}>
+                      {properCase(p.name)}
+                      {p.streakType === 'W' && p.streak >= 3 && <span style={{ marginLeft:6, fontSize:14 }}>🔥</span>}
+                    </div>
                     <div style={{ fontSize:12, color:'var(--text2)', marginTop:1 }}>
                       {p.wins}W · {p.losses}L · {rate}% win rate
                     </div>
@@ -343,6 +428,81 @@ export default function MatchesPage() {
               </div>
             )
           })}
+
+          {/* Best Pairs */}
+          {partnerships.length > 0 && <>
+            <hr className="divider" />
+            <div className="section-label">Best Pairs</div>
+            {partnerships.map((pair, i) => {
+              const medals = ['🥇','🥈','🥉']
+              return (
+                <div key={i} className="card" style={{ marginBottom:10 }}>
+                  <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                      <div style={{ fontSize:18, width:24 }}>{i < 3 ? medals[i] : `#${i+1}`}</div>
+                      <div>
+                        <div style={{ fontWeight:500, fontSize:14 }}>{pair.names.map(n => shortName(n)).join(' · ')}</div>
+                        <div style={{ fontSize:12, color:'var(--text2)', marginTop:1 }}>{pair.wins}W · {pair.losses}L · {pair.total} matches</div>
+                      </div>
+                    </div>
+                    <div style={{ textAlign:'right' }}>
+                      <div style={{ fontSize:18, fontWeight:700, color:'var(--accent)' }}>{pair.rate}%</div>
+                      <div style={{ fontSize:11, color:'var(--text3)' }}>win rate</div>
+                    </div>
+                  </div>
+                  <div style={{ marginTop:8, height:3, borderRadius:99, background:'var(--bg3)', overflow:'hidden' }}>
+                    <div style={{ width:`${pair.rate}%`, height:'100%', background:'var(--accent)', borderRadius:99 }}/>
+                  </div>
+                </div>
+              )
+            })}
+          </>}
+
+          {/* Club Records */}
+          {clubRecords && <>
+            <hr className="divider" />
+            <div className="section-label">Club Records</div>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+              {clubRecords.topPlayer && (
+                <div className="card" style={{ textAlign:'center', padding:'14px 10px' }}>
+                  <div style={{ fontSize:20, marginBottom:4 }}>🏆</div>
+                  <div style={{ fontSize:20, fontWeight:700, color:'var(--accent)' }}>{clubRecords.topPlayer.wins}</div>
+                  <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>Most Wins</div>
+                  <div style={{ fontSize:12, color:'var(--text2)', marginTop:4 }}>{shortName(clubRecords.topPlayer.name)}</div>
+                </div>
+              )}
+              {clubRecords.topStreak && (
+                <div className="card" style={{ textAlign:'center', padding:'14px 10px' }}>
+                  <div style={{ fontSize:20, marginBottom:4 }}>🔥</div>
+                  <div style={{ fontSize:20, fontWeight:700, color:'var(--accent)' }}>{clubRecords.topStreak.streak}W</div>
+                  <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>Hot Streak</div>
+                  <div style={{ fontSize:12, color:'var(--text2)', marginTop:4 }}>{shortName(clubRecords.topStreak.name)}</div>
+                </div>
+              )}
+              {clubRecords.highScore > 0 && (
+                <div className="card" style={{ textAlign:'center', padding:'14px 10px' }}>
+                  <div style={{ fontSize:20, marginBottom:4 }}>🎯</div>
+                  <div style={{ fontSize:20, fontWeight:700, color:'var(--accent)' }}>{clubRecords.highScore}</div>
+                  <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>High Score</div>
+                </div>
+              )}
+              {clubRecords.biggestMargin > 0 && (
+                <div className="card" style={{ textAlign:'center', padding:'14px 10px' }}>
+                  <div style={{ fontSize:20, marginBottom:4 }}>⚡</div>
+                  <div style={{ fontSize:15, fontWeight:700, color:'var(--accent)', fontFamily:'monospace' }}>{clubRecords.biggestMarginScore}</div>
+                  <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>Biggest Win</div>
+                </div>
+              )}
+              {clubRecords.busiestDay && (
+                <div className="card" style={{ textAlign:'center', padding:'14px 10px', gridColumn:'1/-1' }}>
+                  <div style={{ fontSize:20, marginBottom:4 }}>📅</div>
+                  <div style={{ fontSize:20, fontWeight:700, color:'var(--accent)' }}>{clubRecords.busiestDay[1]}</div>
+                  <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>Matches in a day</div>
+                  <div style={{ fontSize:12, color:'var(--text2)', marginTop:4 }}>{clubRecords.busiestDay[0]}</div>
+                </div>
+              )}
+            </div>
+          </>}
         </>}
 
         {/* Stats */}
@@ -421,6 +581,35 @@ export default function MatchesPage() {
                 <span style={{ fontSize:14, color:'var(--text2)' }}>🎯 Avg points per match</span>
                 <span style={{ fontSize:18, fontWeight:700, color:'var(--accent)' }}>{s.avgScore}</span>
               </div>
+
+              {/* Last 30 days */}
+              {s.last30.total > 0 && (
+                <div className="card" style={{ marginBottom:14 }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
+                    <span style={{ fontSize:11, color:'var(--text3)', fontWeight:600, textTransform:'uppercase' }}>Last 30 Days</span>
+                    <span style={{ fontSize:13, fontWeight:600, color: s.last30.rate >= 50 ? 'var(--accent)' : '#ff5c5c' }}>{s.last30.rate}%</span>
+                  </div>
+                  <div style={{ fontSize:13, color:'var(--text2)', marginBottom:8 }}>
+                    {s.last30.wins}W · {s.last30.losses}L · {s.last30.total} matches
+                  </div>
+                  <div style={{ height:4, borderRadius:99, background:'var(--bg3)', overflow:'hidden' }}>
+                    <div style={{ width:`${s.last30.rate}%`, height:'100%', background: s.last30.rate >= 50 ? 'var(--accent)' : '#ff5c5c', borderRadius:99 }}/>
+                  </div>
+                </div>
+              )}
+
+              {/* Biggest win */}
+              {s.biggestWin && (
+                <div className="card" style={{ marginBottom:14, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                  <span style={{ fontSize:13, color:'var(--text2)' }}>⚡ Biggest win</span>
+                  <div style={{ textAlign:'right' }}>
+                    <div style={{ fontFamily:'monospace', fontSize:16, fontWeight:700, color:'var(--accent)' }}>
+                      {s.biggestWin.myScore} – {s.biggestWin.oppScore}
+                    </div>
+                    <div style={{ fontSize:11, color:'var(--text3)' }}>+{s.biggestWin.margin} pts</div>
+                  </div>
+                </div>
+              )}
 
               {/* Best partner */}
               {s.bestPartner && (
