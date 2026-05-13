@@ -54,7 +54,7 @@ export default function MatchesPage() {
 
   function shortName(fullName) {
     if (!fullName) return '?'
-    const parts = fullName.trim().split(/\s+/)
+    const parts = fullName.trim().split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1))
     if (parts.length === 1) return parts[0]
     return `${parts[0]} ${parts[parts.length - 1][0]}`
   }
