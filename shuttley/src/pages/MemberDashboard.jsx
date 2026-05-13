@@ -44,13 +44,21 @@ export default function MemberDashboard() {
   }
 
   async function confirmMatch(matchId) {
-    await supabase.from('matches').update({ status: 'confirmed', confirmed_by: user.id }).eq('id', matchId)
+    const { error } = await supabase
+      .from('matches')
+      .update({ status: 'confirmed', confirmed_by: user.id })
+      .eq('id', matchId)
+    if (error) { console.error('confirmMatch error:', error); showToast('Error confirming match'); return }
     showToast('✔ Match confirmed!')
     fetchData()
   }
 
   async function disputeMatch(matchId) {
-    await supabase.from('matches').update({ status: 'disputed' }).eq('id', matchId)
+    const { error } = await supabase
+      .from('matches')
+      .update({ status: 'disputed' })
+      .eq('id', matchId)
+    if (error) { console.error('disputeMatch error:', error); showToast('Error disputing match'); return }
     showToast('⚠ Match disputed — moderator will review')
     fetchData()
   }

@@ -84,11 +84,17 @@ export default function ModeratorDashboard() {
     // resolution: 'confirmed' = keep as is, 'void' = delete match
     if (resolution === 'void') {
       if (!confirm('This will delete the match entirely. Are you sure?')) return
-      await supabase.from('match_players').delete().eq('match_id', matchId)
-      await supabase.from('matches').delete().eq('id', matchId)
+      const { error: e1 } = await supabase.from('match_players').delete().eq('match_id', matchId)
+      if (e1) { console.error('void match_players error:', e1); showToast('Error voiding match'); return }
+      const { error: e2 } = await supabase.from('matches').delete().eq('id', matchId)
+      if (e2) { console.error('void match error:', e2); showToast('Error voiding match'); return }
       showToast('Match voided')
     } else {
-      await supabase.from('matches').update({ status: 'confirmed' }).eq('id', matchId)
+      const { error } = await supabase
+        .from('matches')
+        .update({ status: 'confirmed', confirmed_by: user.id })
+        .eq('id', matchId)
+      if (error) { console.error('resolveDispute error:', error); showToast('Error confirming match'); return }
       showToast('Match confirmed')
     }
     fetchData()
