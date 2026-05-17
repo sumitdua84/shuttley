@@ -10,6 +10,7 @@ export default function ModeratorDashboard() {
   const [club, setClub] = useState(null)
   const [members, setMembers] = useState([])
   const [disputedMatches, setDisputedMatches] = useState([])
+  const [pendingMatches, setPendingMatches] = useState([])
   const [tab, setTab] = useState('members') // members | disputes | settings
   const [toast, setToast] = useState('')
   const [loading, setLoading] = useState(true)
@@ -37,6 +38,13 @@ export default function ModeratorDashboard() {
       .eq('club_id', clubId)
       .eq('status', 'disputed')
     setDisputedMatches(disputed || [])
+
+    const { data: pending } = await supabase
+      .from('matches')
+      .select('*, match_players(user_id, side, profiles(full_name))')
+      .eq('club_id', clubId)
+      .eq('status', 'pending')
+    setPendingMatches(pending || [])
 
     setLoading(false)
   }
@@ -78,6 +86,16 @@ export default function ModeratorDashboard() {
       showToast('Error adding guest')
     }
     setAddingGuest(false)
+  }
+
+  async function confirmMatch(matchId) {
+    const { error } = await supabase
+      .from('matches')
+      .update({ status: 'confirmed', confirmed_by: user.id })
+      .eq('id', matchId)
+    if (error) { showToast('Error confirming match'); return }
+    showToast('✔ Match confirmed!')
+    fetchData()
   }
 
   async function resolveDispute(matchId, resolution) {
@@ -237,6 +255,45 @@ export default function ModeratorDashboard() {
         </>}
 
         {tab === 'disputes' && <>
+
+          {/* Pending confirmations */}
+          {pendingMatches.length > 0 && <>
+            <div className="section-label" style={{ color:'#ffc832' }}>
+              ⏳ Pending Confirmation ({pendingMatches.length})
+            </div>
+            {pendingMatches.map(match => (
+              <div key={match.id} className="card" style={{ marginBottom:12, border:'1px solid rgba(255,200,50,0.3)' }}>
+                <div style={{ fontSize:11, color:'#ffc832', fontWeight:600, marginBottom:8, textTransform:'uppercase' }}>
+                  Awaiting confirmation
+                </div>
+                <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12 }}>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontSize:14, fontWeight:500 }}>{getTeamNames(match, 'team1')}</div>
+                  </div>
+                  <div style={{ textAlign:'center', minWidth:60 }}>
+                    <div style={{ fontFamily:'monospace', fontSize:20, fontWeight:700 }}>
+                      {match.team1_score} – {match.team2_score}
+                    </div>
+                  </div>
+                  <div style={{ flex:1, textAlign:'right' }}>
+                    <div style={{ fontSize:14, fontWeight:500 }}>{getTeamNames(match, 'team2')}</div>
+                  </div>
+                </div>
+                <div style={{ display:'flex', gap:8 }}>
+                  <button className="btn btn-primary btn-sm" style={{ flex:1 }}
+                    onClick={() => confirmMatch(match.id)}>
+                    ✔ Confirm
+                  </button>
+                  <button className="btn btn-danger btn-sm" style={{ flex:1 }}
+                    onClick={() => resolveDispute(match.id, 'void')}>
+                    ✕ Void
+                  </button>
+                </div>
+              </div>
+            ))}
+            <hr className="divider" />
+          </>}
+
           <div style={{ marginBottom:16 }}>
             <h2 style={{ fontSize:22, marginBottom:4 }}>Disputed Matches</h2>
             <p style={{ fontSize:13, color:'var(--text2)' }}>Review and resolve matches that players have disputed.</p>
@@ -306,7 +363,7 @@ export default function ModeratorDashboard() {
       <div className="tabbar">
         {[
           { id:'members', icon:'👥', label:'Members' },
-          { id:'disputes', icon:'⚠', label:'Disputes', badge: disputedMatches.length },
+          { id:'disputes', icon:'⚠', label:'Disputes', badge: disputedMatches.length + pendingMatches.length },
           { id:'settings', icon:'⚙', label:'Settings' },
         ].map(t => (
           <button key={t.id} className={`tab ${tab===t.id?'active':''}`} onClick={() => setTab(t.id)}
