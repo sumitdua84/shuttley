@@ -9,6 +9,7 @@ export default function RecordMatch() {
   const navigate = useNavigate()
 
   const [members, setMembers] = useState([])
+  const [isModerator, setIsModerator] = useState(false)
   const [type, setType] = useState('singles')
   const [team1, setTeam1] = useState([])
   const [team2, setTeam2] = useState([])
@@ -23,9 +24,11 @@ export default function RecordMatch() {
   async function fetchMembers() {
     const { data } = await supabase
       .from('memberships')
-      .select('user_id, profiles(id, full_name, avatar_url)')
+      .select('user_id, role, profiles(id, full_name, avatar_url)')
       .eq('club_id', clubId)
       .eq('status', 'approved')
+    const myMembership = (data || []).find(m => m.user_id === user.id)
+    setIsModerator(myMembership?.role === 'moderator')
     setMembers((data || []).map(m => m.profiles).filter(Boolean))
   }
 
@@ -53,14 +56,13 @@ export default function RecordMatch() {
   const maxPlayers = type === 'singles' ? 1 : 2
   const allSelectedPlayers = [...team1, ...team2]
 
-  // Enforce: current user must be one of the selected players
   const userIsInMatch = allSelectedPlayers.includes(user.id)
   const playersReady = team1.length === maxPlayers && team2.length === maxPlayers
-  const canProceed = playersReady && userIsInMatch
+  const canProceed = playersReady && (userIsInMatch || isModerator)
   const scoreReady = score1 !== '' && score2 !== '' && score1 !== score2
 
   async function submitMatch() {
-    if (!scoreReady || !userIsInMatch) return
+    if (!scoreReady || (!userIsInMatch && !isModerator)) return
     setSubmitting(true)
 
     const s1 = parseInt(score1)
@@ -154,10 +156,12 @@ export default function RecordMatch() {
             {type === 'singles' ? 'Pick 1 player per side' : 'Pick 2 players per side'}
           </p>
 
-          {/* You must be in the match notice */}
-          <div style={{ background:'rgba(255,200,50,0.1)', border:'1px solid rgba(255,200,50,0.3)', borderRadius:'var(--radius-sm)', padding:'10px 14px', marginBottom:16, fontSize:13, color:'#ffc832' }}>
-            ⚠ You must be one of the players to record this match
-          </div>
+          {/* You must be in the match notice — hidden for moderators */}
+          {!isModerator && (
+            <div style={{ background:'rgba(255,200,50,0.1)', border:'1px solid rgba(255,200,50,0.3)', borderRadius:'var(--radius-sm)', padding:'10px 14px', marginBottom:16, fontSize:13, color:'#ffc832' }}>
+              ⚠ You must be one of the players to record this match
+            </div>
+          )}
 
           {/* Team labels */}
           <div style={{ display:'flex', gap:10, marginBottom:16 }}>
@@ -219,7 +223,7 @@ export default function RecordMatch() {
             )
           })}
 
-          {playersReady && !userIsInMatch && (
+          {playersReady && !userIsInMatch && !isModerator && (
             <div style={{ marginTop:16, padding:'10px 14px', background:'rgba(255,92,92,0.1)', border:'1px solid rgba(255,92,92,0.3)', borderRadius:'var(--radius-sm)', fontSize:13, color:'#ff5c5c' }}>
               ✕ You must be one of the selected players to record this match
             </div>
