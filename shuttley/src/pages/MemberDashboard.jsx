@@ -55,7 +55,7 @@ export default function MemberDashboard() {
   async function confirmMatch(matchId) {
     const { error } = await supabase
       .from('matches')
-      .update({ status: 'confirmed', confirmed_by: user.id })
+      .update({ status: 'confirmed' })
       .eq('id', matchId)
     if (error) { console.error('confirmMatch error:', error); showToast('Error confirming match'); return }
     showToast('✔ Match confirmed!')

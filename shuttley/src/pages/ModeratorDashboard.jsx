@@ -131,7 +131,7 @@ export default function ModeratorDashboard() {
   async function confirmMatch(matchId) {
     const { error } = await supabase
       .from('matches')
-      .update({ status: 'confirmed', confirmed_by: user.id })
+      .update({ status: 'confirmed' })
       .eq('id', matchId)
     if (error) { showToast('Error confirming match'); return }
     showToast('✔ Match confirmed!')
@@ -150,7 +150,7 @@ export default function ModeratorDashboard() {
     } else {
       const { error } = await supabase
         .from('matches')
-        .update({ status: 'confirmed', confirmed_by: user.id })
+        .update({ status: 'confirmed' })
         .eq('id', matchId)
       if (error) { console.error('resolveDispute error:', error); showToast('Error confirming match'); return }
       showToast('Match confirmed')
