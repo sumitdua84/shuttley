@@ -9,6 +9,7 @@ import ClubPage from './pages/ClubPage'
 import JoinClub from './pages/JoinClub'
 import RecordMatch from './pages/RecordMatch'
 import MatchesPage from './pages/MatchesPage'
+import SessionSummary from './pages/SessionSummary'
 import './index.css'
 
 function AppRoutes() {
@@ -31,6 +32,7 @@ function AppRoutes() {
       <Route path="/club/:clubId/mod" element={user ? <ModeratorDashboard /> : <Navigate to="/login" />} />
       <Route path="/club/:clubId/matches" element={user ? <MatchesPage /> : <Navigate to="/login" />} />
       <Route path="/club/:clubId/record" element={user ? <RecordMatch /> : <Navigate to="/login" />} />
+      <Route path="/club/:clubId/session/:sessionId" element={user ? <SessionSummary /> : <Navigate to="/login" />} />
     </Routes>
   )
 }

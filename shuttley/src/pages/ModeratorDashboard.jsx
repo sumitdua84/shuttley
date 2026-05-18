@@ -11,6 +11,7 @@ export default function ModeratorDashboard() {
   const [members, setMembers] = useState([])
   const [disputedMatches, setDisputedMatches] = useState([])
   const [pendingMatches, setPendingMatches] = useState([])
+  const [activeSession, setActiveSession] = useState(null)
   const [tab, setTab] = useState('members') // members | disputes | settings
   const [toast, setToast] = useState('')
   const [loading, setLoading] = useState(true)
@@ -45,6 +46,14 @@ export default function ModeratorDashboard() {
       .eq('club_id', clubId)
       .eq('status', 'pending')
     setPendingMatches(pending || [])
+
+    const { data: session } = await supabase
+      .from('sessions')
+      .select('*')
+      .eq('club_id', clubId)
+      .eq('status', 'active')
+      .maybeSingle()
+    setActiveSession(session || null)
 
     setLoading(false)
   }
@@ -86,6 +95,32 @@ export default function ModeratorDashboard() {
       showToast('Error adding guest')
     }
     setAddingGuest(false)
+  }
+
+  function getSessionName() {
+    const now = new Date()
+    const weekday = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][now.getDay()]
+    const day = now.getDate()
+    const month = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][now.getMonth()]
+    const year = String(now.getFullYear()).slice(-2)
+    return `${weekday} ${day} ${month} ${year}`
+  }
+
+  async function startSession() {
+    const { data, error } = await supabase
+      .from('sessions')
+      .insert({ club_id: clubId, name: getSessionName(), started_by: user.id, status: 'active' })
+      .select().single()
+    if (!error) { setActiveSession(data); showToast('Session started!') }
+  }
+
+  async function endSession() {
+    if (!activeSession) return
+    const { error } = await supabase
+      .from('sessions')
+      .update({ status: 'ended', ended_at: new Date().toISOString() })
+      .eq('id', activeSession.id)
+    if (!error) navigate(`/club/${clubId}/session/${activeSession.id}`)
   }
 
   async function confirmMatch(matchId) {
@@ -161,6 +196,30 @@ export default function ModeratorDashboard() {
           style={{ width:'100%', marginBottom:0 }}>
           🏸 Matches & Leaderboard
         </button>
+      </div>
+
+      {/* Session control */}
+      <div style={{ padding:'10px 20px 0' }}>
+        {activeSession ? (
+          <div style={{
+            background:'rgba(100,210,120,0.08)', border:'1px solid rgba(100,210,120,0.25)',
+            borderRadius:'var(--radius)', padding:'12px 14px',
+            display:'flex', alignItems:'center', justifyContent:'space-between', gap:12
+          }}>
+            <div>
+              <div style={{ fontSize:11, color:'var(--accent)', fontWeight:700, marginBottom:2 }}>● SESSION IN PROGRESS</div>
+              <div style={{ fontSize:15, fontWeight:600, color:'var(--text)' }}>{activeSession.name}</div>
+              <div style={{ fontSize:12, color:'var(--text2)', marginTop:2 }}>Anyone can record scores</div>
+            </div>
+            <button className="btn btn-danger btn-sm" onClick={endSession} style={{ whiteSpace:'nowrap' }}>
+              ⏹ End
+            </button>
+          </div>
+        ) : (
+          <button className="btn btn-primary btn-sm" style={{ width:'100%' }} onClick={startSession}>
+            ▶ Start Session
+          </button>
+        )}
       </div>
 
       {/* Tab content */}

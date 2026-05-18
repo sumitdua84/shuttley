@@ -10,6 +10,7 @@ export default function MemberDashboard() {
   const [club, setClub] = useState(null)
   const [membership, setMembership] = useState(null)
   const [pendingMatches, setPendingMatches] = useState([])
+  const [activeSession, setActiveSession] = useState(null)
   const [loading, setLoading] = useState(true)
   const [toast, setToast] = useState('')
 
@@ -39,6 +40,14 @@ export default function MemberDashboard() {
       })
       setPendingMatches(toConfirm)
     }
+
+    const { data: session } = await supabase
+      .from('sessions')
+      .select('*')
+      .eq('club_id', clubId)
+      .eq('status', 'active')
+      .maybeSingle()
+    setActiveSession(session || null)
 
     setLoading(false)
   }
@@ -138,6 +147,18 @@ export default function MemberDashboard() {
             })}
             <hr className="divider" />
           </>}
+
+          {/* Active session banner */}
+          {activeSession && (
+            <div style={{
+              background:'rgba(100,210,120,0.08)', border:'1px solid rgba(100,210,120,0.25)',
+              borderRadius:'var(--radius)', padding:'12px 16px', marginBottom:16
+            }}>
+              <div style={{ fontSize:11, color:'var(--accent)', fontWeight:700, marginBottom:2 }}>● SESSION IN PROGRESS</div>
+              <div style={{ fontSize:15, fontWeight:600, color:'var(--text)' }}>{activeSession.name}</div>
+              <div style={{ fontSize:12, color:'var(--text2)', marginTop:2 }}>Anyone can record scores — no need to be in the match</div>
+            </div>
+          )}
 
           {/* Main actions */}
           <div style={{ marginBottom:24 }}>

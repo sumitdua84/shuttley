@@ -12,6 +12,7 @@ export default function MatchesPage() {
   const [tab, setTab] = useState('history')
   const [matches, setMatches] = useState([])
   const [members, setMembers] = useState([])
+  const [sessions, setSessions] = useState([])
   const [loading, setLoading] = useState(true)
   const [toast, setToast] = useState('')
   const [club, setClub] = useState(null)
@@ -41,6 +42,14 @@ export default function MatchesPage() {
       .eq('club_id', clubId)
       .order('played_at', { ascending: false })
     setMatches(matchData || [])
+
+    const { data: sessionData } = await supabase
+      .from('sessions')
+      .select('*')
+      .eq('club_id', clubId)
+      .order('started_at', { ascending: false })
+    setSessions(sessionData || [])
+
     setLoading(false)
   }
 
@@ -274,7 +283,7 @@ export default function MatchesPage() {
 
         {/* Tabs */}
         <div style={{ display:'flex', gap:0, marginBottom:20, background:'var(--bg2)', borderRadius:'var(--radius)', padding:4 }}>
-          {[['history','📋 History'],['leaderboard','🏅 Leaders'],['stats','📈 Stats']].map(([id,label]) => (
+          {[['history','📋 History'],['leaderboard','🏅 Leaders'],['stats','📈 Stats'],['sessions','📆 Sessions']].map(([id,label]) => (
             <button key={id} onClick={() => { setTab(id); if (id === 'stats') setSelectedPlayer(p => p ?? user.id); else setSelectedPlayer(null) }}
               style={{
                 flex:1, padding:'8px 4px', borderRadius:'var(--radius-sm)',
@@ -676,6 +685,60 @@ export default function MatchesPage() {
               </>}
             </>
           })()}
+        </>}
+
+        {/* Sessions */}
+        {!loading && tab === 'sessions' && <>
+          {sessions.length === 0 ? (
+            <div className="empty">
+              <div className="empty-icon">📆</div>
+              <p>No sessions yet.<br />Moderators can start a session from their dashboard.</p>
+            </div>
+          ) : sessions.map(s => {
+            const sessionMatches = matches.filter(m => m.session_id === s.id)
+            const confirmed = sessionMatches.filter(m => m.status === 'confirmed')
+            const playerWins = {}
+            confirmed.forEach(match => {
+              const winners = match.match_players?.filter(p => p.side === match.winner_side) || []
+              winners.forEach(p => {
+                if (!playerWins[p.user_id]) playerWins[p.user_id] = { name: p.profiles?.full_name, wins: 0 }
+                playerWins[p.user_id].wins++
+              })
+            })
+            const mvp = Object.values(playerWins).sort((a, b) => b.wins - a.wins)[0]
+            const duration = s.ended_at
+              ? (() => {
+                  const mins = Math.round((new Date(s.ended_at) - new Date(s.started_at)) / 60000)
+                  return mins < 60 ? `${mins} min` : `${Math.floor(mins/60)}h ${mins%60}m`
+                })()
+              : null
+            return (
+              <div key={s.id} className="card" style={{ marginBottom:10, cursor: s.status === 'ended' ? 'pointer' : 'default' }}
+                onClick={() => s.status === 'ended' && navigate(`/club/${clubId}/session/${s.id}`)}>
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8 }}>
+                  <div style={{ fontWeight:600, fontSize:16 }}>{s.name}</div>
+                  {s.status === 'active'
+                    ? <span style={{ fontSize:11, color:'var(--accent)', fontWeight:700 }}>● LIVE</span>
+                    : <span style={{ fontSize:11, color:'var(--text3)' }}>{duration}</span>
+                  }
+                </div>
+                <div style={{ display:'flex', gap:16, fontSize:13, color:'var(--text2)', marginBottom: mvp ? 8 : 0 }}>
+                  <span>🏸 {sessionMatches.length} match{sessionMatches.length !== 1 ? 'es' : ''}</span>
+                  <span style={{ color: s.status === 'active' ? 'var(--accent)' : 'var(--text3)' }}>
+                    {s.status === 'active' ? 'In progress' : new Date(s.started_at).toLocaleDateString('en-AU', { day:'numeric', month:'short' })}
+                  </span>
+                </div>
+                {mvp && (
+                  <div style={{ fontSize:12, color:'var(--text2)' }}>
+                    🏆 MVP: <strong style={{ color:'var(--text)' }}>{shortName(mvp.name)}</strong> · {mvp.wins}W
+                  </div>
+                )}
+                {s.status === 'ended' && (
+                  <div style={{ fontSize:12, color:'var(--accent)', marginTop:6 }}>Tap to view full summary →</div>
+                )}
+              </div>
+            )
+          })}
         </>}
 
       </div>
