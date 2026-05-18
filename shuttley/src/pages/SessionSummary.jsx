@@ -1,30 +1,61 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
 
 export default function SessionSummary() {
   const { clubId, sessionId } = useParams()
+  const { user } = useAuth()
   const navigate = useNavigate()
   const [session, setSession] = useState(null)
   const [matches, setMatches] = useState([])
   const [club, setClub] = useState(null)
+  const [isModerator, setIsModerator] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [toast, setToast] = useState('')
 
   useEffect(() => { fetchData() }, [sessionId])
 
   async function fetchData() {
-    const [{ data: s }, { data: m }, { data: c }] = await Promise.all([
+    const [{ data: s }, { data: m }, { data: c }, { data: mem }] = await Promise.all([
       supabase.from('sessions').select('*, profiles(full_name)').eq('id', sessionId).single(),
       supabase.from('matches')
         .select('*, match_players(user_id, side, profiles(id, full_name))')
         .eq('session_id', sessionId)
         .order('played_at', { ascending: true }),
-      supabase.from('clubs').select('name').eq('id', clubId).single()
+      supabase.from('clubs').select('name').eq('id', clubId).single(),
+      supabase.from('memberships').select('role').eq('club_id', clubId).eq('user_id', user.id).single()
     ])
     setSession(s)
     setMatches(m || [])
     setClub(c)
+    setIsModerator(mem?.role === 'moderator')
     setLoading(false)
+  }
+
+  async function confirmMatch(matchId) {
+    const { error } = await supabase
+      .from('matches')
+      .update({ status: 'confirmed', confirmed_by: user.id })
+      .eq('id', matchId)
+    if (error) { showToast('Error confirming match'); return }
+    showToast('✔ Match confirmed!')
+    fetchData()
+  }
+
+  async function disputeMatch(matchId) {
+    const { error } = await supabase
+      .from('matches')
+      .update({ status: 'disputed' })
+      .eq('id', matchId)
+    if (error) { showToast('Error disputing match'); return }
+    showToast('⚠ Match disputed')
+    fetchData()
+  }
+
+  function showToast(msg) {
+    setToast(msg)
+    setTimeout(() => setToast(''), 2500)
   }
 
   function formatDuration(start, end) {
@@ -155,6 +186,8 @@ export default function SessionSummary() {
           const t1 = match.match_players?.filter(p => p.side === 'team1') || []
           const t2 = match.match_players?.filter(p => p.side === 'team2') || []
           const t1Won = match.winner_side === 'team1'
+          const userIsPlayer = match.match_players?.some(p => p.user_id === user.id)
+          const canAct = isModerator || userIsPlayer
           return (
             <div key={match.id} className="card" style={{ marginBottom:8 }}>
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:6 }}>
@@ -165,7 +198,7 @@ export default function SessionSummary() {
                 {match.status === 'disputed' && <span style={{ fontSize:11, color:'#ff5c5c' }}>⚠ Disputed</span>}
                 {match.status === 'confirmed' && <span style={{ fontSize:11, color:'var(--accent)' }}>✔ Confirmed</span>}
               </div>
-              <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+              <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom: match.status === 'pending' && canAct ? 10 : 0 }}>
                 <div style={{ flex:1 }}>
                   {t1.map(p => (
                     <div key={p.user_id} style={{
@@ -190,11 +223,20 @@ export default function SessionSummary() {
                   ))}
                 </div>
               </div>
+              {match.status === 'pending' && canAct && (
+                <div style={{ display:'flex', gap:8 }}>
+                  <button className="btn btn-primary btn-sm" style={{ flex:1 }}
+                    onClick={() => confirmMatch(match.id)}>✔ Confirm</button>
+                  <button className="btn btn-danger btn-sm" style={{ flex:1 }}
+                    onClick={() => disputeMatch(match.id)}>✕ Dispute</button>
+                </div>
+              )}
             </div>
           )
         })}
 
       </div>
+      {toast && <div className="toast">{toast}</div>}
     </div>
   )
 }
