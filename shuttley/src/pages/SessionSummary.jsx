@@ -38,7 +38,7 @@ export default function SessionSummary() {
       .from('matches')
       .update({ status: 'confirmed' })
       .eq('id', matchId)
-    if (error) { console.error('confirmMatch error:', error); showToast(error.message || 'Error confirming match'); return }
+    if (error) { console.error('confirmMatch error:', error); showToast(JSON.stringify(error)); return }
     showToast('✔ Match confirmed!')
     fetchData()
   }
