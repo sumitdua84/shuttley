@@ -116,6 +116,11 @@ export default function ModeratorDashboard() {
 
   async function endSession() {
     if (!activeSession) return
+    const sessionPending = pendingMatches.filter(m => m.session_id === activeSession.id)
+    if (sessionPending.length > 0) {
+      const word = sessionPending.length === 1 ? '1 match is' : `${sessionPending.length} matches are`
+      if (!confirm(`${word} still pending. You can confirm them after the session ends. End session anyway?`)) return
+    }
     const { error } = await supabase
       .from('sessions')
       .update({ status: 'ended', ended_at: new Date().toISOString() })
