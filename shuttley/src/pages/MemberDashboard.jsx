@@ -57,7 +57,7 @@ export default function MemberDashboard() {
       .from('matches')
       .update({ status: 'confirmed' })
       .eq('id', matchId)
-    if (error) { console.error('confirmMatch error:', error); showToast('Error confirming match'); return }
+    if (error) { console.error('confirmMatch error:', error); showToast(error.message || 'Error confirming match'); return }
     showToast('✔ Match confirmed!')
     fetchData()
   }
@@ -78,7 +78,7 @@ export default function MemberDashboard() {
 
   function showToast(msg) {
     setToast(msg)
-    setTimeout(() => setToast(''), 2500)
+    setTimeout(() => setToast(''), 5000)
   }
 
   if (loading) return <div className="splash"><div className="splash-logo">S</div></div>
