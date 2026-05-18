@@ -273,7 +273,10 @@ export default function MatchesPage() {
       <div className="topnav">
         <button onClick={() => navigate(-1)}
           style={{ background:'none',border:'none',color:'var(--text2)',cursor:'pointer',fontSize:22,padding:0 }}>←</button>
-        <span style={{ fontFamily:"'DM Serif Display',serif", fontSize:18 }}>{club?.name}</span>
+        <button onClick={() => navigate(`/club/${clubId}`)}
+          style={{ background:'none',border:'none',color:'var(--text)',cursor:'pointer',fontFamily:"'DM Serif Display',serif",fontSize:18,padding:0 }}>
+          {club?.name}
+        </button>
         <div style={{ display:'flex', gap:8, alignItems:'center' }}>
           <button className="btn btn-primary btn-sm" onClick={() => navigate(`/club/${clubId}/record`)}>+ Match</button>
           <button onClick={() => navigate('/')} style={{ background:'none',border:'none',color:'var(--text2)',cursor:'pointer',fontSize:20,padding:0 }}>🏠</button>

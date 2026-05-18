@@ -119,9 +119,10 @@ export default function SessionSummary() {
           position:'relative', overflow:'hidden'
         }}>
           <div style={{ position:'absolute', right:-10, top:-10, fontSize:80, opacity:0.05, pointerEvents:'none' }}>🏸</div>
-          <div style={{ fontSize:11, color:'var(--text3)', fontWeight:600, textTransform:'uppercase', marginBottom:6 }}>
+          <button onClick={() => navigate(`/club/${clubId}`)}
+            style={{ background:'none',border:'none',padding:0,cursor:'pointer',fontSize:11,color:'var(--text3)',fontWeight:600,textTransform:'uppercase',marginBottom:6,textAlign:'left' }}>
             {club?.name}
-          </div>
+          </button>
           <h2 style={{ fontSize:26, marginBottom:8, letterSpacing:'-0.5px' }}>{session.name}</h2>
           <div style={{ display:'flex', gap:16, fontSize:13, color:'var(--text2)', flexWrap:'wrap' }}>
             <span>📅 {new Date(session.started_at).toLocaleDateString('en-AU', { weekday:'short', day:'numeric', month:'short' })}</span>
