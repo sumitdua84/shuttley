@@ -16,6 +16,7 @@ export default function RecordMatch() {
   const [team2, setTeam2] = useState([])
   const [score1, setScore1] = useState('')
   const [score2, setScore2] = useState('')
+  const [requireConfirmation, setRequireConfirmation] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [toast, setToast] = useState('')
   const [step, setStep] = useState(1)
@@ -88,7 +89,8 @@ export default function RecordMatch() {
         team2_score: s2,
         winner_side,
         recorded_by: user.id,
-        status: 'pending',
+        status: requireConfirmation ? 'pending' : 'confirmed',
+        confirmed_by: requireConfirmation ? null : user.id,
         session_id: activeSession?.id || null
       })
       .select().single()
@@ -333,15 +335,40 @@ export default function RecordMatch() {
             </div>
           )}
 
-          {/* Confirmation notice */}
-          <div style={{ background:'rgba(100,200,255,0.08)', border:'1px solid rgba(100,200,255,0.2)', borderRadius:'var(--radius-sm)', padding:'10px 14px', marginBottom:16, fontSize:12, color:'var(--text2)' }}>
-            ℹ️ This result will be sent to the opposing team for confirmation before it counts.
+          {/* Confirmation toggle */}
+          <div style={{
+            display:'flex', alignItems:'center', justifyContent:'space-between',
+            background:'var(--bg2)', borderRadius:'var(--radius-sm)',
+            padding:'12px 14px', marginBottom:16
+          }}>
+            <div>
+              <div style={{ fontSize:13, fontWeight:500, color:'var(--text)' }}>
+                {requireConfirmation ? '⏳ Requires confirmation' : '✔ Auto-confirm'}
+              </div>
+              <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>
+                {requireConfirmation ? 'Opponent must approve before it counts' : 'Score counts immediately'}
+              </div>
+            </div>
+            <div
+              onClick={() => setRequireConfirmation(r => !r)}
+              style={{
+                width:44, height:26, borderRadius:99, cursor:'pointer',
+                background: requireConfirmation ? 'var(--border2)' : 'var(--accent)',
+                position:'relative', transition:'background 0.2s', flexShrink:0
+              }}>
+              <div style={{
+                position:'absolute', top:3,
+                left: requireConfirmation ? 3 : 19,
+                width:20, height:20, borderRadius:99,
+                background:'#fff', transition:'left 0.2s'
+              }}/>
+            </div>
           </div>
 
           <button className="btn btn-primary" onClick={submitMatch}
             disabled={!scoreReady || submitting}
             style={{ marginTop:8, opacity: scoreReady && !submitting ? 1 : 0.4 }}>
-            {submitting ? 'Saving…' : '✔ Submit for Confirmation'}
+            {submitting ? 'Saving…' : requireConfirmation ? '⏳ Submit for Confirmation' : '✔ Submit Score'}
           </button>
         </>}
 
