@@ -75,7 +75,7 @@ export default function SessionSummary() {
         <button onClick={() => navigate(`/club/${clubId}/matches`)}
           style={{ background:'none',border:'none',color:'var(--text2)',cursor:'pointer',fontSize:22,padding:0 }}>←</button>
         <span style={{ fontFamily:"'DM Serif Display',serif", fontSize:18 }}>Session Summary</span>
-        <span style={{ opacity:0 }}>·</span>
+        <button onClick={() => navigate('/')} style={{ background:'none',border:'none',color:'var(--text2)',cursor:'pointer',fontSize:20,padding:0 }}>🏠</button>
       </div>
 
       <div className="content">
