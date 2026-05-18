@@ -133,7 +133,7 @@ export default function ModeratorDashboard() {
       .from('matches')
       .update({ status: 'confirmed' })
       .eq('id', matchId)
-    if (error) { showToast('Error confirming match'); return }
+    if (error) { console.error('confirmMatch error:', error); showToast(JSON.stringify(error)); return }
     showToast('✔ Match confirmed!')
     fetchData()
   }
@@ -152,7 +152,7 @@ export default function ModeratorDashboard() {
         .from('matches')
         .update({ status: 'confirmed' })
         .eq('id', matchId)
-      if (error) { console.error('resolveDispute error:', error); showToast('Error confirming match'); return }
+      if (error) { console.error('resolveDispute error:', error); showToast(JSON.stringify(error)); return }
       showToast('Match confirmed')
     }
     fetchData()
@@ -172,7 +172,7 @@ export default function ModeratorDashboard() {
 
   function showToast(msg) {
     setToast(msg)
-    setTimeout(() => setToast(''), 2500)
+    setTimeout(() => setToast(''), 8000)
   }
 
   if (loading) return <div className="splash"><div className="splash-logo">S</div></div>
