@@ -275,7 +275,7 @@ export default function MatchesPage() {
         {/* Tabs */}
         <div style={{ display:'flex', gap:0, marginBottom:20, background:'var(--bg2)', borderRadius:'var(--radius)', padding:4 }}>
           {[['history','📋 History'],['leaderboard','🏅 Leaders'],['stats','📈 Stats']].map(([id,label]) => (
-            <button key={id} onClick={() => { setTab(id); setSelectedPlayer(null) }}
+            <button key={id} onClick={() => { setTab(id); if (id === 'stats') setSelectedPlayer(p => p ?? user.id); else setSelectedPlayer(null) }}
               style={{
                 flex:1, padding:'8px 4px', borderRadius:'var(--radius-sm)',
                 border:'none', cursor:'pointer', fontSize:13, fontWeight:500,
