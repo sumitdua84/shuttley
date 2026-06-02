@@ -1,18 +1,28 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
 
 export default function DeleteAccount() {
-  const { user } = useAuth()
   const navigate = useNavigate()
   const [submitted, setSubmitted] = useState(false)
   const [email, setEmail] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
   async function handleSubmit(e) {
     e.preventDefault()
-    // Log deletion request to Supabase or just show confirmation
+    setLoading(true)
+    setError('')
+    const { error: err } = await supabase
+      .from('account_deletion_requests')
+      .insert({ email: email.trim() })
+    if (err) {
+      setError('Something went wrong. Please email support@shuttley.club directly.')
+      setLoading(false)
+      return
+    }
     setSubmitted(true)
+    setLoading(false)
   }
 
   return (
@@ -66,11 +76,17 @@ export default function DeleteAccount() {
             </ul>
           </div>
 
-          <button type="submit" style={{
+          {error && (
+            <div style={{ background: '#fff0f0', border: '1px solid #e05555', borderRadius: 8, padding: '10px 14px', marginBottom: 12, fontSize: 13, color: '#e05555' }}>
+              {error}
+            </div>
+          )}
+          <button type="submit" disabled={loading} style={{
             width: '100%', padding: '14px', background: '#e05555', color: '#fff',
-            border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 600, cursor: 'pointer'
+            border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 600, cursor: 'pointer',
+            opacity: loading ? 0.7 : 1
           }}>
-            Request Account Deletion
+            {loading ? 'Submitting…' : 'Request Account Deletion'}
           </button>
 
           <button type="button" onClick={() => navigate('/')} style={{
