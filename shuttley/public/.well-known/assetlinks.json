@@ -1,0 +1,8 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "club.shuttley.twa",
+    "sha256_cert_fingerprints": ["0C:FF:1C:8D:E9:77:9B:D3:2B:98:9F:8E:54:25:1A:8C:FF:D4:C3:D1:FF:1E:5A:DA:A0:13:D9:19:9F:6A:85:75"]
+  }
+}]
