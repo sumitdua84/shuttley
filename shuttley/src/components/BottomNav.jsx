@@ -3,9 +3,9 @@ import { useNavigate } from 'react-router-dom'
 // Shuttley logo image for Clubs tab
 const IconClubs = ({ active }) => (
   <img
-    src="/Logo.png"
+    src="/maskable-icon-512x512.png"
     alt="Clubs"
-    style={{ width: 24, height: 24, objectFit: 'contain', opacity: active ? 1 : 0.45 }}
+    style={{ width: 28, height: 28, objectFit: 'cover', borderRadius: '50%', opacity: active ? 1 : 0.45 }}
   />
 )
 
