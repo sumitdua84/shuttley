@@ -247,6 +247,15 @@ export default function RotationPage() {
     setTimeout(() => setToast(''), 2500)
   }
 
+  async function deleteMatch(mId) {
+    if (!confirm('Delete this match? This cannot be undone.')) return
+    await supabase.from('match_players').delete().eq('match_id', mId)
+    const { error } = await supabase.from('matches').delete().eq('id', mId)
+    if (error) { showToast('Error deleting match'); return }
+    showToast('Match deleted')
+    fetchData()
+  }
+
   if (loading) return <div className="splash"><div className="splash-logo">S</div></div>
   if (!session) return (
     <div className="page"><div className="content"><p style={{ color: 'var(--text2)' }}>Session not found.</p></div></div>
@@ -416,6 +425,12 @@ export default function RotationPage() {
                       <div style={{ flex:1, fontSize:13, fontWeight: !t1Won ? 600 : 400, color: !t1Won ? 'var(--text)' : 'var(--text2)', textAlign:'right', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                         {t2Names}
                       </div>
+                      {isModerator && (
+                        <button
+                          onClick={() => deleteMatch(match.id)}
+                          style={{ background:'none', border:'none', cursor:'pointer', color:'var(--text3)', fontSize:15, padding:'0 2px', flexShrink:0, lineHeight:1 }}
+                          title="Delete match">🗑</button>
+                      )}
                     </div>
                   )
                 })}
