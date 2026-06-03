@@ -4,6 +4,7 @@ import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
 import { generateSchedule } from '../utils/scheduleGenerator'
 import { usePushNotifications } from '../hooks/usePushNotifications'
+import BottomNav from '../components/BottomNav'
 
 export default function MemberDashboard() {
   const { clubId } = useParams()
@@ -549,10 +550,7 @@ export default function MemberDashboard() {
     <div className="page">
       {/* Top nav */}
       <div className="topnav">
-        {tab === 'home'
-          ? <button onClick={() => navigate('/')} style={{ background:'none',border:'none',color:'var(--text2)',cursor:'pointer',fontSize:13,fontWeight:500,padding:0 }}>All Clubs</button>
-          : <div style={{ width:64 }} />
-        }
+        <div style={{ width:64 }} />
         <div style={{ textAlign:'center' }}>
           <div style={{ fontFamily:"'Plus Jakarta Sans',sans-serif", fontSize:17, fontWeight:600 }}>{club?.name}</div>
           <div style={{ fontSize:11, color:'var(--text3)', fontWeight:500 }}>Member</div>
@@ -977,17 +975,7 @@ export default function MemberDashboard() {
 
       </div>
 
-      {/* Tab bar */}
-      <div className="tabbar">
-        {[
-          { id:'home',    label:'Home' },
-          { id:'members', label:'Members' },
-        ].map(t => (
-          <button key={t.id} className={`tab ${tab===t.id?'active':''}`} onClick={() => changeTab(t.id)}>
-            <span style={{ fontWeight: tab===t.id ? 600 : 400 }}>{t.label}</span>
-          </button>
-        ))}
-      </div>
+      <BottomNav clubId={clubId} activeTab="home" />
 
       {/* Start session modal */}
       {showStartModal && (

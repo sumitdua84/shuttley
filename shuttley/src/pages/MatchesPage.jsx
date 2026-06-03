@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
+import BottomNav from '../components/BottomNav'
 
 export default function MatchesPage() {
   const { clubId } = useParams()
@@ -1125,25 +1126,7 @@ export default function MatchesPage() {
 
       </div>
 
-      {/* Tab bar — mirrors dashboard */}
-      <div className="tabbar">
-        {(isModerator ? [
-          { id:'home',     label:'Home' },
-          { id:'members',  label:'Members' },
-          { id:'disputes', label:'Disputes' },
-          { id:'settings', label:'Settings' },
-        ] : [
-          { id:'home',    label:'Home' },
-          { id:'members', label:'Members' },
-        ]).map(t => (
-          <button key={t.id} className="tab" onClick={() => {
-            const route = isModerator ? `/club/${clubId}/mod` : `/club/${clubId}/member`
-            t.id === 'home' ? navigate(route) : navigate(`${route}?tab=${t.id}`)
-          }}>
-            <span style={{ fontWeight: 400 }}>{t.label}</span>
-          </button>
-        ))}
-      </div>
+      <BottomNav clubId={clubId} activeTab="stats" />
 
       {toast && <div className="toast">{toast}</div>}
     </div>

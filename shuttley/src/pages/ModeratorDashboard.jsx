@@ -4,6 +4,7 @@ import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
 import { generateSchedule } from '../utils/scheduleGenerator'
 import { usePushNotifications } from '../hooks/usePushNotifications'
+import BottomNav from '../components/BottomNav'
 
 export default function ModeratorDashboard() {
   const { clubId } = useParams()
@@ -576,10 +577,7 @@ export default function ModeratorDashboard() {
     <div className="page">
       {/* Top nav */}
       <div className="topnav">
-        {tab === 'home'
-          ? <button onClick={() => navigate('/')} style={{ background:'none',border:'none',color:'var(--text2)',cursor:'pointer',fontSize:13,fontWeight:500,padding:0 }}>All Clubs</button>
-          : <div style={{ width:64 }} />
-        }
+        <div style={{ width:64 }} />
         <div style={{ textAlign:'center' }}>
           <div style={{ fontFamily:"'Plus Jakarta Sans',sans-serif", fontSize:17, fontWeight:600 }}>{club?.name}</div>
           <div style={{ fontSize:11, color:'var(--accent)', fontWeight:600 }}>Admin</div>
@@ -1286,26 +1284,7 @@ export default function ModeratorDashboard() {
       </div>
 
       {/* Tab bar */}
-      <div className="tabbar">
-        {[
-          { id:'home',     label:'Home' },
-          { id:'members',  label:'Members' },
-          { id:'sessions', label:'Session', badge: alertCount },
-          { id:'settings', label:'Settings' },
-        ].map(t => (
-          <button key={t.id} className={`tab ${tab===t.id?'active':''}`} onClick={() => changeTab(t.id)}
-            style={{ position:'relative' }}>
-            {t.badge > 0 && (
-              <span style={{
-                position:'absolute', top:6, right:'50%', transform:'translateX(24px)',
-                background:'#ff5c5c', color:'#fff', borderRadius:99,
-                fontSize:9, fontWeight:700, padding:'1px 5px', minWidth:14, textAlign:'center', lineHeight:1.4,
-              }}>{t.badge}</span>
-            )}
-            <span style={{ fontWeight: tab===t.id ? 600 : 400 }}>{t.label}</span>
-          </button>
-        ))}
-      </div>
+      <BottomNav clubId={clubId} activeTab="home" />
 
       {/* Start session modal */}
       {showStartModal && (

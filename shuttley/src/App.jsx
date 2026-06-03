@@ -19,6 +19,7 @@ import ChatPage from './pages/ChatPage'
 import PrivacyPolicy from './pages/PrivacyPolicy'
 import TermsOfService from './pages/TermsOfService'
 import DeleteAccount from './pages/DeleteAccount'
+import ProfilePage from './pages/ProfilePage'
 import { useIOSPushTokenBridge } from './hooks/usePushNotifications'
 import './index.css'
 
@@ -52,6 +53,7 @@ function AppRoutes() {
       <Route path="/privacy" element={<PrivacyPolicy />} />
       <Route path="/terms" element={<TermsOfService />} />
       <Route path="/delete-account" element={<DeleteAccount />} />
+      <Route path="/profile" element={user ? <ProfilePage /> : <Navigate to="/login" />} />
     </Routes>
   )
 }
