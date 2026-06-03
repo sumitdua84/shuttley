@@ -1,17 +1,28 @@
 import { useNavigate } from 'react-router-dom'
 
+// Shuttley shuttlecock logo for Clubs tab
 const IconClubs = ({ active }) => (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={active ? 'var(--accent)' : 'var(--text2)'} strokeWidth={active ? 2.2 : 1.8} strokeLinecap="round" strokeLinejoin="round">
-    <path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z"/>
-    <path d="M9 21V12h6v9"/>
+    {/* Shuttlecock base */}
+    <ellipse cx="12" cy="18" rx="4" ry="2.5"/>
+    {/* Cork */}
+    <circle cx="12" cy="15" r="1.5"/>
+    {/* Feathers */}
+    <line x1="12" y1="13.5" x2="8"  y2="5"/>
+    <line x1="12" y1="13.5" x2="10" y2="4"/>
+    <line x1="12" y1="13.5" x2="12" y2="3.5"/>
+    <line x1="12" y1="13.5" x2="14" y2="4"/>
+    <line x1="12" y1="13.5" x2="16" y2="5"/>
+    {/* Feather tips connected */}
+    <path d="M8 5 Q10 4 12 3.5 Q14 4 16 5"/>
   </svg>
 )
 
+// House icon for Home tab
 const IconHome = ({ active }) => (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={active ? 'var(--accent)' : 'var(--text2)'} strokeWidth={active ? 2.2 : 1.8} strokeLinecap="round" strokeLinejoin="round">
-    <path d="M12 3C12 3 5 8 5 13a7 7 0 0 0 14 0c0-5-7-10-7-10z"/>
-    <path d="M12 13l-2.5 4h5L12 13z"/>
-    <line x1="12" y1="3" x2="12" y2="8"/>
+    <path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z"/>
+    <path d="M9 21V12h6v9"/>
   </svg>
 )
 
@@ -19,7 +30,7 @@ const IconStats = ({ active }) => (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={active ? 'var(--accent)' : 'var(--text2)'} strokeWidth={active ? 2.2 : 1.8} strokeLinecap="round" strokeLinejoin="round">
     <line x1="18" y1="20" x2="18" y2="10"/>
     <line x1="12" y1="20" x2="12" y2="4"/>
-    <line x1="6" y1="20" x2="6" y2="14"/>
+    <line x1="6"  y1="20" x2="6"  y2="14"/>
   </svg>
 )
 
