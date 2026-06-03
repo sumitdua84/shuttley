@@ -95,9 +95,10 @@ export default function ProfilePage() {
             }}>
               {avatarUrl
                 ? <img src={avatarUrl} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                : <span style={{ fontSize: 36, color: 'var(--accent)' }}>
-                    {(profile?.full_name || user?.email || '?')[0].toUpperCase()}
-                  </span>
+                : <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--text2)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="8" r="4"/>
+                    <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+                  </svg>
               }
             </div>
             <button
