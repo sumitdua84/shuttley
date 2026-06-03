@@ -582,9 +582,7 @@ export default function ModeratorDashboard() {
           <div style={{ fontFamily:"'Plus Jakarta Sans',sans-serif", fontSize:17, fontWeight:600 }}>{club?.name}</div>
           <div style={{ fontSize:11, color:'var(--accent)', fontWeight:600 }}>Admin</div>
         </div>
-        <button onClick={copyInviteLink} style={{ background:'none',border:'none',color:'var(--text2)',cursor:'pointer',fontSize:20,padding:0 }} title="Copy invite link">
-          {linkCopied ? '✔' : '🔗'}
-        </button>
+        <div style={{ width: 40 }} />
       </div>
 
       {/* Tab content */}

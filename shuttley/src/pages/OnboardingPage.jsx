@@ -162,7 +162,7 @@ export default function OnboardingPage() {
             <div className="topnav-tagline">Your Game, Quantified</div>
           </div>
         </div>
-        <button className="avatar-btn" onClick={signOut} title="Sign out">
+        <button className="avatar-btn" onClick={() => navigate('/profile')} title="My profile">
           {avatar
             ? <img src={avatar} alt="avatar" />
             : <div style={{ width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--accent)',fontSize:14,fontWeight:600 }}>{name[0].toUpperCase()}</div>
