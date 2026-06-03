@@ -5,7 +5,7 @@ const IconClubs = ({ active }) => (
   <img
     src="/maskable-icon-512x512.png"
     alt="Clubs"
-    style={{ width: 28, height: 28, objectFit: 'cover', borderRadius: '50%', opacity: active ? 1 : 0.45 }}
+    style={{ width: 28, height: 28, objectFit: 'cover', borderRadius: '50%', opacity: active ? 1 : 1, filter: active ? 'none' : 'grayscale(0.4) opacity(0.55) sepia(0.3)' }}
   />
 )
 
