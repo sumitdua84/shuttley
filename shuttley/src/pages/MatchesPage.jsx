@@ -363,6 +363,15 @@ export default function MatchesPage() {
     navigate(`/club/${clubId}/session/${sId}/rotation`)
   }
 
+  async function deleteMatch(mId) {
+    if (!confirm('Delete this match? This cannot be undone.')) return
+    await supabase.from('match_players').delete().eq('match_id', mId)
+    const { error } = await supabase.from('matches').delete().eq('id', mId)
+    if (error) { showToast('Error deleting match'); return }
+    showToast('Match deleted')
+    fetchAll()
+  }
+
   async function deleteSession(sId) {
     if (!confirm('Delete this session? This cannot be undone.')) return
     await supabase.from('rotation_matches').delete().eq('session_id', sId)
@@ -474,6 +483,16 @@ export default function MatchesPage() {
                           flex:1, fontSize:13, fontWeight:400, color:'var(--text2)',
                           textAlign:'right', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'
                         }}>{loserNames}</div>
+                        {isModerator && (
+                          <button
+                            onClick={() => deleteMatch(match.id)}
+                            style={{
+                              background:'none', border:'none', cursor:'pointer',
+                              color:'var(--text3)', fontSize:16, padding:'0 2px', flexShrink:0,
+                              lineHeight:1
+                            }}
+                            title="Delete match">🗑</button>
+                        )}
                       </div>
                       {badge && (
                         <div style={{ marginTop:3, textAlign:'right' }}>
