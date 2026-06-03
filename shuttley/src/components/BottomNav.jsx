@@ -1,12 +1,13 @@
 import { useNavigate } from 'react-router-dom'
 
-// Shuttley logo image for Clubs tab
 const IconClubs = ({ active }) => (
-  <img
-    src="/maskable-icon-512x512.png"
-    alt="Clubs"
-    style={{ width: 28, height: 28, objectFit: 'cover', borderRadius: '50%', opacity: active ? 1 : 1, filter: active ? 'none' : 'grayscale(0.4) opacity(0.55) sepia(0.3)' }}
-  />
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={active ? 'var(--accent)' : 'var(--text2)'} strokeWidth={active ? 2.2 : 1.8} strokeLinecap="round" strokeLinejoin="round">
+    <path d="M8 21h8M12 17v4"/>
+    <path d="M5 4h14v7a7 7 0 0 1-14 0V4z"/>
+    <path d="M5 7H2a3 3 0 0 0 3 3"/>
+    <path d="M19 7h3a3 3 0 0 1-3 3"/>
+    <line x1="8" y1="21" x2="16" y2="21"/>
+  </svg>
 )
 
 // House icon for Home tab
