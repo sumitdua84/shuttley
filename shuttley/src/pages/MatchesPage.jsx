@@ -1106,6 +1106,12 @@ export default function MatchesPage() {
                             </div>
                             <div style={{ flex:1, fontSize:13, color:'var(--text2)', textAlign:'right', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{loserNames}</div>
                             {badge && <span style={{ fontSize:10, color:badge.color, flexShrink:0 }}>{badge.label}</span>}
+                            {isModerator && (
+                              <button
+                                onClick={e => { e.stopPropagation(); deleteMatch(match.id) }}
+                                style={{ background:'none', border:'none', cursor:'pointer', color:'var(--text3)', fontSize:15, padding:'0 2px', flexShrink:0, lineHeight:1 }}
+                                title="Delete match">🗑</button>
+                            )}
                           </div>
                         )
                       })}
