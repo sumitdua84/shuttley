@@ -38,7 +38,6 @@ export default function BottomNav({ clubId, activeTab }) {
   const tabs = [
     { id: 'clubs', label: 'Clubs', Icon: IconClubs, action: () => navigate('/') },
     { id: 'home',  label: 'Home',  Icon: IconHome,  action: () => clubId && navigate(`/club/${clubId}/member`) },
-    { id: 'stats', label: 'Stats', Icon: IconStats, action: () => clubId && navigate(`/club/${clubId}/matches?tab=stats`) },
     { id: 'me',    label: 'Me',    Icon: IconMe,    action: () => navigate(clubId ? `/profile?clubId=${clubId}` : '/profile') },
   ]
 
