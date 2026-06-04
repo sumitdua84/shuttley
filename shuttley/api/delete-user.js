@@ -31,21 +31,27 @@ export default async function handler(req, res) {
   )
 
   try {
-    // Clean up all references to this user before deleting auth user
-    const steps = [
-      admin.from('poll_responses').delete().eq('user_id', userId),
-      admin.from('chat_members').delete().eq('user_id', userId),
-      admin.from('chat_messages').delete().eq('sender_id', userId),
-      admin.from('match_players').delete().eq('user_id', userId),
-      admin.from('memberships').delete().eq('user_id', userId),
-    ]
-    for (const step of steps) {
-      const { error: e } = await step
-      if (e) console.log('[delete-user] cleanup error:', e.message)
-    }
-    await admin.from('profiles').delete().eq('id', userId)
+    console.log('[delete-user] starting cleanup for', userId)
 
-    // Now delete the auth user
+    const r1 = await admin.from('poll_responses').delete().eq('user_id', userId)
+    console.log('[delete-user] poll_responses:', r1.error?.message || 'ok')
+
+    const r2 = await admin.from('chat_members').delete().eq('user_id', userId)
+    console.log('[delete-user] chat_members:', r2.error?.message || 'ok')
+
+    const r3 = await admin.from('chat_messages').delete().eq('sender_id', userId)
+    console.log('[delete-user] chat_messages:', r3.error?.message || 'ok')
+
+    const r4 = await admin.from('match_players').delete().eq('user_id', userId)
+    console.log('[delete-user] match_players:', r4.error?.message || 'ok')
+
+    const r5 = await admin.from('memberships').delete().eq('user_id', userId)
+    console.log('[delete-user] memberships:', r5.error?.message || 'ok')
+
+    const r6 = await admin.from('profiles').delete().eq('id', userId)
+    console.log('[delete-user] profiles:', r6.error?.message || 'ok')
+
+    console.log('[delete-user] deleting auth user...')
     const { error } = await admin.auth.admin.deleteUser(userId)
     if (error) return res.status(500).json({ error: `Auth delete failed: ${error.message}` })
 
