@@ -131,7 +131,7 @@ export default function AdminDashboard() {
     const { data, error } = await supabase
       .from('account_deletion_requests')
       .select('*')
-    console.log('[Deletions] data:', data, 'error:', error)
+      .order('requested_at', { ascending: false })
     setDeletionRequests(data || [])
   }
 
@@ -415,7 +415,7 @@ export default function AdminDashboard() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
                   <div>
                     <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 2 }}>{d.anonymised_name || d.email}</div>
-                    <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 4 }}>{d.email} · {fmt(d.created_at)}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 4 }}>{d.email} · {fmt(d.requested_at)}</div>
                     <span style={{
                       fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 99,
                       background: d.status === 'completed' ? 'var(--success-dim)' : 'var(--danger-dim)',
