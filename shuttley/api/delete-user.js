@@ -52,8 +52,14 @@ export default async function handler(req, res) {
     console.log('[delete-user] profiles:', r6.error?.message || 'ok')
 
     console.log('[delete-user] deleting auth user...')
-    const { error } = await admin.auth.admin.deleteUser(userId)
-    if (error) return res.status(500).json({ error: `Auth delete failed: ${error.message}` })
+    const { data: existingUser } = await admin.auth.admin.getUserById(userId)
+    if (!existingUser?.user) {
+      console.log('[delete-user] auth user already deleted, skipping')
+    } else {
+      const { error } = await admin.auth.admin.deleteUser(userId)
+      console.log('[delete-user] auth delete result:', error?.message || 'ok')
+      if (error) return res.status(500).json({ error: `Auth delete failed: ${error.message}` })
+    }
 
     // Mark request as completed
     if (requestId) {
