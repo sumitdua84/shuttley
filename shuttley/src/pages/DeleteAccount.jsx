@@ -36,8 +36,12 @@ export default function DeleteAccount() {
         avatar_url: null,
       }).eq('id', user.id)
 
-      // 2. Remove all club memberships
-      await supabase.from('memberships').delete().eq('user_id', user.id)
+      // 2. Remove all club memberships — try delete, fallback to status update
+      const { error: memErr } = await supabase.from('memberships').delete().eq('user_id', user.id)
+      if (memErr) {
+        // RLS may block delete — mark as deleted instead
+        await supabase.from('memberships').update({ status: 'deleted' }).eq('user_id', user.id)
+      }
 
       // 3. Anonymise chat messages — replace content but keep for history
       await supabase.from('chat_messages')

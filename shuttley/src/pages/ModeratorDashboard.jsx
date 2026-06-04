@@ -570,7 +570,7 @@ export default function ModeratorDashboard() {
   if (loading) return <div className="splash"><div className="splash-logo">S</div></div>
 
   const pending = members.filter(m => m.status === 'pending')
-  const approved = members.filter(m => m.status === 'approved')
+  const approved = members.filter(m => m.status === 'approved' && !m.profiles?.full_name?.startsWith('deleted_'))
   const alertCount = disputedMatches.length + pendingMatches.length
 
   return (
@@ -946,11 +946,11 @@ export default function ModeratorDashboard() {
                   <div className="member-avatar">
                     {m.profiles?.avatar_url
                       ? <img src={m.profiles.avatar_url} alt="" />
-                      : <div className="member-avatar-init">{(m.profiles?.full_name||'?')[0]}</div>
+                      : <div className="member-avatar-init">{(m.profiles?.full_name||'?')[0].toUpperCase()}</div>
                     }
                   </div>
                   <div className="member-info">
-                    <div className="member-name">{m.profiles?.full_name || 'Unknown'}</div>
+                    <div className="member-name" style={{ color: m.profiles?.full_name?.startsWith('deleted_') ? 'var(--text3)' : 'var(--text)', fontStyle: m.profiles?.full_name?.startsWith('deleted_') ? 'italic' : 'normal' }}>{m.profiles?.full_name || '?'}</div>
                     <div className="member-meta">{m.profiles?.id?.substring(0,8)}…</div>
                   </div>
                 </div>
@@ -980,7 +980,7 @@ export default function ModeratorDashboard() {
                   {m.role === 'moderator' && <span style={{ fontStyle:'italic', fontWeight:400, color:'var(--accent)', fontSize:12 }}> (mod)</span>}
                 </div>
                 <div style={{ display:'flex', gap:6, flexShrink:0 }}>
-                  {m.role !== 'moderator' && <button className="btn btn-ghost btn-sm" onClick={() => promoteMod(m.id)} style={{ padding:'4px 10px', fontSize:11 }}>Make Admin</button>}
+                  {m.role !== 'moderator' && !m.profiles?.full_name?.startsWith('deleted_') && <button className="btn btn-ghost btn-sm" onClick={() => promoteMod(m.id)} style={{ padding:'4px 10px', fontSize:11 }}>Make Admin</button>}
                   {m.role === 'moderator' && m.user_id !== user.id && <button className="btn btn-ghost btn-sm" onClick={() => demoteMod(m.id)} style={{ padding:'4px 10px', fontSize:11 }}>Remove Admin</button>}
                   {m.user_id !== user.id && <button className="btn btn-danger btn-sm" onClick={() => removeMember(m.id)} style={{ padding:'4px 10px', fontSize:11 }}>Remove</button>}
                 </div>
