@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+// v2
 
 const SUPER_ADMINS = ['sumit@shuttley.club', 'sumitdua84@gmail.com']
 
