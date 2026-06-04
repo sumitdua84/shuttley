@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 
-const SUPER_ADMINS = ['sumit@shuttley.club']
+const SUPER_ADMINS = ['sumit@shuttley.club', 'sumitdua84@gmail.com']
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).end()
