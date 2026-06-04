@@ -26,6 +26,10 @@ export default async function handler(req, res) {
     process.env.SUPABASE_SERVICE_ROLE_KEY
   )
 
+  // Delete profile and memberships first to avoid foreign key constraint errors
+  await admin.from('memberships').delete().eq('user_id', userId)
+  await admin.from('profiles').delete().eq('id', userId)
+
   const { error } = await admin.auth.admin.deleteUser(userId)
   if (error) return res.status(500).json({ error: error.message })
 
