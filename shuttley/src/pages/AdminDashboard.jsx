@@ -131,7 +131,6 @@ export default function AdminDashboard() {
     const { data, error } = await supabase
       .from('account_deletion_requests')
       .select('*')
-      .order('created_at', { ascending: false })
     console.log('[Deletions] data:', data, 'error:', error)
     setDeletionRequests(data || [])
   }
