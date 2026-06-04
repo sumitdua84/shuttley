@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
 import { usePushNotifications } from '../hooks/usePushNotifications'
+import BottomNav from '../components/BottomNav'
 
 const SUPER_ADMINS = ['sumit@shuttley.club']
 
@@ -809,6 +810,7 @@ export default function ChatPage() {
           </div>
         </div>
       )}
+      <BottomNav clubId={clubId} activeTab="home" />
     </div>
   )
 }

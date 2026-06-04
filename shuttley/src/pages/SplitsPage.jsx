@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
+import BottomNav from '../components/BottomNav'
 
 const SPLIT_TYPES = [
   { key: 'equal',      label: 'Equal',      icon: '⚖️' },
@@ -938,31 +939,7 @@ export default function SplitsPage() {
 
       {toast && <div className="toast">{toast}</div>}
 
-      {/* ── Bottom tab bar ── */}
-      {(() => {
-        const basePath = `/club/${clubId}/${userRole === 'moderator' ? 'mod' : 'member'}`
-        const tabs = userRole === 'moderator'
-          ? [
-              { id: 'home',     label: 'Home'     },
-              { id: 'members',  label: 'Members'  },
-              { id: 'sessions', label: 'Session'  },
-              { id: 'settings', label: 'Settings' },
-            ]
-          : [
-              { id: 'home',    label: 'Home'    },
-              { id: 'members', label: 'Members' },
-            ]
-        return (
-          <div className="tabbar">
-            {tabs.map(t => (
-              <button key={t.id} className="tab"
-                onClick={() => navigate(`${basePath}?tab=${t.id}`)}>
-                <span>{t.label}</span>
-              </button>
-            ))}
-          </div>
-        )
-      })()}
+      <BottomNav clubId={clubId} activeTab="home" />
     </div>
   )
 }
