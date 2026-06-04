@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js'
 const SUPER_ADMINS = ['sumit@shuttley.club', 'sumitdua84@gmail.com']
 
 export default async function handler(req, res) {
-  console.log('[delete-user] called', req.method, JSON.stringify(req.body))
+  console.log('[delete-user] called', req.method)
   if (req.method !== 'POST') return res.status(405).end()
 
   const token = req.headers.authorization?.replace('Bearer ', '')
@@ -22,8 +22,8 @@ export default async function handler(req, res) {
 
   let body = req.body
   if (typeof body === 'string') { try { body = JSON.parse(body) } catch { body = {} } }
-  const { userId, requestId } = body || {}
-  if (!userId) return res.status(400).json({ error: 'Missing userId', body: JSON.stringify(body) })
+  const { userId, requestId, anonymisedName } = body || {}
+  if (!userId) return res.status(400).json({ error: 'Missing userId' })
 
   const admin = createClient(
     process.env.SUPABASE_URL,
@@ -31,58 +31,34 @@ export default async function handler(req, res) {
   )
 
   try {
-    console.log('[delete-user] starting cleanup for', userId)
+    const anonName = anonymisedName || 'deleted_user'
+    const anonEmail = `${anonName}@deleted.com`
 
-    const cleanups = [
-      ['poll_responses',    admin.from('poll_responses').delete().eq('user_id', userId)],
-      ['chat_members',      admin.from('chat_members').delete().eq('user_id', userId)],
-      ['chat_messages',     admin.from('chat_messages').delete().eq('sender_id', userId)],
-      ['match_players',     admin.from('match_players').delete().eq('user_id', userId)],
-      ['memberships',       admin.from('memberships').delete().eq('user_id', userId)],
-      ['splits_participants',admin.from('splits_participants').delete().eq('user_id', userId)],
-      ['splits_expenses_paid', admin.from('splits_expenses').update({ paid_by: null }).eq('paid_by', userId)],
-      ['splits_expenses_created', admin.from('splits_expenses').update({ created_by: null }).eq('created_by', userId)],
-      ['session_polls',     admin.from('session_polls').update({ created_by: null }).eq('created_by', userId)],
-      ['rotation_matches',  admin.from('rotation_matches').update({ created_by: null }).eq('created_by', userId)],
-      ['match_edit_log',    admin.from('match_edit_log').delete().eq('user_id', userId)],
-      ['matches_recorded',  admin.from('matches').update({ recorded_by: null }).eq('recorded_by', userId)],
-      ['matches_confirmed', admin.from('matches').update({ confirmed_by: null }).eq('confirmed_by', userId)],
-      ['sessions_started',  admin.from('sessions').update({ started_by: null }).eq('started_by', userId)],
-      // Keep profile as tombstone so match history shows deleted_sd instead of Unknown
-    ]
+    // 1. Anonymise the profile
+    await admin.from('profiles').update({
+      full_name: anonName,
+      alias: null,
+      avatar_url: null,
+    }).eq('id', userId)
+    console.log('[delete-user] profile anonymised')
 
-    for (const [name, query] of cleanups) {
-      const { error: e } = await query
-      console.log(`[delete-user] ${name}:`, e?.message || 'ok')
-    }
+    // 2. Change auth email so they can't log in
+    const { error: authErr } = await admin.auth.admin.updateUserById(userId, {
+      email: anonEmail,
+      password: Math.random().toString(36) + Math.random().toString(36), // random unrecoverable password
+      email_confirm: true,
+    })
+    if (authErr) console.log('[delete-user] auth update error:', authErr.message)
+    else console.log('[delete-user] auth email changed to', anonEmail)
 
-    // Delete storage files owned by this user
-    const { data: storageFiles } = await admin.storage.from('avatars').list(userId)
-    if (storageFiles?.length) {
-      const paths = storageFiles.map(f => `${userId}/${f.name}`)
-      await admin.storage.from('avatars').remove(paths)
-      console.log('[delete-user] avatars storage:', paths.length, 'files removed')
-    }
-    // Also try single avatar file pattern
-    await admin.storage.from('avatars').remove([`avatars/${userId}`])
-
-    console.log('[delete-user] deleting auth user...')
-    const { data: existingUser } = await admin.auth.admin.getUserById(userId)
-    if (!existingUser?.user) {
-      console.log('[delete-user] auth user already deleted, skipping')
-    } else {
-      const { error } = await admin.auth.admin.deleteUser(userId)
-      console.log('[delete-user] auth delete result:', error?.message || 'ok')
-      if (error) return res.status(500).json({ error: `Auth delete failed: ${error.message}` })
-    }
-
-    // Mark request as completed
+    // 3. Mark deletion request as completed
     if (requestId) {
       await admin.from('account_deletion_requests').update({ status: 'completed' }).eq('id', requestId)
     }
 
     return res.status(200).json({ success: true })
   } catch (e) {
+    console.log('[delete-user] error:', e.message)
     return res.status(500).json({ error: e.message })
   }
 }
