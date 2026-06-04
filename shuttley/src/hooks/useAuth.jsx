@@ -39,7 +39,7 @@ export function AuthProvider({ children }) {
     const redirectTo = isIOSApp
       ? 'com.googleusercontent.apps.9950019459-rf4sunsd8q5741qf81sfiorhatp5v9rs://oauth2redirect'
       : `${window.location.origin}/auth/callback`
-    await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo } })
+    await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo, queryParams: { prompt: 'select_account' } } })
   }
 
   async function signUpWithEmail(email, password) {
