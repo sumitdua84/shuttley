@@ -47,6 +47,7 @@ export default function DeleteAccount() {
       // 4. Log deletion request for admin
       await supabase.from('account_deletion_requests').insert({
         email: user.email,
+        user_id: user.id,
         anonymised_name: anonName,
         status: 'pending',
       })

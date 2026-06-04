@@ -140,6 +140,25 @@ export default function AdminDashboard() {
     fetchDeletionRequests()
   }
 
+  async function confirmDelete(request) {
+    if (!confirm(`Permanently delete auth user ${request.email}? This cannot be undone.`)) return
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-user`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ userId: request.user_id, requestId: request.id })
+    })
+    const data = await res.json()
+    if (data.success) {
+      fetchDeletionRequests()
+    } else {
+      alert('Error: ' + (data.error || 'Unknown error'))
+    }
+  }
+
   useEffect(() => { if (tab === 'deletions') fetchDeletionRequests() }, [tab])
 
   const TABS = ['clubs', 'users', 'activity', 'broadcast', 'deletions']
@@ -405,17 +424,11 @@ export default function AdminDashboard() {
                   </div>
                   {d.status === 'pending' && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
-                      <a
-                        href={`https://supabase.com/dashboard/project/wuvwvrgxbfcyhqsyoswd/auth/users`}
-                        target="_blank" rel="noreferrer"
-                        style={{ fontSize: 12, color: 'var(--accent)', textDecoration: 'underline' }}>
-                        Delete in Supabase →
-                      </a>
                       <button
-                        onClick={() => markDeletionDone(d.id)}
-                        className="btn btn-primary btn-sm"
-                        style={{ fontSize: 11 }}>
-                        Mark Done
+                        onClick={() => confirmDelete(d)}
+                        className="btn btn-danger btn-sm"
+                        style={{ fontSize: 12 }}>
+                        🗑 Confirm Delete
                       </button>
                     </div>
                   )}
