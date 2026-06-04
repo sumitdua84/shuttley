@@ -343,7 +343,7 @@ export default function AdminDashboard() {
                       {clubs.find(c => c.id === s.club_id)?.name || 'Unknown club'}
                     </div>
                     <div style={{ fontSize: 12, color: 'var(--text3)' }}>
-                      {s.name || 'Session'} · {s.match_type || 'doubles'} ·{' '}
+                      {s.name || 'Session'} · {s.match_type || 'doubles'} · {fmt(s.started_at)} ·{' '}
                       <span style={{ color: s.status === 'active' ? 'var(--accent)' : 'var(--text3)' }}>
                         {s.status === 'active' ? '🟢 Live' : '✅ Ended'}
                       </span>

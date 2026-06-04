@@ -26,7 +26,7 @@ export default async function handler(req, res) {
     admin.from('clubs').select('*').order('created_at', { ascending: false }),
     admin.from('profiles').select('*').order('created_at', { ascending: false }),
     admin.from('memberships').select('club_id, user_id, role, status'),
-    admin.from('sessions').select('id, name, status, match_type, created_at, club_id').order('created_at', { ascending: false }).limit(50),
+    admin.from('sessions').select('id, name, status, match_type, started_at, club_id').order('started_at', { ascending: false }).limit(50),
     admin.from('matches').select('id', { count: 'exact', head: true }),
     admin.from('club_features').select('*'),
   ])
