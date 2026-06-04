@@ -33,23 +33,28 @@ export default async function handler(req, res) {
   try {
     console.log('[delete-user] starting cleanup for', userId)
 
-    const r1 = await admin.from('poll_responses').delete().eq('user_id', userId)
-    console.log('[delete-user] poll_responses:', r1.error?.message || 'ok')
+    const cleanups = [
+      ['poll_responses',    admin.from('poll_responses').delete().eq('user_id', userId)],
+      ['chat_members',      admin.from('chat_members').delete().eq('user_id', userId)],
+      ['chat_messages',     admin.from('chat_messages').delete().eq('sender_id', userId)],
+      ['match_players',     admin.from('match_players').delete().eq('user_id', userId)],
+      ['memberships',       admin.from('memberships').delete().eq('user_id', userId)],
+      ['splits_participants',admin.from('splits_participants').delete().eq('user_id', userId)],
+      ['splits_expenses_paid', admin.from('splits_expenses').delete().eq('paid_by', userId)],
+      ['splits_expenses_created', admin.from('splits_expenses').delete().eq('created_by', userId)],
+      ['session_polls',     admin.from('session_polls').delete().eq('created_by', userId)],
+      ['rotation_matches',  admin.from('rotation_matches').delete().eq('created_by', userId)],
+      ['match_edit_log',    admin.from('match_edit_log').delete().eq('user_id', userId)],
+      ['matches_recorded',  admin.from('matches').update({ recorded_by: null }).eq('recorded_by', userId)],
+      ['matches_confirmed', admin.from('matches').update({ confirmed_by: null }).eq('confirmed_by', userId)],
+      ['sessions_started',  admin.from('sessions').update({ started_by: null }).eq('started_by', userId)],
+      ['profiles',          admin.from('profiles').delete().eq('id', userId)],
+    ]
 
-    const r2 = await admin.from('chat_members').delete().eq('user_id', userId)
-    console.log('[delete-user] chat_members:', r2.error?.message || 'ok')
-
-    const r3 = await admin.from('chat_messages').delete().eq('sender_id', userId)
-    console.log('[delete-user] chat_messages:', r3.error?.message || 'ok')
-
-    const r4 = await admin.from('match_players').delete().eq('user_id', userId)
-    console.log('[delete-user] match_players:', r4.error?.message || 'ok')
-
-    const r5 = await admin.from('memberships').delete().eq('user_id', userId)
-    console.log('[delete-user] memberships:', r5.error?.message || 'ok')
-
-    const r6 = await admin.from('profiles').delete().eq('id', userId)
-    console.log('[delete-user] profiles:', r6.error?.message || 'ok')
+    for (const [name, query] of cleanups) {
+      const { error: e } = await query
+      console.log(`[delete-user] ${name}:`, e?.message || 'ok')
+    }
 
     console.log('[delete-user] deleting auth user...')
     const { data: existingUser } = await admin.auth.admin.getUserById(userId)
