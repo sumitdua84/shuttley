@@ -56,6 +56,16 @@ export default async function handler(req, res) {
       console.log(`[delete-user] ${name}:`, e?.message || 'ok')
     }
 
+    // Delete storage files owned by this user
+    const { data: storageFiles } = await admin.storage.from('avatars').list(userId)
+    if (storageFiles?.length) {
+      const paths = storageFiles.map(f => `${userId}/${f.name}`)
+      await admin.storage.from('avatars').remove(paths)
+      console.log('[delete-user] avatars storage:', paths.length, 'files removed')
+    }
+    // Also try single avatar file pattern
+    await admin.storage.from('avatars').remove([`avatars/${userId}`])
+
     console.log('[delete-user] deleting auth user...')
     const { data: existingUser } = await admin.auth.admin.getUserById(userId)
     if (!existingUser?.user) {
