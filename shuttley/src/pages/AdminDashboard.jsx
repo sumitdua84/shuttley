@@ -143,14 +143,11 @@ export default function AdminDashboard() {
   async function confirmDelete(request) {
     if (!confirm(`Permanently delete auth user ${request.email}? This cannot be undone.`)) return
     const { data: { session } } = await supabase.auth.getSession()
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://wuvwvrgxbfcyhqsyoswd.supabase.co'
-    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-    const res = await fetch(`${supabaseUrl}/functions/v1/delete-user`, {
+    const res = await fetch('/api/delete-user', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${session.access_token}`,
-        'apikey': supabaseAnonKey,
       },
       body: JSON.stringify({ userId: request.user_id, requestId: request.id })
     })
