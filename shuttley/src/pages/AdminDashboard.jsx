@@ -128,10 +128,11 @@ export default function AdminDashboard() {
   const [deletionRequests, setDeletionRequests] = useState([])
 
   async function fetchDeletionRequests() {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('account_deletion_requests')
       .select('*')
       .order('created_at', { ascending: false })
+    console.log('[Deletions] data:', data, 'error:', error)
     setDeletionRequests(data || [])
   }
 
