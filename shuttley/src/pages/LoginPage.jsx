@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../hooks/useAuth'
+import { supabase } from '../lib/supabase'
 
 export default function LoginPage() {
   const { signInWithGoogle, signInWithEmail, signUpWithEmail, resetPassword } = useAuth()
@@ -11,6 +12,7 @@ export default function LoginPage() {
   // view: 'main' | 'signin' | 'signup' | 'forgot'
   const [view, setView] = useState('main')
   const [email, setEmail] = useState('')
+  const [fullName, setFullName] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -56,13 +58,18 @@ export default function LoginPage() {
   async function handleSignUp(e) {
     e.preventDefault()
     setError('')
+    if (!fullName.trim()) { setError('Please enter your full name'); return }
     if (password !== confirmPassword) { setError('Passwords do not match'); return }
     if (password.length < 6) { setError('Password must be at least 6 characters'); return }
     setLoading(true)
-    const { error } = await signUpWithEmail(email, password)
+    const { data, error } = await signUpWithEmail(email, password)
+    if (error) { setError(error.message); setLoading(false); return }
+    // Save name to profile immediately
+    if (data?.user) {
+      await supabase.from('profiles').upsert({ id: data.user.id, full_name: fullName.trim() })
+    }
     setLoading(false)
-    if (error) setError(error.message)
-    else setMessage('Check your email for a confirmation link!')
+    setMessage('Check your email for a confirmation link!')
   }
 
   async function handleForgot(e) {
@@ -183,6 +190,7 @@ export default function LoginPage() {
               <button onClick={() => switchView('main')} style={{ ...btnPrimary }}>Back to Sign In</button>
             </div>
           : <form onSubmit={handleSignUp} style={{ width:'100%' }}>
+              <input style={inputStyle} type="text" placeholder="Full name *" value={fullName} onChange={e => setFullName(e.target.value)} required />
               <input style={inputStyle} type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required />
               <input style={inputStyle} type="password" placeholder="Password (min 6 characters)" value={password} onChange={e => setPassword(e.target.value)} required />
               <input style={inputStyle} type="password" placeholder="Confirm password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required />
