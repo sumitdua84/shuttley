@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 const SUPER_ADMINS = ['sumit@shuttley.club', 'sumitdua84@gmail.com']
 
 export default async function handler(req, res) {
+  console.log('[delete-user] called', req.method, JSON.stringify(req.body))
   if (req.method !== 'POST') return res.status(405).end()
 
   const token = req.headers.authorization?.replace('Bearer ', '')
