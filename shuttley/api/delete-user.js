@@ -18,8 +18,10 @@ export default async function handler(req, res) {
 
   if (!SUPER_ADMINS.includes(email)) return res.status(403).json({ error: 'Forbidden' })
 
-  const { userId, requestId } = req.body
-  if (!userId) return res.status(400).json({ error: 'Missing userId' })
+  let body = req.body
+  if (typeof body === 'string') { try { body = JSON.parse(body) } catch { body = {} } }
+  const { userId, requestId } = body || {}
+  if (!userId) return res.status(400).json({ error: 'Missing userId', body: JSON.stringify(body) })
 
   const admin = createClient(
     process.env.SUPABASE_URL,
