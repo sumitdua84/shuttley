@@ -125,7 +125,24 @@ export default function AdminDashboard() {
     return new Date(dateStr).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: '2-digit' })
   }
 
-  const TABS = ['clubs', 'users', 'activity', 'broadcast']
+  const [deletionRequests, setDeletionRequests] = useState([])
+
+  async function fetchDeletionRequests() {
+    const { data } = await supabase
+      .from('account_deletion_requests')
+      .select('*')
+      .order('created_at', { ascending: false })
+    setDeletionRequests(data || [])
+  }
+
+  async function markDeletionDone(id) {
+    await supabase.from('account_deletion_requests').update({ status: 'completed' }).eq('id', id)
+    fetchDeletionRequests()
+  }
+
+  useEffect(() => { if (tab === 'deletions') fetchDeletionRequests() }, [tab])
+
+  const TABS = ['clubs', 'users', 'activity', 'broadcast', 'deletions']
 
   return (
     <div className="page" style={{ maxWidth: 800, margin: '0 auto' }}>
@@ -184,7 +201,7 @@ export default function AdminDashboard() {
               background: tab === t ? 'var(--accent)' : 'transparent',
               color: tab === t ? '#fff' : 'var(--text2)',
             }}>
-              {t === 'broadcast' ? '📣 Broadcast' : t.charAt(0).toUpperCase() + t.slice(1)}
+              {t === 'broadcast' ? '📣 Broadcast' : t === 'deletions' ? `🗑 Deletions${deletionRequests.filter(d => d.status === 'pending').length ? ` (${deletionRequests.filter(d => d.status === 'pending').length})` : ''}` : t.charAt(0).toUpperCase() + t.slice(1)}
             </button>
           ))}
         </div>
@@ -366,6 +383,45 @@ export default function AdminDashboard() {
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* ── DELETIONS TAB ── */}
+        {tab === 'deletions' && (
+          <div>
+            <div className="section-label">{deletionRequests.length} deletion requests</div>
+            {deletionRequests.length === 0 && <div className="empty"><p>No deletion requests.</p></div>}
+            {deletionRequests.map(d => (
+              <div key={d.id} className="card" style={{ marginBottom: 8 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 2 }}>{d.anonymised_name || d.email}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 4 }}>{d.email} · {fmt(d.created_at)}</div>
+                    <span style={{
+                      fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 99,
+                      background: d.status === 'completed' ? 'var(--success-dim)' : 'var(--danger-dim)',
+                      color: d.status === 'completed' ? 'var(--success)' : 'var(--danger)',
+                    }}>{d.status === 'completed' ? '✓ Completed' : '⏳ Pending'}</span>
+                  </div>
+                  {d.status === 'pending' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
+                      <a
+                        href={`https://supabase.com/dashboard/project/wuvwvrgxbfcyhqsyoswd/auth/users`}
+                        target="_blank" rel="noreferrer"
+                        style={{ fontSize: 12, color: 'var(--accent)', textDecoration: 'underline' }}>
+                        Delete in Supabase →
+                      </a>
+                      <button
+                        onClick={() => markDeletionDone(d.id)}
+                        className="btn btn-primary btn-sm"
+                        style={{ fontSize: 11 }}>
+                        Mark Done
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
         )}
 
