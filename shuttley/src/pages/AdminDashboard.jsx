@@ -7,7 +7,7 @@ import { usePushNotifications } from '../hooks/usePushNotifications'
 const FEATURES = ['splits', 'chat']
 
 // ── Only these emails can access /admin ──────────────────────────
-const SUPER_ADMINS = ['sumit@shuttley.club']
+const SUPER_ADMINS = ['sumit@shuttley.club', 'sumitdua84@gmail.com']
 
 export default function AdminDashboard() {
   const { user, signOut } = useAuth()
