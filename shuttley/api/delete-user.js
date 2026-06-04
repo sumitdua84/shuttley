@@ -26,16 +26,26 @@ export default async function handler(req, res) {
     process.env.SUPABASE_SERVICE_ROLE_KEY
   )
 
-  // Delete profile and memberships first to avoid foreign key constraint errors
-  await admin.from('memberships').delete().eq('user_id', userId)
-  await admin.from('profiles').delete().eq('id', userId)
+  try {
+    // Clean up all references to this user before deleting auth user
+    await admin.from('poll_responses').delete().eq('user_id', userId)
+    await admin.from('chat_members').delete().eq('user_id', userId)
+    await admin.from('chat_messages').delete().eq('sender_id', userId)
+    await admin.from('match_players').delete().eq('user_id', userId)
+    await admin.from('memberships').delete().eq('user_id', userId)
+    await admin.from('profiles').delete().eq('id', userId)
 
-  const { error } = await admin.auth.admin.deleteUser(userId)
-  if (error) return res.status(500).json({ error: error.message })
+    // Now delete the auth user
+    const { error } = await admin.auth.admin.deleteUser(userId)
+    if (error) return res.status(500).json({ error: error.message })
 
-  if (requestId) {
-    await admin.from('account_deletion_requests').update({ status: 'completed' }).eq('id', requestId)
+    // Mark request as completed
+    if (requestId) {
+      await admin.from('account_deletion_requests').update({ status: 'completed' }).eq('id', requestId)
+    }
+
+    return res.status(200).json({ success: true })
+  } catch (e) {
+    return res.status(500).json({ error: e.message })
   }
-
-  return res.status(200).json({ success: true })
 }
