@@ -225,6 +225,13 @@ export default function ProfilePage() {
           Sign Out
         </button>
 
+        {/* Delete account */}
+        <button
+          onClick={() => navigate('/delete-account')}
+          style={{ background: 'none', border: 'none', color: 'var(--text3)', fontSize: 12, cursor: 'pointer', marginTop: 8, textDecoration: 'underline' }}>
+          Delete Account
+        </button>
+
       </div>
 
       {toast && <div className="toast">{toast}</div>}
