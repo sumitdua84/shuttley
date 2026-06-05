@@ -50,8 +50,11 @@ export function AuthProvider({ children }) {
     await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo, queryParams: { prompt: 'select_account' } } })
   }
 
-  async function signUpWithEmail(email, password) {
-    const { data, error } = await supabase.auth.signUp({ email, password })
+  async function signUpWithEmail(email, password, fullName) {
+    const { data, error } = await supabase.auth.signUp({
+      email, password,
+      options: { data: { full_name: fullName } },
+    })
     return { data, error }
   }
 

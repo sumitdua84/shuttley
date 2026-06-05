@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../hooks/useAuth'
-import { supabase } from '../lib/supabase'
 
 export default function LoginPage() {
   const { signInWithGoogle, signInWithEmail, signUpWithEmail, resetPassword } = useAuth()
@@ -64,12 +63,9 @@ export default function LoginPage() {
     if (password !== confirmPassword) { setError('Passwords do not match'); return }
     if (password.length < 6) { setError('Password must be at least 6 characters'); return }
     setLoading(true)
-    const { data, error } = await signUpWithEmail(email, password)
+    const fullName = `${firstName.trim()} ${lastName.trim()}`
+    const { error } = await signUpWithEmail(email, password, fullName)
     if (error) { setError(error.message); setLoading(false); return }
-    if (data?.user) {
-      const fullName = `${firstName.trim()} ${lastName.trim()}`
-      await supabase.from('profiles').upsert({ id: data.user.id, full_name: fullName })
-    }
     setLoading(false)
     setMessage('Check your email for a confirmation link!')
   }

@@ -40,7 +40,7 @@ export default function ProfilePage() {
 
   async function saveProfile() {
     setSaving(true)
-    await supabase.from('profiles').update({ full_name: fullName, alias }).eq('id', user.id)
+    await supabase.from('profiles').upsert({ id: user.id, full_name: fullName, alias })
     setSaving(false)
     setEditing(false)
     showToast('Profile saved')
