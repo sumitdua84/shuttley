@@ -788,6 +788,23 @@ export default function ModeratorDashboard() {
                     <span style={{ fontSize:16, color:'var(--text)', marginLeft:8, flexShrink:0 }}>›</span>
                   </div>
                 ) : null}
+
+                  {/* ── Members tile ── */}
+                  {(() => {
+                    const regularCount = approved.filter(m => !m.is_guest).length
+                    const guestCount   = approved.filter(m => m.is_guest).length
+                    return (
+                      <div onClick={() => changeTab('members')}
+                        style={{ ...tileStyle, animationDelay:'475ms' }}>
+                        <div style={{ fontSize:12, fontWeight:700, letterSpacing:'0.06em', textTransform:'uppercase', color:'var(--text)', width:76, flexShrink:0 }}>Members</div>
+                        <div style={{ flex:1, textAlign:'center' }}>
+                          <div style={{ fontSize:13, fontWeight:600, color:'var(--text)', lineHeight:1.3 }}>{regularCount} member{regularCount !== 1 ? 's' : ''}</div>
+                          <div style={{ fontSize:11, color:'var(--text3)', marginTop:2, minHeight:15 }}>{guestCount > 0 ? `+ ${guestCount} guest${guestCount !== 1 ? 's' : ''}` : 'No guests'}</div>
+                        </div>
+                        <span style={{ fontSize:16, color:'var(--text)', marginLeft:8, flexShrink:0 }}>›</span>
+                      </div>
+                    )
+                  })()}
               </div>
             )
           })()}
