@@ -50,6 +50,10 @@ export function AuthProvider({ children }) {
     await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo, queryParams: { prompt: 'select_account' } } })
   }
 
+  async function signInWithApple() {
+    await supabase.auth.signInWithOAuth({ provider: 'apple', options: { redirectTo: `${window.location.origin}/auth/callback` } })
+  }
+
   async function signUpWithEmail(email, password, fullName) {
     const { data, error } = await supabase.auth.signUp({
       email, password,
@@ -75,7 +79,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signInWithGoogle, signUpWithEmail, signInWithEmail, resetPassword, signOut }}>
+    <AuthContext.Provider value={{ user, profile, loading, signInWithGoogle, signInWithApple, signUpWithEmail, signInWithEmail, resetPassword, signOut }}>
       {children}
     </AuthContext.Provider>
   )
