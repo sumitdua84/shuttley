@@ -729,19 +729,6 @@ export default function ChatPage() {
         </div>
       </div>
 
-      {/* ══ Tab bar ══ */}
-      <div style={{ flexShrink:0, display:'flex', alignItems:'center', justifyContent:'space-around',
-        borderTop:'0.5px solid var(--border)', background:'var(--bg2)',
-        padding:'8px 8px', paddingBottom:'calc(8px + env(safe-area-inset-bottom))' }}>
-        {navTabs.map(t => (
-          <button key={t.id} onClick={() => navigate(`${basePath}?tab=${t.id}`)} style={{
-            flex:1, padding:'8px 4px', background:'none', border:'none', cursor:'pointer',
-            fontSize:12, fontWeight:500, color:'var(--text3)', fontFamily:"'Inter',sans-serif",
-            borderRadius:8,
-          }}>{t.label}</button>
-        ))}
-      </div>
-
       {/* ── New Chat modal ── */}
       {showNewDM && (
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.65)', zIndex:300,
