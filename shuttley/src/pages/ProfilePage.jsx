@@ -15,7 +15,6 @@ export default function ProfilePage() {
   const [club, setClub] = useState(null)
   const [editing, setEditing] = useState(false)
   const [fullName, setFullName] = useState('')
-  const [alias, setAlias] = useState('')
   const [uploading, setUploading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState('')
@@ -28,7 +27,6 @@ export default function ProfilePage() {
     const { data: p } = await supabase.from('profiles').select('*').eq('id', user.id).single()
     setProfile(p)
     setFullName(p?.full_name || '')
-    setAlias(p?.alias || '')
 
     if (clubId) {
       const { data: mem } = await supabase.from('memberships').select('role').eq('club_id', clubId).eq('user_id', user.id).single()
@@ -121,7 +119,6 @@ export default function ProfilePage() {
             <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={uploadAvatar} />
           </div>
           <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)' }}>{profile?.full_name || 'No name'}</div>
-          {profile?.alias && <div style={{ fontSize: 13, color: 'var(--text2)', marginTop: 2 }}>"{profile.alias}"</div>}
           <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 4 }}>{user?.email}</div>
         </div>
 
@@ -144,29 +141,15 @@ export default function ProfilePage() {
                   style={{ width: '100%', padding: '10px 12px', fontSize: 14 }}
                 />
               </div>
-              <div style={{ marginBottom: 14 }}>
-                <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: 4 }}>Alias (shown in app)</label>
-                <input
-                  className="input"
-                  value={alias}
-                  onChange={e => setAlias(e.target.value)}
-                  placeholder="e.g. Smash King"
-                  style={{ width: '100%', padding: '10px 12px', fontSize: 14 }}
-                />
-              </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button className="btn btn-primary" style={{ flex: 1 }} onClick={saveProfile} disabled={saving}>
                   {saving ? 'Saving…' : 'Save'}
                 </button>
-                <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => { setEditing(false); setFullName(profile?.full_name || ''); setAlias(profile?.alias || '') }}>
+                <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => { setEditing(false); setFullName(profile?.full_name || '') }}>
                   Cancel
                 </button>
               </div>
             </>
-          ) : (
-            <div style={{ fontSize: 13, color: 'var(--text2)', marginTop: 4 }}>
-              {profile?.alias ? `Alias: ${profile.alias}` : 'No alias set'}
-            </div>
           )}
         </div>
 
