@@ -46,8 +46,9 @@ export default async function handler(req, res) {
     // 2. Change auth email so they can't log in
     const { error: authErr } = await admin.auth.admin.updateUserById(userId, {
       email: anonEmail,
-      password: Math.random().toString(36) + Math.random().toString(36), // random unrecoverable password
+      password: Math.random().toString(36) + Math.random().toString(36),
       email_confirm: true,
+      user_metadata: { full_name: anonName },
     })
     if (authErr) console.log('[delete-user] auth update error:', authErr.message)
     else console.log('[delete-user] auth email changed to', anonEmail)
