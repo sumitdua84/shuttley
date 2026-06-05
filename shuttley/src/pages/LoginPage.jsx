@@ -111,21 +111,6 @@ export default function LoginPage() {
       {/* ── MAIN VIEW (Sign In) ── */}
       {view === 'main' && <>
 
-        {/* iOS install hint */}
-        {!installed && iosHint && (
-          <div style={{ width:'100%', marginBottom:16, background:'#ffffff', borderRadius:14, border:'1px solid #256575', padding:'14px 16px' }}>
-            <div style={{ fontSize:13, fontWeight:600, color:'#256575', marginBottom:6 }}>Add Shuttley to Home Screen</div>
-            {iosHint === 'safari' && <div style={{ fontSize:12, color:'#256575', lineHeight:1.7 }}>Tap <strong>Share ⎦↑</strong> at the bottom of Safari, then <strong>Add to Home Screen</strong></div>}
-            {iosHint === 'chrome' && <div style={{ fontSize:12, color:'#256575', lineHeight:1.7 }}>Tap <strong>⋯</strong> at the bottom, then <strong>Add to Home Screen</strong></div>}
-            {iosHint === 'other'  && <div style={{ fontSize:12, color:'#256575', lineHeight:1.7 }}>Open in <strong>Safari</strong>, tap <strong>Share ⎦↑</strong>, then <strong>Add to Home Screen</strong></div>}
-          </div>
-        )}
-
-        {/* Android install banner */}
-        {!installed && installPrompt && (
-          <button onClick={handleInstall} style={{ ...btnPrimary, marginBottom:16 }}>Add to Home Screen</button>
-        )}
-
         <div style={{ fontSize:26, fontWeight:700, color:'#256575', marginBottom:6, alignSelf:'flex-start' }}>Sign In</div>
         <div style={{ fontSize:13, color:'#6ea6b4', marginBottom:20, alignSelf:'flex-start' }}>
           New to Shuttley?{' '}
@@ -173,6 +158,22 @@ export default function LoginPage() {
             </svg>
           </button>
         </div>
+
+        {/* Android install */}
+        {!installed && installPrompt && (
+          <button onClick={handleInstall} style={{ background:'none', border:'1px solid rgba(37,101,117,0.3)', borderRadius:8, color:'#6ea6b4', fontSize:12, cursor:'pointer', padding:'8px 16px', marginBottom:12, fontFamily:'inherit' }}>
+            + Add to Home Screen
+          </button>
+        )}
+
+        {/* iOS install hint */}
+        {!installed && iosHint && (
+          <div style={{ fontSize:12, color:'#6ea6b4', textAlign:'center', marginBottom:12, lineHeight:1.6 }}>
+            {iosHint === 'safari' && <>Tap <strong>Share ⎦↑</strong> then <strong>Add to Home Screen</strong></>}
+            {iosHint === 'chrome' && <>Tap <strong>⋯</strong> then <strong>Add to Home Screen</strong></>}
+            {iosHint === 'other'  && <>Open in Safari → <strong>Add to Home Screen</strong></>}
+          </div>
+        )}
 
         <p style={{ fontSize:11, color:'#6ea6b4', textAlign:'center', lineHeight:1.9 }}>
           By continuing you agree to Shuttley's{' '}
