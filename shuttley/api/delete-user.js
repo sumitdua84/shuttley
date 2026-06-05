@@ -35,11 +35,13 @@ export default async function handler(req, res) {
     const anonEmail = `${anonName}@deleted.com`
 
     // 1. Anonymise the profile
-    await admin.from('profiles').update({
+    const { error: profileErr } = await admin.from('profiles').upsert({
+      id: userId,
       full_name: anonName,
       avatar_url: null,
-    }).eq('id', userId)
-    console.log('[delete-user] profile anonymised')
+    })
+    if (profileErr) console.log('[delete-user] profile upsert error:', profileErr.message)
+    else console.log('[delete-user] profile anonymised')
 
     // 2. Change auth email so they can't log in
     const { error: authErr } = await admin.auth.admin.updateUserById(userId, {
