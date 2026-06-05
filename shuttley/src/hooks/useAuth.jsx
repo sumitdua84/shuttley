@@ -51,7 +51,21 @@ export function AuthProvider({ children }) {
   }
 
   async function signInWithApple() {
-    await supabase.auth.signInWithOAuth({ provider: 'apple', options: { redirectTo: `${window.location.origin}/auth/callback` } })
+    const isIOSApp = /PWAShell/.test(navigator.userAgent)
+    if (isIOSApp) {
+      const { data } = await supabase.auth.signInWithOAuth({
+        provider: 'apple',
+        options: {
+          redirectTo: 'com.googleusercontent.apps.9950019459-rf4sunsd8q5741qf81sfiorhatp5v9rs://oauth2redirect',
+          skipBrowserRedirect: true,
+        }
+      })
+      if (data?.url) {
+        window.webkit?.messageHandlers?.['oauth-start']?.postMessage(data.url)
+      }
+    } else {
+      await supabase.auth.signInWithOAuth({ provider: 'apple', options: { redirectTo: `${window.location.origin}/auth/callback` } })
+    }
   }
 
   async function signUpWithEmail(email, password, fullName) {
