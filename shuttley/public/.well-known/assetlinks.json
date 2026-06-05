@@ -1,8 +1,8 @@
 [{
-      "relation": ["delegate_permission/common.handle_all_urls"],
-      "target": {
-        "namespace": "android_app",
-        "package_name": "club.shuttley.twa",
-        "sha256_cert_fingerprints": ["53:12:C9:02:12:C2:F2:B0:B5:92:C9:46:AC:7A:A3:58:DB:19:AD:11:B0:42:99:7F:61:EA:39:5B:59:99:3C:26"]
-      }
-    }]
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "club.shuttley.twa",
+    "sha256_cert_fingerprints": ["0C:FF:1C:8D:E9:77:9B:D3:2B:98:9F:8E:54:25:1A:8C:FF:D4:C3:D1:FF:1E:5A:DA:A0:13:D9:19:9F:6A:85:75"]
+  }
+}]
