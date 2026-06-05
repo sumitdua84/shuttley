@@ -25,11 +25,19 @@ export function AuthProvider({ children }) {
   }, [])
 
   async function fetchProfile(userId) {
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single()
+    const { data } = await supabase.from('profiles').select('*').eq('id', userId).single()
+
+    if (!data?.full_name) {
+      const { data: { user: authUser } } = await supabase.auth.getUser()
+      const metaName = authUser?.user_metadata?.full_name || authUser?.user_metadata?.name
+      if (metaName) {
+        await supabase.from('profiles').upsert({ id: userId, full_name: metaName })
+        setProfile({ ...data, id: userId, full_name: metaName })
+        setLoading(false)
+        return
+      }
+    }
+
     setProfile(data)
     setLoading(false)
   }
