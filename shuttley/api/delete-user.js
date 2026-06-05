@@ -37,7 +37,6 @@ export default async function handler(req, res) {
     // 1. Anonymise the profile
     await admin.from('profiles').update({
       full_name: anonName,
-      alias: null,
       avatar_url: null,
     }).eq('id', userId)
     console.log('[delete-user] profile anonymised')
