@@ -150,7 +150,7 @@ export default function ProfilePage() {
                 </button>
               </div>
             </>
-          )}
+          ) : null}
         </div>
 
         {/* Moderator / Admin settings */}
