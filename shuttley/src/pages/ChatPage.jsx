@@ -405,7 +405,7 @@ export default function ChatPage() {
   // ── render ───────────────────────────────────────────────────────────────────
   // Use position:fixed to break out of body max-width:430px on desktop
   return (
-    <div style={{ position:'fixed', inset:0, display:'flex', flexDirection:'column',
+    <div style={{ position:'fixed', top:0, left:0, right:0, bottom:'calc(80px + env(safe-area-inset-bottom))', display:'flex', flexDirection:'column',
       background:'var(--bg)', overflow:'hidden' }}>
 
       {/* ══ Top bar ══ */}
