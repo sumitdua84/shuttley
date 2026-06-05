@@ -51,18 +51,7 @@ export function AuthProvider({ children }) {
   }
 
   async function signInWithApple() {
-    const isIOSApp = /PWAShell/.test(navigator.userAgent)
-    if (isIOSApp) {
-      const { data } = await supabase.auth.signInWithOAuth({
-        provider: 'apple',
-        options: { redirectTo: 'shuttley://auth/callback', skipBrowserRedirect: true }
-      })
-      if (data?.url) {
-        window.webkit?.messageHandlers?.['oauth-start']?.postMessage(data.url)
-      }
-    } else {
-      await supabase.auth.signInWithOAuth({ provider: 'apple', options: { redirectTo: `${window.location.origin}/auth/callback` } })
-    }
+    await supabase.auth.signInWithOAuth({ provider: 'apple', options: { redirectTo: `${window.location.origin}/auth/callback` } })
   }
 
   async function signUpWithEmail(email, password, fullName) {
