@@ -40,8 +40,13 @@ export default function ProfilePage() {
 
   async function saveProfile() {
     setSaving(true)
-    await supabase.from('profiles').upsert({ id: user.id, full_name: fullName, alias })
+    const { error } = await supabase.from('profiles').upsert({ id: user.id, full_name: fullName, alias })
     setSaving(false)
+    if (error) {
+      console.error('saveProfile error:', error)
+      showToast('Error: ' + error.message)
+      return
+    }
     setEditing(false)
     showToast('Profile saved')
     fetchProfile()
