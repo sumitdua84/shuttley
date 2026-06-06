@@ -29,26 +29,7 @@ export default function DeleteAccount() {
       const initials = getInitials(profile?.full_name)
       const anonName = `deleted_${initials}`
 
-      // 1. Anonymise profile — keep initials, remove personal data
-      await supabase.from('profiles').update({
-        full_name: anonName,
-        alias: null,
-        avatar_url: null,
-      }).eq('id', user.id)
-
-      // 2. Remove all club memberships — try delete, fallback to status update
-      const { error: memErr } = await supabase.from('memberships').delete().eq('user_id', user.id)
-      if (memErr) {
-        // RLS may block delete — mark as deleted instead
-        await supabase.from('memberships').update({ status: 'deleted' }).eq('user_id', user.id)
-      }
-
-      // 3. Anonymise chat messages — replace content but keep for history
-      await supabase.from('chat_messages')
-        .update({ content: '[deleted]' })
-        .eq('sender_id', user.id)
-
-      // 4. Log deletion request for admin
+      // Submit deletion request — admin will process and anonymise
       await supabase.from('account_deletion_requests').insert({
         email: user.email,
         user_id: user.id,
@@ -56,7 +37,7 @@ export default function DeleteAccount() {
         status: 'pending',
       })
 
-      // 5. Sign out
+      // Sign out — app will block re-login with pending message
       await signOut()
 
       setStep('done')

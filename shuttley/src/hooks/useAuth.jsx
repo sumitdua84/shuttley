@@ -7,6 +7,7 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [pendingDeletion, setPendingDeletion] = useState(false)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -27,6 +28,20 @@ export function AuthProvider({ children }) {
   async function fetchProfile(userId) {
     const { data } = await supabase.from('profiles').select('*').eq('id', userId).single()
 
+    // Check for pending deletion request
+    const { data: delReq } = await supabase
+      .from('account_deletion_requests')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('status', 'pending')
+      .maybeSingle()
+    if (delReq) {
+      setPendingDeletion(true)
+      setProfile(data)
+      setLoading(false)
+      return
+    }
+
     if (!data?.full_name) {
       const { data: { user: authUser } } = await supabase.auth.getUser()
       const metaName = authUser?.user_metadata?.full_name || authUser?.user_metadata?.name
@@ -38,6 +53,7 @@ export function AuthProvider({ children }) {
       }
     }
 
+    setPendingDeletion(false)
     setProfile(data)
     setLoading(false)
   }
@@ -93,7 +109,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signInWithGoogle, signInWithApple, signUpWithEmail, signInWithEmail, resetPassword, signOut }}>
+    <AuthContext.Provider value={{ user, profile, loading, pendingDeletion, signInWithGoogle, signInWithApple, signUpWithEmail, signInWithEmail, resetPassword, signOut }}>
       {children}
     </AuthContext.Provider>
   )
