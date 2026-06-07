@@ -45,8 +45,8 @@ export default function CoachWidget() {
           50%       { transform: translateY(-7px) scale(1.04); }
         }
         @keyframes coachPulse {
-          0%, 100% { box-shadow: 0 3px 14px rgba(0,0,0,0.14), 0 1px 4px rgba(0,0,0,0.08); }
-          50%       { box-shadow: 0 6px 24px rgba(37,101,117,0.25), 0 0 0 8px rgba(37,101,117,0.08); }
+          0%, 100% { filter: drop-shadow(0 2px 6px rgba(37,101,117,0.25)); }
+          50%       { filter: drop-shadow(0 4px 14px rgba(37,101,117,0.45)); }
         }
         @keyframes coachSlideUp {
           from { transform: translateY(100%); opacity: 0; }
@@ -74,82 +74,93 @@ export default function CoachWidget() {
             width: 64,
             height: 64,
             borderRadius: '50%',
-            background: '#ffffff',
+            background: 'transparent',
             border: 'none',
             cursor: 'pointer',
-            padding: 8,
-            boxShadow: '0 3px 14px rgba(0,0,0,0.14), 0 1px 4px rgba(0,0,0,0.08)',
+            padding: 0,
+            filter: 'drop-shadow(0 2px 6px rgba(37,101,117,0.3))',
             zIndex: 900,
             animation: 'coachBounce 3s ease-in-out infinite',
           }}
         >
-          {/* Stick Robot SVG — dark green on white */}
+          {/* Robot SVG — square face, teal, transparent bg */}
           <svg viewBox="0 0 80 100" xmlns="http://www.w3.org/2000/svg" style={{ width: '100%', height: '100%' }}>
 
-            {/* Robot head */}
-            <circle cx="40" cy="22" r="13" fill="rgba(37,101,117,0.07)" stroke="#256575" strokeWidth="2.4"/>
+            {/* Antenna */}
+            <line x1="40" y1="8" x2="40" y2="3" stroke="#256575" strokeWidth="2" strokeLinecap="round"/>
+            <circle cx="40" cy="2.5" r="2.5" fill="#256575"/>
 
-            {/* Eyes — white circles with dark green pupils */}
-            <circle cx="35.5" cy="20" r="3.2" fill="white" stroke="#256575" strokeWidth="1.4"/>
-            <circle cx="44.5" cy="20" r="3.2" fill="white" stroke="#256575" strokeWidth="1.4"/>
-            <circle cx="36.2" cy="20.6" r="1.4" fill="#256575"/>
-            <circle cx="45.2" cy="20.6" r="1.4" fill="#256575"/>
+            {/* Square robot head */}
+            <rect x="24" y="9" width="32" height="26" rx="4" fill="rgba(37,101,117,0.08)" stroke="#256575" strokeWidth="2.3"/>
+            {/* Face panel */}
+            <rect x="28" y="12" width="24" height="18" rx="2" fill="rgba(37,101,117,0.05)" stroke="#256575" strokeWidth="0.7" opacity="0.5"/>
 
-            {/* Smile */}
-            <path d="M35.5 27 Q40 31 44.5 27" stroke="#256575" strokeWidth="1.8" fill="none" strokeLinecap="round"/>
+            {/* Square eyes */}
+            <rect x="30" y="15" width="8" height="7" rx="1.5" fill="white" stroke="#256575" strokeWidth="1.3"/>
+            <rect x="42" y="15" width="8" height="7" rx="1.5" fill="white" stroke="#256575" strokeWidth="1.3"/>
+            {/* Pupils */}
+            <rect x="32.5" y="17" width="3" height="3" rx="0.8" fill="#256575"/>
+            <rect x="44.5" y="17" width="3" height="3" rx="0.8" fill="#256575"/>
 
-            {/* Whistle at neck */}
-            <circle cx="40" cy="37" r="2.5" fill="#c8a030"/>
-            <line x1="42.5" y1="37" x2="46" y2="36" stroke="#c8a030" strokeWidth="1.5" strokeLinecap="round"/>
+            {/* LED-segment mouth */}
+            <rect x="30" y="25" width="4" height="2.5" rx="0.5" fill="#256575"/>
+            <rect x="36" y="25" width="4" height="2.5" rx="0.5" fill="#256575" opacity="0.35"/>
+            <rect x="42" y="25" width="4" height="2.5" rx="0.5" fill="#256575" opacity="0.75"/>
+            <rect x="48" y="25" width="3" height="2.5" rx="0.5" fill="#256575" opacity="0.25"/>
+
+            {/* Neck */}
+            <line x1="40" y1="35" x2="40" y2="40" stroke="#256575" strokeWidth="2.8" strokeLinecap="round"/>
 
             {/* Body */}
-            <rect x="30" y="40" width="20" height="21" rx="4" fill="rgba(37,101,117,0.07)" stroke="#256575" strokeWidth="2.3"/>
-            {/* Chest dot */}
-            <circle cx="40" cy="50.5" r="2.5" fill="#256575" opacity="0.3"/>
+            <rect x="29" y="40" width="22" height="21" rx="4" fill="rgba(37,101,117,0.07)" stroke="#256575" strokeWidth="2.2"/>
+            {/* Chest panel */}
+            <rect x="33" y="44" width="14" height="9" rx="2" fill="rgba(37,101,117,0.1)" stroke="#256575" strokeWidth="0.7" opacity="0.7"/>
+            <circle cx="37" cy="48.5" r="1.5" fill="#256575" opacity="0.5"/>
+            <circle cx="43" cy="48.5" r="1.5" fill="#256575" opacity="0.3"/>
 
             {/* Left arm — static */}
-            <line x1="30" y1="45" x2="17" y2="59" stroke="#256575" strokeWidth="3.5" strokeLinecap="round"/>
-            <circle cx="16" cy="60" r="3" fill="#256575"/>
+            <line x1="29" y1="46" x2="16" y2="59" stroke="#256575" strokeWidth="3.4" strokeLinecap="round"/>
+            <circle cx="15.5" cy="59.5" r="2.8" fill="#256575"/>
 
-            {/* Right arm + racket — animated around shoulder (50, 45) */}
+            {/* Right arm + teal racket — animated */}
             <g>
               <animateTransform
                 attributeName="transform"
                 type="rotate"
-                values="-38 50 45; 22 50 45; -38 50 45"
+                values="-38 51 46; 22 51 46; -38 51 46"
                 keyTimes="0; 0.38; 1"
                 dur="1.1s"
                 repeatCount="indefinite"
                 calcMode="spline"
                 keySplines="0.2 0 0.5 1; 0.5 0 0.8 1"
               />
-              <line x1="50" y1="45" x2="62" y2="58" stroke="#256575" strokeWidth="3.5" strokeLinecap="round"/>
-              <circle cx="63" cy="59" r="3" fill="#256575"/>
-              <line x1="63" y1="59" x2="69" y2="48" stroke="#c8a030" strokeWidth="2.5" strokeLinecap="round"/>
-              <ellipse cx="71" cy="41" rx="6" ry="8" fill="none" stroke="#c8a030" strokeWidth="2" transform="rotate(15 71 41)"/>
-              <line x1="66" y1="37" x2="68" y2="47" stroke="#c8a030" strokeWidth="0.9" opacity="0.55"/>
-              <line x1="71" y1="35" x2="71" y2="48" stroke="#c8a030" strokeWidth="0.9" opacity="0.55"/>
-              <line x1="66" y1="41" x2="76" y2="42" stroke="#c8a030" strokeWidth="0.9" opacity="0.55"/>
-              <line x1="66" y1="45" x2="76" y2="46" stroke="#c8a030" strokeWidth="0.9" opacity="0.55"/>
+              <line x1="51" y1="46" x2="63" y2="58" stroke="#256575" strokeWidth="3.4" strokeLinecap="round"/>
+              <circle cx="63.5" cy="58.5" r="2.8" fill="#256575"/>
+              <line x1="63.5" y1="58.5" x2="69" y2="48" stroke="#256575" strokeWidth="2.5" strokeLinecap="round"/>
+              <ellipse cx="71" cy="41" rx="6.5" ry="8" fill="none" stroke="#256575" strokeWidth="2.2" transform="rotate(14 71 41)"/>
+              <line x1="66" y1="37" x2="68" y2="47" stroke="#256575" strokeWidth="0.9" opacity="0.4"/>
+              <line x1="71" y1="35" x2="71" y2="48" stroke="#256575" strokeWidth="0.9" opacity="0.4"/>
+              <line x1="66" y1="41" x2="76" y2="42" stroke="#256575" strokeWidth="0.9" opacity="0.4"/>
+              <line x1="66" y1="45" x2="76" y2="46" stroke="#256575" strokeWidth="0.9" opacity="0.4"/>
             </g>
 
             {/* Legs */}
-            <line x1="36" y1="61" x2="30" y2="80" stroke="#256575" strokeWidth="3.5" strokeLinecap="round"/>
-            <line x1="44" y1="61" x2="50" y2="80" stroke="#256575" strokeWidth="3.5" strokeLinecap="round"/>
+            <line x1="36" y1="61" x2="30" y2="80" stroke="#256575" strokeWidth="3.4" strokeLinecap="round"/>
+            <line x1="44" y1="61" x2="50" y2="80" stroke="#256575" strokeWidth="3.4" strokeLinecap="round"/>
             {/* Feet */}
             <line x1="30" y1="80" x2="22" y2="82" stroke="#256575" strokeWidth="3" strokeLinecap="round"/>
             <line x1="50" y1="80" x2="58" y2="82" stroke="#256575" strokeWidth="3" strokeLinecap="round"/>
 
             {/* Thinking dots */}
             {isThinking && (<>
-              <circle cx="58" cy="8" r="2.5" fill="rgba(200,160,48,0.9)">
-                <animate attributeName="opacity" values="1;0.2;1" dur="0.7s" repeatCount="indefinite" begin="0s"/>
+              <circle cx="60" cy="6" r="2.5" fill="#256575" opacity="0.7">
+                <animate attributeName="opacity" values="0.7;0.15;0.7" dur="0.7s" repeatCount="indefinite" begin="0s"/>
               </circle>
-              <circle cx="65" cy="4" r="2" fill="rgba(200,160,48,0.7)">
-                <animate attributeName="opacity" values="1;0.2;1" dur="0.7s" repeatCount="indefinite" begin="0.15s"/>
+              <circle cx="67" cy="3" r="2" fill="#256575" opacity="0.5">
+                <animate attributeName="opacity" values="0.5;0.1;0.5" dur="0.7s" repeatCount="indefinite" begin="0.15s"/>
               </circle>
-              <circle cx="71" cy="1" r="1.5" fill="rgba(200,160,48,0.5)">
-                <animate attributeName="opacity" values="1;0.2;1" dur="0.7s" repeatCount="indefinite" begin="0.3s"/>
+              <circle cx="73" cy="1" r="1.5" fill="#256575" opacity="0.35">
+                <animate attributeName="opacity" values="0.35;0.07;0.35" dur="0.7s" repeatCount="indefinite" begin="0.3s"/>
               </circle>
             </>)}
           </svg>
@@ -209,36 +220,43 @@ export default function CoachWidget() {
                 overflow: 'hidden',
                 flexShrink: 0,
               }}>
-                <svg viewBox="0 0 80 100" xmlns="http://www.w3.org/2000/svg" style={{ width: '100%', height: '100%', padding: 3 }}>
-                  {/* Head */}
-                  <circle cx="40" cy="22" r="13" fill="rgba(37,101,117,0.1)" stroke="#256575" strokeWidth="2"/>
-                  {/* Eyes */}
-                  <circle cx="35.5" cy="20" r="3" fill="white" stroke="#256575" strokeWidth="1.2"/>
-                  <circle cx="44.5" cy="20" r="3" fill="white" stroke="#256575" strokeWidth="1.2"/>
-                  <circle cx="36.2" cy="20.6" r="1.4" fill="#256575"/>
-                  <circle cx="45.2" cy="20.6" r="1.4" fill="#256575"/>
-                  {/* Smile */}
-                  <path d="M35.5 27 Q40 31 44.5 27" stroke="#256575" strokeWidth="1.8" fill="none" strokeLinecap="round"/>
-                  {/* Whistle */}
-                  <circle cx="40" cy="37" r="2.2" fill="#c8a030"/>
-                  <line x1="42.2" y1="37" x2="46" y2="36" stroke="#c8a030" strokeWidth="1.4" strokeLinecap="round"/>
+                <svg viewBox="0 0 80 100" xmlns="http://www.w3.org/2000/svg" style={{ width: '100%', height: '100%', padding: 2 }}>
+                  {/* Antenna */}
+                  <line x1="40" y1="8" x2="40" y2="3" stroke="#256575" strokeWidth="2" strokeLinecap="round"/>
+                  <circle cx="40" cy="2.5" r="2.5" fill="#256575"/>
+                  {/* Square robot head */}
+                  <rect x="24" y="9" width="32" height="26" rx="4" fill="rgba(37,101,117,0.1)" stroke="#256575" strokeWidth="2.2"/>
+                  {/* Square eyes */}
+                  <rect x="30" y="15" width="8" height="7" rx="1.5" fill="white" stroke="#256575" strokeWidth="1.2"/>
+                  <rect x="42" y="15" width="8" height="7" rx="1.5" fill="white" stroke="#256575" strokeWidth="1.2"/>
+                  <rect x="32.5" y="17" width="3" height="3" rx="0.8" fill="#256575"/>
+                  <rect x="44.5" y="17" width="3" height="3" rx="0.8" fill="#256575"/>
+                  {/* LED mouth */}
+                  <rect x="30" y="25" width="4" height="2.5" rx="0.5" fill="#256575"/>
+                  <rect x="36" y="25" width="4" height="2.5" rx="0.5" fill="#256575" opacity="0.35"/>
+                  <rect x="42" y="25" width="4" height="2.5" rx="0.5" fill="#256575" opacity="0.75"/>
+                  <rect x="48" y="25" width="3" height="2.5" rx="0.5" fill="#256575" opacity="0.25"/>
+                  {/* Neck */}
+                  <line x1="40" y1="35" x2="40" y2="40" stroke="#256575" strokeWidth="2.8" strokeLinecap="round"/>
                   {/* Body */}
-                  <rect x="30" y="40" width="20" height="21" rx="4" fill="rgba(37,101,117,0.1)" stroke="#256575" strokeWidth="2"/>
-                  <circle cx="40" cy="50.5" r="2.2" fill="#256575" opacity="0.4"/>
+                  <rect x="29" y="40" width="22" height="21" rx="4" fill="rgba(37,101,117,0.08)" stroke="#256575" strokeWidth="2"/>
+                  <rect x="33" y="44" width="14" height="9" rx="2" fill="rgba(37,101,117,0.1)" stroke="#256575" strokeWidth="0.7" opacity="0.7"/>
+                  <circle cx="37" cy="48.5" r="1.5" fill="#256575" opacity="0.5"/>
+                  <circle cx="43" cy="48.5" r="1.5" fill="#256575" opacity="0.3"/>
                   {/* Left arm */}
-                  <line x1="30" y1="45" x2="17" y2="59" stroke="#256575" strokeWidth="3.5" strokeLinecap="round"/>
-                  <circle cx="16" cy="60" r="3" fill="#256575"/>
+                  <line x1="29" y1="46" x2="16" y2="59" stroke="#256575" strokeWidth="3.4" strokeLinecap="round"/>
+                  <circle cx="15.5" cy="59.5" r="2.8" fill="#256575"/>
                   {/* Right arm animated */}
                   <g>
-                    <animateTransform attributeName="transform" type="rotate" values="-38 50 45; 22 50 45; -38 50 45" keyTimes="0; 0.38; 1" dur="1.1s" repeatCount="indefinite" calcMode="spline" keySplines="0.2 0 0.5 1; 0.5 0 0.8 1"/>
-                    <line x1="50" y1="45" x2="62" y2="58" stroke="#256575" strokeWidth="3.5" strokeLinecap="round"/>
-                    <circle cx="63" cy="59" r="3" fill="#256575"/>
-                    <line x1="63" y1="59" x2="69" y2="48" stroke="#c8a030" strokeWidth="2.5" strokeLinecap="round"/>
-                    <ellipse cx="71" cy="41" rx="6" ry="8" fill="none" stroke="#c8a030" strokeWidth="2" transform="rotate(15 71 41)"/>
+                    <animateTransform attributeName="transform" type="rotate" values="-38 51 46; 22 51 46; -38 51 46" keyTimes="0; 0.38; 1" dur="1.1s" repeatCount="indefinite" calcMode="spline" keySplines="0.2 0 0.5 1; 0.5 0 0.8 1"/>
+                    <line x1="51" y1="46" x2="63" y2="58" stroke="#256575" strokeWidth="3.4" strokeLinecap="round"/>
+                    <circle cx="63.5" cy="58.5" r="2.8" fill="#256575"/>
+                    <line x1="63.5" y1="58.5" x2="69" y2="48" stroke="#256575" strokeWidth="2.5" strokeLinecap="round"/>
+                    <ellipse cx="71" cy="41" rx="6.5" ry="8" fill="none" stroke="#256575" strokeWidth="2.2" transform="rotate(14 71 41)"/>
                   </g>
                   {/* Legs */}
-                  <line x1="36" y1="61" x2="30" y2="80" stroke="#256575" strokeWidth="3.5" strokeLinecap="round"/>
-                  <line x1="44" y1="61" x2="50" y2="80" stroke="#256575" strokeWidth="3.5" strokeLinecap="round"/>
+                  <line x1="36" y1="61" x2="30" y2="80" stroke="#256575" strokeWidth="3.4" strokeLinecap="round"/>
+                  <line x1="44" y1="61" x2="50" y2="80" stroke="#256575" strokeWidth="3.4" strokeLinecap="round"/>
                   <line x1="30" y1="80" x2="22" y2="82" stroke="#256575" strokeWidth="3" strokeLinecap="round"/>
                   <line x1="50" y1="80" x2="58" y2="82" stroke="#256575" strokeWidth="3" strokeLinecap="round"/>
                 </svg>
