@@ -30,6 +30,7 @@ export default function AdminDashboard() {
   const [sending, setSending]                 = useState(false)
   const [broadcastToast, setBroadcastToast]   = useState('')
   const [features, setFeatures]               = useState([])
+  const [globalCoach, setGlobalCoach]         = useState(false)
 
   // Guard
   if (!SUPER_ADMINS.includes(user?.email)) {
@@ -69,6 +70,8 @@ export default function AdminDashboard() {
       }))
 
       setFeatures(featuresRes?.features || [])
+      const coachSetting = (featuresRes?.appSettings || []).find(s => s.key === 'coach_enabled')
+      setGlobalCoach(coachSetting?.value === 'true')
       setClubs(enrichedClubs)
       setUsers(enrichedUsers)
       setSessions(sessionData.slice(0, 30))
@@ -94,6 +97,28 @@ export default function AdminDashboard() {
       if (existing) return prev.map(f => f.club_id === clubId && f.feature === feature ? { ...f, unlocked: !currentVal } : f)
       return [...prev, { club_id: clubId, feature, unlocked: !currentVal, enabled: false }]
     })
+  }
+
+  async function toggleGlobalCoach(enabled) {
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/admin-coach', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ action: 'global', enabled }),
+    })
+    if (res.ok) setGlobalCoach(enabled)
+  }
+
+  async function toggleUserCoach(userId, enabled) {
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/admin-coach', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ action: 'user', userId, enabled }),
+    })
+    if (res.ok) {
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, coach_enabled: enabled } : u))
+    }
   }
 
   async function sendBroadcast() {
@@ -212,6 +237,33 @@ export default function AdminDashboard() {
           </div>
         )}
 
+        {/* ── Global Coach Toggle ── */}
+        {!loading && (
+          <div className="card" style={{ marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+            <div>
+              <div style={{ fontWeight: 600, fontSize: 14 }}>🏸 AI Coach</div>
+              <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>
+                {globalCoach ? 'Enabled globally — users with access can chat' : 'Disabled globally for all users'}
+              </div>
+            </div>
+            <div
+              onClick={() => toggleGlobalCoach(!globalCoach)}
+              style={{
+                width: 48, height: 28, borderRadius: 99, cursor: 'pointer', flexShrink: 0,
+                background: globalCoach ? 'var(--accent)' : 'var(--border2)',
+                position: 'relative', transition: 'background 0.2s',
+              }}>
+              <div style={{
+                position: 'absolute', top: 4,
+                left: globalCoach ? 24 : 4,
+                width: 20, height: 20, borderRadius: 99,
+                background: '#fff', transition: 'left 0.2s',
+                boxShadow: '0 1px 4px rgba(0,0,0,0.2)',
+              }} />
+            </div>
+          </div>
+        )}
+
         {/* ── Tabs ── */}
         <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
           {TABS.map(t => (
@@ -322,8 +374,33 @@ export default function AdminDashboard() {
                       </div>
                     )}
                   </div>
-                  <div style={{ fontSize: 11, color: 'var(--text3)', whiteSpace: 'nowrap', flexShrink: 0 }}>
-                    {fmt(u.created_at)}
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
+                    <div style={{ fontSize: 11, color: 'var(--text3)', whiteSpace: 'nowrap' }}>
+                      {fmt(u.created_at)}
+                    </div>
+                    <div
+                      onClick={() => toggleUserCoach(u.id, !u.coach_enabled)}
+                      title={u.coach_enabled ? 'Disable coach for this user' : 'Enable coach for this user'}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 5,
+                        cursor: 'pointer', userSelect: 'none',
+                      }}>
+                      <span style={{ fontSize: 10, color: u.coach_enabled ? 'var(--accent)' : 'var(--text3)', fontWeight: 600 }}>
+                        🏸 {u.coach_enabled ? 'ON' : 'OFF'}
+                      </span>
+                      <div style={{
+                        width: 32, height: 18, borderRadius: 99,
+                        background: u.coach_enabled ? 'var(--accent)' : 'var(--border2)',
+                        position: 'relative', transition: 'background 0.2s', flexShrink: 0,
+                      }}>
+                        <div style={{
+                          position: 'absolute', top: 3,
+                          left: u.coach_enabled ? 15 : 3,
+                          width: 12, height: 12, borderRadius: 99,
+                          background: '#fff', transition: 'left 0.2s',
+                        }} />
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

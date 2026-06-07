@@ -22,13 +22,14 @@ export default async function handler(req, res) {
     process.env.SUPABASE_SERVICE_ROLE_KEY
   )
 
-  const [clubsRes, usersRes, membershipsRes, sessionsRes, matchesRes, featuresRes] = await Promise.all([
+  const [clubsRes, usersRes, membershipsRes, sessionsRes, matchesRes, featuresRes, appSettingsRes] = await Promise.all([
     admin.from('clubs').select('*').order('created_at', { ascending: false }),
     admin.from('profiles').select('*').order('created_at', { ascending: false }),
     admin.from('memberships').select('club_id, user_id, role, status'),
     admin.from('sessions').select('id, name, status, match_type, started_at, club_id').order('started_at', { ascending: false }).limit(50),
     admin.from('matches').select('id', { count: 'exact', head: true }),
     admin.from('club_features').select('*'),
+    admin.from('app_settings').select('*'),
   ])
 
   console.log('[Admin] clubs:', clubsRes.data?.length, clubsRes.error)
@@ -41,5 +42,6 @@ export default async function handler(req, res) {
     sessions:    sessionsRes.data    || [],
     matchCount:  matchesRes.count    || 0,
     features:    featuresRes.data    || [],
+    appSettings: appSettingsRes.data || [],
   })
 }

@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.102.0",
     "@parse/node-apn": "^8.1.0",
     "@supabase/supabase-js": "^2.43.0",
     "jose": "^6.2.3",

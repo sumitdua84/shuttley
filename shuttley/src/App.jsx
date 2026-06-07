@@ -20,6 +20,7 @@ import PrivacyPolicy from './pages/PrivacyPolicy'
 import TermsOfService from './pages/TermsOfService'
 import DeleteAccount from './pages/DeleteAccount'
 import ProfilePage from './pages/ProfilePage'
+import CoachWidget from './components/CoachWidget'
 import { useIOSPushTokenBridge } from './hooks/usePushNotifications'
 import './index.css'
 
@@ -50,8 +51,10 @@ function AppRoutes() {
   )
 
   return (
-    <Routes>
-      <Route path="/auth/callback" element={<AuthCallback />} />
+    <>
+      {user && !pendingDeletion && <CoachWidget />}
+      <Routes>
+        <Route path="/auth/callback" element={<AuthCallback />} />
       <Route path="/login" element={!user ? <LoginPage /> : <Navigate to="/" />} />
       <Route path="/join/:inviteCode" element={<JoinClub />} />
       <Route path="/" element={user ? <OnboardingPage /> : <Navigate to="/login" />} />
@@ -70,7 +73,8 @@ function AppRoutes() {
       <Route path="/terms" element={<TermsOfService />} />
       <Route path="/delete-account" element={<DeleteAccount />} />
       <Route path="/profile" element={user ? <ProfilePage /> : <Navigate to="/login" />} />
-    </Routes>
+      </Routes>
+    </>
   )
 }
 
