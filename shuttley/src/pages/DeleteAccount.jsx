@@ -1,39 +1,22 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
-
-function getInitials(fullName) {
-  if (!fullName) return 'u'
-  return fullName.trim().split(/\s+/).map(w => w[0]).join('').toLowerCase().slice(0, 3)
-}
 
 export default function DeleteAccount() {
   const navigate = useNavigate()
   const { user, signOut } = useAuth()
   const [step, setStep] = useState('confirm') // confirm | deleting | done | error
   const [error, setError] = useState('')
-  const [profile, setProfile] = useState(null)
-
-  useEffect(() => {
-    if (user) {
-      supabase.from('profiles').select('*').eq('id', user.id).single()
-        .then(({ data }) => setProfile(data))
-    }
-  }, [user])
 
   async function handleDelete() {
     if (!user) { setError('You must be logged in to delete your account.'); return }
     setStep('deleting')
     try {
-      const initials = getInitials(profile?.full_name)
-      const anonName = `deleted_${initials}`
-
-      // Submit deletion request — admin will process and anonymise
+      // Submit deletion request — server will assign the anonymised name from a sequence
       await supabase.from('account_deletion_requests').insert({
         email: user.email,
         user_id: user.id,
-        anonymised_name: anonName,
         status: 'pending',
       })
 
@@ -46,9 +29,6 @@ export default function DeleteAccount() {
       setStep('error')
     }
   }
-
-  const initials = profile ? getInitials(profile.full_name) : '...'
-  const anonName = `deleted_${initials}`
 
   return (
     <div style={{ maxWidth: 480, margin: '0 auto', padding: '40px 24px', fontFamily: "'Inter', sans-serif" }}>
@@ -82,7 +62,7 @@ export default function DeleteAccount() {
               Your account will be anonymised immediately. Here's what happens:
             </p>
             <ul style={{ fontSize: 13, color: '#555', paddingLeft: 20, lineHeight: 2 }}>
-              <li>Your name will become <strong style={{ color: '#256575' }}>{anonName}</strong></li>
+              <li>Your name will be anonymised (e.g. <strong style={{ color: '#256575' }}>deleted_1000</strong>)</li>
               <li>Your profile photo and personal details will be removed</li>
               <li>You'll be removed from all clubs</li>
               <li>Your chat messages will be cleared</li>
@@ -117,7 +97,7 @@ export default function DeleteAccount() {
           <div style={{ fontSize: 40, marginBottom: 12 }}>✅</div>
           <h2 style={{ fontSize: 18, fontWeight: 700, color: '#3a9e5f', marginBottom: 8 }}>Account Deleted</h2>
           <p style={{ fontSize: 14, color: '#256575', lineHeight: 1.6 }}>
-            Your personal data has been removed. Your match history has been anonymised as <strong>{anonName}</strong>.
+            Your deletion request has been submitted. An admin will process it shortly — your personal data will be removed and match history anonymised.
           </p>
           <button onClick={() => navigate('/login')} style={{ marginTop: 20, padding: '10px 24px', background: '#256575', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
             Done

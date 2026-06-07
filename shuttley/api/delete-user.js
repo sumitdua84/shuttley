@@ -22,7 +22,7 @@ export default async function handler(req, res) {
 
   let body = req.body
   if (typeof body === 'string') { try { body = JSON.parse(body) } catch { body = {} } }
-  const { userId, requestId, anonymisedName } = body || {}
+  const { userId, requestId } = body || {}
   if (!userId) return res.status(400).json({ error: 'Missing userId' })
 
   const admin = createClient(
@@ -31,10 +31,17 @@ export default async function handler(req, res) {
   )
 
   try {
-    const anonName = anonymisedName || 'deleted_user'
+    // 1. Get next sequence value for anonymous name
+    const { data: seqVal, error: seqErr } = await admin.rpc('get_next_deleted_seq')
+    if (seqErr) {
+      console.log('[delete-user] sequence error:', seqErr.message)
+      return res.status(500).json({ error: 'Failed to generate anonymised name: ' + seqErr.message })
+    }
+    const anonName = `deleted_${seqVal}`
     const anonEmail = `${anonName}@deleted.com`
+    console.log('[delete-user] anonymised name:', anonName)
 
-    // 1. Anonymise the profile
+    // 2. Anonymise the profile
     const { error: profileErr } = await admin.from('profiles').upsert({
       id: userId,
       full_name: anonName,
@@ -43,7 +50,7 @@ export default async function handler(req, res) {
     if (profileErr) console.log('[delete-user] profile upsert error:', profileErr.message)
     else console.log('[delete-user] profile anonymised')
 
-    // 2. Change auth email so they can't log in
+    // 3. Change auth email + randomise password so they can't log in
     const { error: authErr } = await admin.auth.admin.updateUserById(userId, {
       email: anonEmail,
       password: Math.random().toString(36) + Math.random().toString(36),
@@ -53,12 +60,22 @@ export default async function handler(req, res) {
     if (authErr) console.log('[delete-user] auth update error:', authErr.message)
     else console.log('[delete-user] auth email changed to', anonEmail)
 
-    // 3. Mark deletion request as completed
+    // 4. Remove from all clubs
+    const { error: memberErr } = await admin.from('club_members').delete().eq('user_id', userId)
+    if (memberErr) console.log('[delete-user] club_members remove error:', memberErr.message)
+    else console.log('[delete-user] removed from all clubs')
+
+    // 5. Delete chat messages
+    const { error: chatErr } = await admin.from('chat_messages').delete().eq('sender_id', userId)
+    if (chatErr) console.log('[delete-user] chat_messages delete error:', chatErr.message)
+    else console.log('[delete-user] chat messages cleared')
+
+    // 6. Mark deletion request as completed
     if (requestId) {
       await admin.from('account_deletion_requests').update({ status: 'completed' }).eq('id', requestId)
     }
 
-    return res.status(200).json({ success: true })
+    return res.status(200).json({ success: true, anonName })
   } catch (e) {
     console.log('[delete-user] error:', e.message)
     return res.status(500).json({ error: e.message })

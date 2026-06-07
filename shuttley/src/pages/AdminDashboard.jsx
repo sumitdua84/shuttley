@@ -141,7 +141,7 @@ export default function AdminDashboard() {
   }
 
   async function confirmDelete(request) {
-    if (!confirm(`Anonymise ${request.email} as "${request.anonymised_name || 'deleted_user'}"? Their login will be disabled and personal data removed.`)) return
+    if (!confirm(`Anonymise and delete account for ${request.email}? Their login will be disabled, they'll be removed from all clubs, and personal data will be removed.`)) return
     const { data: { session } } = await supabase.auth.getSession()
     const res = await fetch('/api/delete-user', {
       method: 'POST',
@@ -149,10 +149,11 @@ export default function AdminDashboard() {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${session.access_token}`,
       },
-      body: JSON.stringify({ userId: request.user_id, requestId: request.id, anonymisedName: request.anonymised_name })
+      body: JSON.stringify({ userId: request.user_id, requestId: request.id })
     })
     const data = await res.json()
     if (data.success) {
+      alert(`Done — account anonymised as "${data.anonName}"`)
       fetchDeletionRequests()
     } else {
       alert('Error: ' + (data.error || 'Unknown error'))
