@@ -464,21 +464,21 @@ export default function OnboardingPage() {
             </div>
           )}
 
-          {/* + Club button */}
-          <div style={{ display: 'flex', justifyContent: 'center', marginTop: 16 }}>
-            <button onClick={() => setFabOpen(o => !o)} style={{
-              fontFamily: "'Inter', sans-serif",
-              background: fabOpen ? '#eaeff4' : '#f4f7fa',
-              color: 'var(--accent)', border: '1.5px solid var(--border2)',
-              borderRadius: 12, padding: '10px 24px',
-              fontSize: 14, fontWeight: 600, cursor: 'pointer',
-              display: 'flex', alignItems: 'center', gap: 7,
-              transition: 'all 0.15s ease',
-            }}>
-              <span style={{ fontSize: 18, lineHeight: 1, display: 'inline-block', transform: fabOpen ? 'rotate(45deg)' : 'none', transition: 'transform 0.18s ease' }}>+</span>
-              Club
-            </button>
-          </div>
+          {/* Join or create club — full-width tile */}
+          <button onClick={() => setFabOpen(o => !o)} style={{
+            width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+            background: 'var(--bg2)', borderRadius: 'var(--radius)',
+            border: '0.5px solid var(--border)',
+            borderLeft: '4px solid var(--border)',
+            padding: '10px 16px', marginBottom: 8,
+            cursor: 'pointer', fontFamily: "'Inter', sans-serif",
+            color: 'var(--accent)', fontSize: 14, fontWeight: 600,
+            transition: 'all 0.15s ease',
+          }}>
+            <span style={{ fontSize: 16, lineHeight: 1, display: 'inline-block', transform: fabOpen ? 'rotate(45deg)' : 'none', transition: 'transform 0.18s ease' }}>+</span>
+            <span style={{ flex: 1, textAlign: 'left' }}>Join or create a club</span>
+            <span style={{ fontSize: 20, color: 'var(--text3)' }}>›</span>
+          </button>
         </>}
 
         {view === 'search' && <>
