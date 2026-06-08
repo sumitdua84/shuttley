@@ -23,7 +23,7 @@ export default function OnboardingPage() {
   const [polls, setPolls] = useState([])          // active polls across all clubs
   const [myResponses, setMyResponses] = useState({}) // pollId → 'yes'|'no'|'maybe'
   const [myStats, setMyStats] = useState(null)     // personal stats across all clubs
-  const [statPeriod, setStatPeriod] = useState('30d')
+  const [statPeriod, setStatPeriod] = useState('15d')
   const [perfExpanded, setPerfExpanded] = useState(false)
 
   useEffect(() => { fetchAll() }, [user])
@@ -90,7 +90,7 @@ export default function OnboardingPage() {
 
     if (!mpRows || mpRows.length === 0) {
       const blankPeriod = { overall: empty, clubs: {} }
-      setMyStats({ '30d': blankPeriod, '60d': blankPeriod, '90d': blankPeriod, 'all': blankPeriod })
+      setMyStats({ '15d': blankPeriod, '30d': blankPeriod, '60d': blankPeriod, 'all': blankPeriod })
       return
     }
 
@@ -104,7 +104,7 @@ export default function OnboardingPage() {
 
     if (!matchRows || matchRows.length === 0) {
       const blankPeriod = { overall: empty, clubs: {} }
-      setMyStats({ '30d': blankPeriod, '60d': blankPeriod, '90d': blankPeriod, 'all': blankPeriod })
+      setMyStats({ '15d': blankPeriod, '30d': blankPeriod, '60d': blankPeriod, 'all': blankPeriod })
       return
     }
 
@@ -131,7 +131,7 @@ export default function OnboardingPage() {
       return { overall, clubs }
     }
 
-    setMyStats({ '30d': buildPeriod(30), '60d': buildPeriod(60), '90d': buildPeriod(90), 'all': buildPeriod(null) })
+    setMyStats({ '15d': buildPeriod(15), '30d': buildPeriod(30), '60d': buildPeriod(60), 'all': buildPeriod(null) })
   }
 
   async function respondToPoll(poll, response) {
@@ -322,7 +322,7 @@ export default function OnboardingPage() {
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                   <div className="section-label" style={{ marginBottom: 0 }}>My performance</div>
                   <div style={{ display: 'flex', gap: 3 }}>
-                    {[['30d','30d'],['60d','60d'],['90d','90d'],['All','all']].map(([lbl, key]) => (
+                    {[['15d','15d'],['30d','30d'],['60d','60d'],['All','all']].map(([lbl, key]) => (
                       <button key={key} onClick={() => setStatPeriod(key)} style={{
                         padding: '2px 7px', borderRadius: 20, fontSize: 10, fontWeight: 600,
                         background: statPeriod === key ? '#256575' : 'transparent',
