@@ -347,17 +347,17 @@ export default function OnboardingPage() {
                   {/* Three stat numbers */}
                   <div style={{ display: 'flex', justifyContent: 'space-around', marginBottom: 14, alignItems: 'center' }}>
                     <div style={{ textAlign: 'center' }}>
-                      <div style={{ fontSize: 32, fontWeight: 700, color: '#2a8c55', lineHeight: 1.1 }}>{s.wins}</div>
+                      <div style={{ fontSize: 22, fontWeight: 700, color: '#2a8c55', lineHeight: 1.1 }}>{s.wins}</div>
                       <div style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginTop: 4 }}>Wins</div>
                     </div>
                     <div style={{ width: 1, background: 'var(--border)', alignSelf: 'stretch', opacity: 0.6 }} />
                     <div style={{ textAlign: 'center' }}>
-                      <div style={{ fontSize: 32, fontWeight: 700, color: '#e05555', lineHeight: 1.1 }}>{s.losses}</div>
+                      <div style={{ fontSize: 22, fontWeight: 700, color: '#e05555', lineHeight: 1.1 }}>{s.losses}</div>
                       <div style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginTop: 4 }}>Losses</div>
                     </div>
                     <div style={{ width: 1, background: 'var(--border)', alignSelf: 'stretch', opacity: 0.6 }} />
                     <div style={{ textAlign: 'center' }}>
-                      <div style={{ fontSize: 32, fontWeight: 700, color: s.pct >= 50 ? '#256575' : '#e05555', lineHeight: 1.1 }}>{s.pct}%</div>
+                      <div style={{ fontSize: 22, fontWeight: 700, color: s.pct >= 50 ? '#256575' : '#e05555', lineHeight: 1.1 }}>{s.pct}%</div>
                       <div style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginTop: 4 }}>Win Rate</div>
                     </div>
                   </div>
