@@ -461,15 +461,17 @@ export default function OnboardingPage() {
           {/* Join or create club — centred, content-width */}
           <div style={{ display: 'flex', justifyContent: 'center', marginTop: 8, marginBottom: 8 }}>
             <button onClick={() => setFabOpen(o => !o)} style={{
-              display: 'inline-flex', alignItems: 'center', gap: 8,
+              display: 'inline-flex', alignItems: 'center', gap: 10,
               background: 'var(--bg2)', borderRadius: 'var(--radius)',
               border: '0.5px solid var(--border)',
+              borderLeft: '4px solid #256575',
               padding: '8px 16px',
               cursor: 'pointer', fontFamily: "'Inter', sans-serif",
               color: 'var(--accent)', fontSize: 13, fontWeight: 600,
               transition: 'all 0.15s ease',
             }}>
               Join or Create a Club
+              <span style={{ fontSize: 20, color: 'var(--text3)', lineHeight: 1 }}>›</span>
             </button>
           </div>
         </>}
