@@ -314,11 +314,7 @@ export default function OnboardingPage() {
               </div>
             )
             const Div = () => <div style={{ width: 1, height: 26, background: 'var(--border)', opacity: 0.6 }} />
-            const Bar = ({ pct }) => (
-              <div style={{ height: 3, borderRadius: 3, background: 'var(--border)', overflow: 'hidden', marginTop: 8 }}>
-                <div style={{ height: '100%', borderRadius: 3, width: `${pct}%`, background: pct >= 50 ? '#256575' : '#e05555', transition: 'width 0.4s ease' }}/>
-              </div>
-            )
+            const Bar = () => null
 
             return (
               <div style={{ marginBottom: 24 }}>
@@ -390,11 +386,13 @@ export default function OnboardingPage() {
 
                       {/* Per-club tiles (expanded) */}
                       {perfExpanded && clubEntries.map(([cid, cs]) => {
-                        const cName = memberships.find(m => m.club_id === cid)?.clubs?.name || 'Club'
+                        const mem = memberships.find(m => m.club_id === cid)
+                        const cName = mem?.clubs?.name || 'Club'
+                        const isAdmin = mem?.role === 'moderator'
                         return (
                           <div key={cid} style={{
                             background: 'var(--bg2)', border: '0.5px solid var(--border)',
-                            borderLeft: '4px solid #6ea6b4', borderRadius: 'var(--radius)',
+                            borderLeft: `4px solid ${isAdmin ? '#256575' : '#6ea6b4'}`, borderRadius: 'var(--radius)',
                             padding: '9px 16px', marginTop: 4,
                           }}>
                             <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', marginBottom: 6 }}>{cName}</div>
