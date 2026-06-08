@@ -475,8 +475,8 @@ export default function OnboardingPage() {
             color: 'var(--accent)', fontSize: 14, fontWeight: 600,
             transition: 'all 0.15s ease',
           }}>
-            <span style={{ fontSize: 16, lineHeight: 1, display: 'inline-block', transform: fabOpen ? 'rotate(45deg)' : 'none', transition: 'transform 0.18s ease' }}>+</span>
-            <span style={{ flex: 1, textAlign: 'left' }}>Join or create a club</span>
+            <span style={{ fontSize: 17, lineHeight: 1 }}>⊕</span>
+            <span style={{ flex: 1, textAlign: 'left' }}>Join or Create a Club</span>
             <span style={{ fontSize: 20, color: 'var(--text3)' }}>›</span>
           </button>
         </>}
