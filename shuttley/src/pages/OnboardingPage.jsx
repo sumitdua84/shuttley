@@ -306,14 +306,6 @@ export default function OnboardingPage() {
 
           {/* ── My Performance ── */}
           {(() => {
-            // helper: one stat column
-            const SC = ({ val, label, color }) => (
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: 15, fontWeight: 700, color, lineHeight: 1.2 }}>{val}</div>
-                <div style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: 2 }}>{label}</div>
-              </div>
-            )
-            const Div = () => <div style={{ width: 1, height: 26, background: 'var(--border)', opacity: 0.6 }} />
             const Bar = () => null
 
             return (
@@ -365,15 +357,16 @@ export default function OnboardingPage() {
                           padding: '10px 16px', cursor: hasMultiple ? 'pointer' : 'default',
                         }}
                       >
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', marginBottom: 6 }}>Overall</div>
-                          <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'center' }}>
-                            <SC val={s.wins}    label="Wins"     color="#2a8c55" />
-                            <Div /><SC val={s.losses}  label="Losses"   color="#e05555" />
-                            <Div /><SC val={`${s.pct}%`} label="Win Rate" color={s.pct >= 50 ? '#256575' : '#e05555'} />
-                            <Div /><SC val={s.total}  label="Played"   color="var(--text2)" />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 600, fontSize: 15 }}>Overall</div>
+                          <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>
+                            <span style={{ color: '#2a8c55', fontWeight: 600 }}>{s.wins}W</span>
+                            {' · '}
+                            <span style={{ color: '#e05555', fontWeight: 600 }}>{s.losses}L</span>
+                            {' · '}
+                            <span style={{ color: s.pct >= 50 ? '#256575' : '#e05555', fontWeight: 600 }}>{s.pct}%</span>
+                            {' · '}{s.total} played
                           </div>
-                          <Bar pct={s.pct} />
                         </div>
                         {hasMultiple && (
                           <span style={{
@@ -396,14 +389,15 @@ export default function OnboardingPage() {
                             borderLeft: `4px solid ${isAdmin ? '#256575' : '#6ea6b4'}`, borderRadius: 'var(--radius)',
                             padding: '9px 16px', marginTop: 4,
                           }}>
-                            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', marginBottom: 6 }}>{cName}</div>
-                            <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'center' }}>
-                              <SC val={cs.wins}    label="Wins"     color="#2a8c55" />
-                              <Div /><SC val={cs.losses}  label="Losses"   color="#e05555" />
-                              <Div /><SC val={`${cs.pct}%`} label="Win Rate" color={cs.pct >= 50 ? '#256575' : '#e05555'} />
-                              <Div /><SC val={cs.total}  label="Played"   color="var(--text2)" />
+                            <div style={{ fontWeight: 600, fontSize: 15 }}>{cName}</div>
+                            <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>
+                              <span style={{ color: '#2a8c55', fontWeight: 600 }}>{cs.wins}W</span>
+                              {' · '}
+                              <span style={{ color: '#e05555', fontWeight: 600 }}>{cs.losses}L</span>
+                              {' · '}
+                              <span style={{ color: cs.pct >= 50 ? '#256575' : '#e05555', fontWeight: 600 }}>{cs.pct}%</span>
+                              {' · '}{cs.total} played
                             </div>
-                            <Bar pct={cs.pct} />
                           </div>
                         )
                       })}
