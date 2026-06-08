@@ -469,7 +469,6 @@ export default function OnboardingPage() {
               color: 'var(--accent)', fontSize: 13, fontWeight: 600,
               transition: 'all 0.15s ease',
             }}>
-              <span style={{ fontSize: 15, lineHeight: 1 }}>⊕</span>
               Join or Create a Club
             </button>
           </div>
