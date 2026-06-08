@@ -24,6 +24,7 @@ export default function OnboardingPage() {
   const [myResponses, setMyResponses] = useState({}) // pollId → 'yes'|'no'|'maybe'
   const [myStats, setMyStats] = useState(null)     // personal stats across all clubs
   const [statPeriod, setStatPeriod] = useState('30d')
+  const [perfExpanded, setPerfExpanded] = useState(false)
 
   useEffect(() => { fetchAll() }, [user])
 
@@ -81,50 +82,56 @@ export default function OnboardingPage() {
   async function fetchMyStats() {
     const empty = { wins: 0, losses: 0, total: 0, pct: 0 }
 
-    // Step 1 — get all match_player rows for this user (just match_id + side)
+    // Step 1 — get all match_player rows for this user
     const { data: mpRows } = await supabase
       .from('match_players')
       .select('match_id, side')
       .eq('user_id', user.id)
 
     if (!mpRows || mpRows.length === 0) {
-      setMyStats({ '30d': empty, '60d': empty, '90d': empty, 'all': empty })
+      const blankPeriod = { overall: empty, clubs: {} }
+      setMyStats({ '30d': blankPeriod, '60d': blankPeriod, '90d': blankPeriod, 'all': blankPeriod })
       return
     }
 
-    // Step 2 — fetch those matches (confirmed only)
+    // Step 2 — fetch those matches (confirmed only, include club_id)
     const matchIds = mpRows.map(r => r.match_id)
     const { data: matchRows } = await supabase
       .from('matches')
-      .select('id, winner_side, played_at, status')
+      .select('id, winner_side, played_at, status, club_id')
       .in('id', matchIds)
       .eq('status', 'confirmed')
 
     if (!matchRows || matchRows.length === 0) {
-      setMyStats({ '30d': empty, '60d': empty, '90d': empty, 'all': empty })
+      const blankPeriod = { overall: empty, clubs: {} }
+      setMyStats({ '30d': blankPeriod, '60d': blankPeriod, '90d': blankPeriod, 'all': blankPeriod })
       return
     }
 
-    // Build a side lookup: matchId → side ('team1' | 'team2')
     const sideMap = Object.fromEntries(mpRows.map(r => [r.match_id, r.side]))
+    const clubIds = [...new Set(matchRows.map(m => m.club_id))]
     const now = new Date()
 
-    function calc(days) {
-      const cutoff = days ? new Date(now.getTime() - days * 86400000) : null
-      const filtered = cutoff
-        ? matchRows.filter(m => new Date(m.played_at) >= cutoff)
-        : matchRows
+    function calcRows(rows) {
       let wins = 0, losses = 0
-      filtered.forEach(m => {
-        const mySide = sideMap[m.id]
-        const won = m.winner_side === mySide
+      rows.forEach(m => {
+        const won = m.winner_side === sideMap[m.id]
         if (won) wins++; else losses++
       })
       const total = wins + losses
       return { wins, losses, total, pct: total > 0 ? Math.round(wins / total * 100) : 0 }
     }
 
-    setMyStats({ '30d': calc(30), '60d': calc(60), '90d': calc(90), 'all': calc(null) })
+    function buildPeriod(days) {
+      const cutoff = days ? new Date(now.getTime() - days * 86400000) : null
+      const rows = cutoff ? matchRows.filter(m => new Date(m.played_at) >= cutoff) : matchRows
+      const overall = calcRows(rows)
+      const clubs = {}
+      clubIds.forEach(cid => { clubs[cid] = calcRows(rows.filter(m => m.club_id === cid)) })
+      return { overall, clubs }
+    }
+
+    setMyStats({ '30d': buildPeriod(30), '60d': buildPeriod(60), '90d': buildPeriod(90), 'all': buildPeriod(null) })
   }
 
   async function respondToPoll(poll, response) {
@@ -298,84 +305,115 @@ export default function OnboardingPage() {
           )}
 
           {/* ── My Performance ── */}
-          <div style={{ marginBottom: 24 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-              <div className="section-label" style={{ marginBottom: 0 }}>My performance</div>
-              <div style={{ display: 'flex', gap: 3 }}>
-                {[['30d', '30d'], ['60d', '60d'], ['90d', '90d'], ['All', 'all']].map(([label, key]) => (
-                  <button key={key} onClick={() => setStatPeriod(key)} style={{
-                    padding: '2px 7px', borderRadius: 20,
-                    fontSize: 10, fontWeight: 600,
-                    background: statPeriod === key ? '#256575' : 'transparent',
-                    color: statPeriod === key ? 'white' : 'var(--text3)',
-                    border: `1px solid ${statPeriod === key ? '#256575' : 'var(--border)'}`,
-                    cursor: 'pointer', fontFamily: "'Inter',sans-serif",
-                    transition: 'all 0.15s',
-                  }}>{label}</button>
-                ))}
+          {(() => {
+            // helper: one stat column
+            const SC = ({ val, label, color }) => (
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: 15, fontWeight: 700, color, lineHeight: 1.2 }}>{val}</div>
+                <div style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: 2 }}>{label}</div>
               </div>
-            </div>
+            )
+            const Div = () => <div style={{ width: 1, height: 26, background: 'var(--border)', opacity: 0.6 }} />
+            const Bar = ({ pct }) => (
+              <div style={{ height: 3, borderRadius: 3, background: 'var(--border)', overflow: 'hidden', marginTop: 8 }}>
+                <div style={{ height: '100%', borderRadius: 3, width: `${pct}%`, background: pct >= 50 ? '#256575' : '#e05555', transition: 'width 0.4s ease' }}/>
+              </div>
+            )
 
-            {!myStats ? (
-              <div style={{
-                background: 'var(--bg2)', border: '0.5px solid var(--border)',
-                borderRadius: 'var(--radius)', padding: '10px 16px',
-                display: 'flex', justifyContent: 'space-around',
-              }}>
-                {[0, 1, 2].map(i => (
-                  <div key={i} style={{ textAlign: 'center' }}>
-                    <div style={{ width: 32, height: 18, background: 'var(--border)', borderRadius: 4, margin: '0 auto 4px' }}/>
-                    <div style={{ width: 28, height: 8, background: 'var(--border)', borderRadius: 3, margin: '0 auto' }}/>
-                  </div>
-                ))}
-              </div>
-            ) : myStats[statPeriod].total === 0 ? (
-              <div style={{
-                background: 'var(--bg2)', border: '0.5px solid var(--border)',
-                borderRadius: 'var(--radius)', padding: '10px 16px', textAlign: 'center',
-              }}>
-                <div style={{ fontSize: 12, color: 'var(--text3)' }}>No matches in this period</div>
-              </div>
-            ) : (() => {
-              const s = myStats[statPeriod]
-              return (
-                <div style={{
-                  background: 'var(--bg2)', border: '0.5px solid var(--border)',
-                  borderRadius: 'var(--radius)', padding: '10px 16px',
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'center', marginBottom: 8 }}>
-                    <div style={{ textAlign: 'center' }}>
-                      <div style={{ fontSize: 15, fontWeight: 700, color: '#2a8c55', lineHeight: 1.2 }}>{s.wins}</div>
-                      <div style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: 2 }}>Wins</div>
-                    </div>
-                    <div style={{ width: 1, height: 28, background: 'var(--border)', opacity: 0.6 }} />
-                    <div style={{ textAlign: 'center' }}>
-                      <div style={{ fontSize: 15, fontWeight: 700, color: '#e05555', lineHeight: 1.2 }}>{s.losses}</div>
-                      <div style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: 2 }}>Losses</div>
-                    </div>
-                    <div style={{ width: 1, height: 28, background: 'var(--border)', opacity: 0.6 }} />
-                    <div style={{ textAlign: 'center' }}>
-                      <div style={{ fontSize: 15, fontWeight: 700, color: s.pct >= 50 ? '#256575' : '#e05555', lineHeight: 1.2 }}>{s.pct}%</div>
-                      <div style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: 2 }}>Win Rate</div>
-                    </div>
-                    <div style={{ width: 1, height: 28, background: 'var(--border)', opacity: 0.6 }} />
-                    <div style={{ textAlign: 'center' }}>
-                      <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text2)', lineHeight: 1.2 }}>{s.total}</div>
-                      <div style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: 2 }}>Played</div>
-                    </div>
-                  </div>
-                  <div style={{ height: 3, borderRadius: 3, background: 'var(--border)', overflow: 'hidden' }}>
-                    <div style={{
-                      height: '100%', borderRadius: 3,
-                      width: `${s.pct}%`,
-                      background: s.pct >= 50 ? '#256575' : '#e05555',
-                      transition: 'width 0.4s ease',
-                    }}/>
+            return (
+              <div style={{ marginBottom: 24 }}>
+                {/* Header */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <div className="section-label" style={{ marginBottom: 0 }}>My performance</div>
+                  <div style={{ display: 'flex', gap: 3 }}>
+                    {[['30d','30d'],['60d','60d'],['90d','90d'],['All','all']].map(([lbl, key]) => (
+                      <button key={key} onClick={() => setStatPeriod(key)} style={{
+                        padding: '2px 7px', borderRadius: 20, fontSize: 10, fontWeight: 600,
+                        background: statPeriod === key ? '#256575' : 'transparent',
+                        color: statPeriod === key ? 'white' : 'var(--text3)',
+                        border: `1px solid ${statPeriod === key ? '#256575' : 'var(--border)'}`,
+                        cursor: 'pointer', fontFamily: "'Inter',sans-serif", transition: 'all 0.15s',
+                      }}>{lbl}</button>
+                    ))}
                   </div>
                 </div>
-              )
-            })()}
-          </div>
+
+                {/* Loading skeleton */}
+                {!myStats ? (
+                  <div style={{ background: 'var(--bg2)', border: '0.5px solid var(--border)', borderRadius: 'var(--radius)', padding: '10px 16px', display: 'flex', justifyContent: 'space-around' }}>
+                    {[0,1,2].map(i => (
+                      <div key={i} style={{ textAlign: 'center' }}>
+                        <div style={{ width: 32, height: 18, background: 'var(--border)', borderRadius: 4, margin: '0 auto 4px' }}/>
+                        <div style={{ width: 28, height: 8, background: 'var(--border)', borderRadius: 3, margin: '0 auto' }}/>
+                      </div>
+                    ))}
+                  </div>
+                ) : myStats[statPeriod].overall.total === 0 ? (
+                  <div style={{ background: 'var(--bg2)', border: '0.5px solid var(--border)', borderRadius: 'var(--radius)', padding: '10px 16px', textAlign: 'center' }}>
+                    <div style={{ fontSize: 12, color: 'var(--text3)' }}>No matches in this period</div>
+                  </div>
+                ) : (() => {
+                  const s = myStats[statPeriod].overall
+                  const clubEntries = Object.entries(myStats[statPeriod].clubs).filter(([, cs]) => cs.total > 0)
+                  const hasMultiple = clubEntries.length > 1
+
+                  return (
+                    <>
+                      {/* Overall tile */}
+                      <div
+                        onClick={hasMultiple ? () => setPerfExpanded(e => !e) : undefined}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 8,
+                          background: 'var(--bg2)', border: '0.5px solid var(--border)',
+                          borderLeft: '4px solid #256575', borderRadius: 'var(--radius)',
+                          padding: '10px 16px', cursor: hasMultiple ? 'pointer' : 'default',
+                        }}
+                      >
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'center' }}>
+                            <SC val={s.wins}    label="Wins"     color="#2a8c55" />
+                            <Div /><SC val={s.losses}  label="Losses"   color="#e05555" />
+                            <Div /><SC val={`${s.pct}%`} label="Win Rate" color={s.pct >= 50 ? '#256575' : '#e05555'} />
+                            <Div /><SC val={s.total}  label="Played"   color="var(--text2)" />
+                          </div>
+                          <Bar pct={s.pct} />
+                        </div>
+                        {hasMultiple && (
+                          <span style={{
+                            fontSize: 20, color: 'var(--text3)', flexShrink: 0,
+                            display: 'inline-block', lineHeight: 1,
+                            transform: perfExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
+                            transition: 'transform 0.2s ease',
+                          }}>›</span>
+                        )}
+                      </div>
+
+                      {/* Per-club tiles (expanded) */}
+                      {perfExpanded && clubEntries.map(([cid, cs]) => {
+                        const cName = memberships.find(m => m.club_id === cid)?.clubs?.name || 'Club'
+                        return (
+                          <div key={cid} style={{
+                            background: 'var(--bg2)', border: '0.5px solid var(--border)',
+                            borderLeft: '4px solid #6ea6b4', borderRadius: 'var(--radius)',
+                            padding: '9px 16px', marginTop: 4,
+                          }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', marginBottom: 6 }}>{cName}</div>
+                            <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'center' }}>
+                              <SC val={cs.wins}    label="Wins"     color="#2a8c55" />
+                              <Div /><SC val={cs.losses}  label="Losses"   color="#e05555" />
+                              <Div /><SC val={`${cs.pct}%`} label="Win Rate" color={cs.pct >= 50 ? '#256575' : '#e05555'} />
+                              <Div /><SC val={cs.total}  label="Played"   color="var(--text2)" />
+                            </div>
+                            <Bar pct={cs.pct} />
+                          </div>
+                        )
+                      })}
+                    </>
+                  )
+                })()}
+              </div>
+            )
+          })()}
 
           {/* ── My clubs ── */}
           {loading ? (
