@@ -22,11 +22,14 @@ export default function OnboardingPage() {
   const [memberCounts, setMemberCounts] = useState({})
   const [polls, setPolls] = useState([])          // active polls across all clubs
   const [myResponses, setMyResponses] = useState({}) // pollId → 'yes'|'no'|'maybe'
+  const [myStats, setMyStats] = useState(null)     // personal stats across all clubs
+  const [statPeriod, setStatPeriod] = useState('30d')
 
   useEffect(() => { fetchAll() }, [user])
 
   async function fetchAll() {
     await fetchMemberships()
+    fetchMyStats()  // non-blocking — pops in after clubs
   }
 
   async function fetchMemberships() {
@@ -73,6 +76,34 @@ export default function OnboardingPage() {
     }
 
     setLoading(false)
+  }
+
+  async function fetchMyStats() {
+    const { data } = await supabase
+      .from('match_players')
+      .select('side, matches!inner(score_a, score_b, played_at, status)')
+      .eq('user_id', user.id)
+
+    const rows = (data || []).filter(mp => mp.matches?.status === 'confirmed')
+    const now = new Date()
+
+    function calc(days) {
+      const cutoff = days ? new Date(now.getTime() - days * 86400000) : null
+      const filtered = cutoff
+        ? rows.filter(mp => new Date(mp.matches.played_at) >= cutoff)
+        : rows
+      let wins = 0, losses = 0
+      filtered.forEach(mp => {
+        const won = mp.side === 'a'
+          ? mp.matches.score_a > mp.matches.score_b
+          : mp.matches.score_b > mp.matches.score_a
+        if (won) wins++; else losses++
+      })
+      const total = wins + losses
+      return { wins, losses, total, pct: total > 0 ? Math.round(wins / total * 100) : 0 }
+    }
+
+    setMyStats({ '30d': calc(30), '60d': calc(60), '90d': calc(90), 'all': calc(null) })
   }
 
   async function respondToPoll(poll, response) {
@@ -244,6 +275,87 @@ export default function OnboardingPage() {
               })}
             </div>
           )}
+
+          {/* ── My Performance ── */}
+          <div style={{ marginBottom: 24 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+              <div className="section-label" style={{ marginBottom: 0 }}>My performance</div>
+              <div style={{ display: 'flex', gap: 4 }}>
+                {[['30d', '30d'], ['60d', '60d'], ['90d', '90d'], ['All', 'all']].map(([label, key]) => (
+                  <button key={key} onClick={() => setStatPeriod(key)} style={{
+                    padding: '4px 10px', borderRadius: 20,
+                    fontSize: 11, fontWeight: 600,
+                    background: statPeriod === key ? '#256575' : 'transparent',
+                    color: statPeriod === key ? 'white' : 'var(--text3)',
+                    border: `1.5px solid ${statPeriod === key ? '#256575' : 'var(--border)'}`,
+                    cursor: 'pointer', fontFamily: "'Inter',sans-serif",
+                    transition: 'all 0.15s',
+                  }}>{label}</button>
+                ))}
+              </div>
+            </div>
+
+            {!myStats ? (
+              /* Loading skeleton */
+              <div style={{
+                background: 'var(--bg2)', border: '0.5px solid var(--border)',
+                borderRadius: 'var(--radius)', padding: '20px 16px',
+                display: 'flex', justifyContent: 'space-around',
+              }}>
+                {[0, 1, 2].map(i => (
+                  <div key={i} style={{ textAlign: 'center' }}>
+                    <div style={{ width: 48, height: 32, background: 'var(--border)', borderRadius: 6, margin: '0 auto 6px' }}/>
+                    <div style={{ width: 36, height: 10, background: 'var(--border)', borderRadius: 4, margin: '0 auto' }}/>
+                  </div>
+                ))}
+              </div>
+            ) : myStats[statPeriod].total === 0 ? (
+              <div style={{
+                background: 'var(--bg2)', border: '0.5px solid var(--border)',
+                borderRadius: 'var(--radius)', padding: '20px 16px', textAlign: 'center',
+              }}>
+                <div style={{ fontSize: 13, color: 'var(--text3)' }}>No matches recorded in this period</div>
+              </div>
+            ) : (() => {
+              const s = myStats[statPeriod]
+              return (
+                <div style={{
+                  background: 'var(--bg2)', border: '0.5px solid var(--border)',
+                  borderRadius: 'var(--radius)', padding: '16px 20px',
+                }}>
+                  {/* Three stat numbers */}
+                  <div style={{ display: 'flex', justifyContent: 'space-around', marginBottom: 14, alignItems: 'center' }}>
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: 32, fontWeight: 700, color: '#2a8c55', lineHeight: 1.1 }}>{s.wins}</div>
+                      <div style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginTop: 4 }}>Wins</div>
+                    </div>
+                    <div style={{ width: 1, background: 'var(--border)', alignSelf: 'stretch', opacity: 0.6 }} />
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: 32, fontWeight: 700, color: '#e05555', lineHeight: 1.1 }}>{s.losses}</div>
+                      <div style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginTop: 4 }}>Losses</div>
+                    </div>
+                    <div style={{ width: 1, background: 'var(--border)', alignSelf: 'stretch', opacity: 0.6 }} />
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: 32, fontWeight: 700, color: s.pct >= 50 ? '#256575' : '#e05555', lineHeight: 1.1 }}>{s.pct}%</div>
+                      <div style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginTop: 4 }}>Win Rate</div>
+                    </div>
+                  </div>
+                  {/* Win/Loss bar */}
+                  <div style={{ height: 5, borderRadius: 4, background: 'var(--border)', overflow: 'hidden', marginBottom: 7 }}>
+                    <div style={{
+                      height: '100%', borderRadius: 4,
+                      width: `${s.pct}%`,
+                      background: s.pct >= 50 ? '#256575' : '#e05555',
+                      transition: 'width 0.4s ease',
+                    }}/>
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text3)', textAlign: 'center' }}>
+                    {s.total} match{s.total !== 1 ? 'es' : ''} across all clubs
+                  </div>
+                </div>
+              )
+            })()}
+          </div>
 
           {/* ── My clubs ── */}
           {loading ? (
