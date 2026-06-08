@@ -79,24 +79,45 @@ export default function OnboardingPage() {
   }
 
   async function fetchMyStats() {
-    const { data } = await supabase
+    const empty = { wins: 0, losses: 0, total: 0, pct: 0 }
+
+    // Step 1 — get all match_player rows for this user (just match_id + side)
+    const { data: mpRows } = await supabase
       .from('match_players')
-      .select('side, matches!inner(score_a, score_b, played_at, status)')
+      .select('match_id, side')
       .eq('user_id', user.id)
 
-    const rows = (data || []).filter(mp => mp.matches?.status === 'confirmed')
+    if (!mpRows || mpRows.length === 0) {
+      setMyStats({ '30d': empty, '60d': empty, '90d': empty, 'all': empty })
+      return
+    }
+
+    // Step 2 — fetch those matches (confirmed only)
+    const matchIds = mpRows.map(r => r.match_id)
+    const { data: matchRows } = await supabase
+      .from('matches')
+      .select('id, winner_side, played_at, status')
+      .in('id', matchIds)
+      .eq('status', 'confirmed')
+
+    if (!matchRows || matchRows.length === 0) {
+      setMyStats({ '30d': empty, '60d': empty, '90d': empty, 'all': empty })
+      return
+    }
+
+    // Build a side lookup: matchId → side ('team1' | 'team2')
+    const sideMap = Object.fromEntries(mpRows.map(r => [r.match_id, r.side]))
     const now = new Date()
 
     function calc(days) {
       const cutoff = days ? new Date(now.getTime() - days * 86400000) : null
       const filtered = cutoff
-        ? rows.filter(mp => new Date(mp.matches.played_at) >= cutoff)
-        : rows
+        ? matchRows.filter(m => new Date(m.played_at) >= cutoff)
+        : matchRows
       let wins = 0, losses = 0
-      filtered.forEach(mp => {
-        const won = mp.side === 'a'
-          ? mp.matches.score_a > mp.matches.score_b
-          : mp.matches.score_b > mp.matches.score_a
+      filtered.forEach(m => {
+        const mySide = sideMap[m.id]
+        const won = m.winner_side === mySide
         if (won) wins++; else losses++
       })
       const total = wins + losses
