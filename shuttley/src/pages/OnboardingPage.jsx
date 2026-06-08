@@ -299,16 +299,16 @@ export default function OnboardingPage() {
 
           {/* ── My Performance ── */}
           <div style={{ marginBottom: 24 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
               <div className="section-label" style={{ marginBottom: 0 }}>My performance</div>
-              <div style={{ display: 'flex', gap: 4 }}>
+              <div style={{ display: 'flex', gap: 3 }}>
                 {[['30d', '30d'], ['60d', '60d'], ['90d', '90d'], ['All', 'all']].map(([label, key]) => (
                   <button key={key} onClick={() => setStatPeriod(key)} style={{
-                    padding: '4px 10px', borderRadius: 20,
-                    fontSize: 11, fontWeight: 600,
+                    padding: '2px 7px', borderRadius: 20,
+                    fontSize: 10, fontWeight: 600,
                     background: statPeriod === key ? '#256575' : 'transparent',
                     color: statPeriod === key ? 'white' : 'var(--text3)',
-                    border: `1.5px solid ${statPeriod === key ? '#256575' : 'var(--border)'}`,
+                    border: `1px solid ${statPeriod === key ? '#256575' : 'var(--border)'}`,
                     cursor: 'pointer', fontFamily: "'Inter',sans-serif",
                     transition: 'all 0.15s',
                   }}>{label}</button>
@@ -317,61 +317,60 @@ export default function OnboardingPage() {
             </div>
 
             {!myStats ? (
-              /* Loading skeleton */
               <div style={{
                 background: 'var(--bg2)', border: '0.5px solid var(--border)',
-                borderRadius: 'var(--radius)', padding: '20px 16px',
+                borderRadius: 'var(--radius)', padding: '10px 16px',
                 display: 'flex', justifyContent: 'space-around',
               }}>
                 {[0, 1, 2].map(i => (
                   <div key={i} style={{ textAlign: 'center' }}>
-                    <div style={{ width: 48, height: 32, background: 'var(--border)', borderRadius: 6, margin: '0 auto 6px' }}/>
-                    <div style={{ width: 36, height: 10, background: 'var(--border)', borderRadius: 4, margin: '0 auto' }}/>
+                    <div style={{ width: 32, height: 18, background: 'var(--border)', borderRadius: 4, margin: '0 auto 4px' }}/>
+                    <div style={{ width: 28, height: 8, background: 'var(--border)', borderRadius: 3, margin: '0 auto' }}/>
                   </div>
                 ))}
               </div>
             ) : myStats[statPeriod].total === 0 ? (
               <div style={{
                 background: 'var(--bg2)', border: '0.5px solid var(--border)',
-                borderRadius: 'var(--radius)', padding: '20px 16px', textAlign: 'center',
+                borderRadius: 'var(--radius)', padding: '10px 16px', textAlign: 'center',
               }}>
-                <div style={{ fontSize: 13, color: 'var(--text3)' }}>No matches recorded in this period</div>
+                <div style={{ fontSize: 12, color: 'var(--text3)' }}>No matches in this period</div>
               </div>
             ) : (() => {
               const s = myStats[statPeriod]
               return (
                 <div style={{
                   background: 'var(--bg2)', border: '0.5px solid var(--border)',
-                  borderRadius: 'var(--radius)', padding: '16px 20px',
+                  borderRadius: 'var(--radius)', padding: '10px 16px',
                 }}>
-                  {/* Three stat numbers */}
-                  <div style={{ display: 'flex', justifyContent: 'space-around', marginBottom: 14, alignItems: 'center' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'center', marginBottom: 8 }}>
                     <div style={{ textAlign: 'center' }}>
-                      <div style={{ fontSize: 22, fontWeight: 700, color: '#2a8c55', lineHeight: 1.1 }}>{s.wins}</div>
-                      <div style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginTop: 4 }}>Wins</div>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: '#2a8c55', lineHeight: 1.2 }}>{s.wins}</div>
+                      <div style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: 2 }}>Wins</div>
                     </div>
-                    <div style={{ width: 1, background: 'var(--border)', alignSelf: 'stretch', opacity: 0.6 }} />
+                    <div style={{ width: 1, height: 28, background: 'var(--border)', opacity: 0.6 }} />
                     <div style={{ textAlign: 'center' }}>
-                      <div style={{ fontSize: 22, fontWeight: 700, color: '#e05555', lineHeight: 1.1 }}>{s.losses}</div>
-                      <div style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginTop: 4 }}>Losses</div>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: '#e05555', lineHeight: 1.2 }}>{s.losses}</div>
+                      <div style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: 2 }}>Losses</div>
                     </div>
-                    <div style={{ width: 1, background: 'var(--border)', alignSelf: 'stretch', opacity: 0.6 }} />
+                    <div style={{ width: 1, height: 28, background: 'var(--border)', opacity: 0.6 }} />
                     <div style={{ textAlign: 'center' }}>
-                      <div style={{ fontSize: 22, fontWeight: 700, color: s.pct >= 50 ? '#256575' : '#e05555', lineHeight: 1.1 }}>{s.pct}%</div>
-                      <div style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginTop: 4 }}>Win Rate</div>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: s.pct >= 50 ? '#256575' : '#e05555', lineHeight: 1.2 }}>{s.pct}%</div>
+                      <div style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: 2 }}>Win Rate</div>
+                    </div>
+                    <div style={{ width: 1, height: 28, background: 'var(--border)', opacity: 0.6 }} />
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text2)', lineHeight: 1.2 }}>{s.total}</div>
+                      <div style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: 2 }}>Played</div>
                     </div>
                   </div>
-                  {/* Win/Loss bar */}
-                  <div style={{ height: 5, borderRadius: 4, background: 'var(--border)', overflow: 'hidden', marginBottom: 7 }}>
+                  <div style={{ height: 3, borderRadius: 3, background: 'var(--border)', overflow: 'hidden' }}>
                     <div style={{
-                      height: '100%', borderRadius: 4,
+                      height: '100%', borderRadius: 3,
                       width: `${s.pct}%`,
                       background: s.pct >= 50 ? '#256575' : '#e05555',
                       transition: 'width 0.4s ease',
                     }}/>
-                  </div>
-                  <div style={{ fontSize: 11, color: 'var(--text3)', textAlign: 'center' }}>
-                    {s.total} match{s.total !== 1 ? 'es' : ''} across all clubs
                   </div>
                 </div>
               )
