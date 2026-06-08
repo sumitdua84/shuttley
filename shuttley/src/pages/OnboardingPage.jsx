@@ -366,6 +366,7 @@ export default function OnboardingPage() {
                         }}
                       >
                         <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', marginBottom: 6 }}>Overall</div>
                           <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'center' }}>
                             <SC val={s.wins}    label="Wins"     color="#2a8c55" />
                             <Div /><SC val={s.losses}  label="Losses"   color="#e05555" />
