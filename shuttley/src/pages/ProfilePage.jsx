@@ -160,37 +160,6 @@ export default function ProfilePage() {
           <div style={{ background: 'var(--bg2)', borderRadius: 'var(--radius)', padding: '16px', marginBottom: 16 }}>
             <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 12 }}>Club Settings — {club.name}</div>
 
-            {[
-              { key: 'splits_enabled',        label: 'Splits',        icon: '💰' },
-              { key: 'chat_enabled',           label: 'Chat',          icon: '💬' },
-              { key: 'notifications_enabled',  label: 'Notifications', icon: '🔔' },
-            ].map(({ key, label, icon }) => (
-              <div key={key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderBottom: '0.5px solid var(--border)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: 18 }}>{icon}</span>
-                  <span style={{ fontSize: 14, color: 'var(--text)' }}>{label}</span>
-                </div>
-                <div
-                  onClick={async () => {
-                    const newVal = !club[key]
-                    await supabase.from('clubs').update({ [key]: newVal }).eq('id', clubId)
-                    setClub(prev => ({ ...prev, [key]: newVal }))
-                  }}
-                  style={{
-                    width: 44, height: 26, borderRadius: 99, cursor: 'pointer',
-                    background: club[key] ? 'var(--accent)' : 'var(--border2)',
-                    position: 'relative', transition: 'background 0.2s', flexShrink: 0
-                  }}>
-                  <div style={{
-                    position: 'absolute', top: 3,
-                    left: club[key] ? 19 : 3,
-                    width: 20, height: 20, borderRadius: 99,
-                    background: '#fff', transition: 'left 0.2s'
-                  }} />
-                </div>
-              </div>
-            ))}
-
             <button
               className="btn btn-danger"
               style={{ width: '100%', marginTop: 14, fontSize: 13 }}
