@@ -1180,51 +1180,6 @@ export default function ModeratorDashboard() {
             </button>
           </div>
 
-          <div className="section-label">Features</div>
-          {[
-            { key:'splits', label:'💰 Splits', desc:'Split club expenses among members' },
-            { key:'chat',   label:'💬 Chat',   desc:'Club group chat' },
-          ].map(({ key, label, desc }) => {
-            const f = clubFeatures.find(x => x.feature === key)
-            const unlocked = f?.unlocked || false
-            const enabled  = f?.enabled  || false
-            return (
-              <div key={key} style={{
-                background:'var(--bg2)', border:'0.5px solid var(--border)',
-                borderLeft:`4px solid ${unlocked ? 'var(--accent)' : 'var(--border)'}`,
-                borderRadius:'var(--radius)', padding:'12px 16px', marginBottom:10,
-                display:'flex', alignItems:'center', justifyContent:'space-between', gap:12,
-              }}>
-                <div>
-                  <div style={{ fontSize:13, fontWeight:600, color:'var(--text)' }}>{label}</div>
-                  <div style={{ fontSize:11, color:'var(--text3)', marginTop:3 }}>
-                    {unlocked ? desc : '🔒 Premium — contact Shuttley to unlock'}
-                  </div>
-                </div>
-                {unlocked ? (
-                  <button className={`btn btn-sm ${enabled ? 'btn-primary' : 'btn-ghost'}`}
-                    style={{ flexShrink:0 }}
-                    onClick={async () => {
-                      const { error } = await supabase.from('club_features')
-                        .upsert(
-                          { club_id: clubId, feature: key, unlocked: true, enabled: !enabled },
-                          { onConflict: 'club_id,feature' }
-                        )
-                      if (error) { showToast(`Error: ${error.message}`); return }
-                      setClubFeatures(prev => prev.map(x => x.feature === key ? { ...x, enabled: !enabled } : x))
-                      showToast(`${label} ${!enabled ? 'enabled' : 'disabled'}`)
-                    }}>
-                    {enabled ? '✔ On' : 'Off'}
-                  </button>
-                ) : (
-                  <span style={{ fontSize:11, fontWeight:600, color:'var(--text3)', background:'var(--bg3)', padding:'4px 10px', borderRadius:99, flexShrink:0 }}>
-                    Locked
-                  </span>
-                )}
-              </div>
-            )
-          })}
-
           <div className="section-label">Notifications</div>
           <div style={{
             background:'var(--bg2)', border:'0.5px solid var(--border)',
