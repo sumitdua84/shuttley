@@ -88,14 +88,15 @@ export default function AdminDashboard() {
   }
 
   async function toggleUnlocked(clubId, feature, currentVal) {
+    const newVal = !currentVal
     await supabase.from('club_features').upsert(
-      { club_id: clubId, feature, unlocked: !currentVal },
+      { club_id: clubId, feature, unlocked: newVal, enabled: newVal },
       { onConflict: 'club_id,feature' }
     )
     setFeatures(prev => {
       const existing = prev.find(f => f.club_id === clubId && f.feature === feature)
-      if (existing) return prev.map(f => f.club_id === clubId && f.feature === feature ? { ...f, unlocked: !currentVal } : f)
-      return [...prev, { club_id: clubId, feature, unlocked: !currentVal, enabled: false }]
+      if (existing) return prev.map(f => f.club_id === clubId && f.feature === feature ? { ...f, unlocked: newVal, enabled: newVal } : f)
+      return [...prev, { club_id: clubId, feature, unlocked: newVal, enabled: newVal }]
     })
   }
 

@@ -1205,9 +1205,12 @@ export default function ModeratorDashboard() {
                   <button className={`btn btn-sm ${enabled ? 'btn-primary' : 'btn-ghost'}`}
                     style={{ flexShrink:0 }}
                     onClick={async () => {
-                      await supabase.from('club_features')
-                      .update({ enabled: !enabled })
-                      .eq('club_id', clubId).eq('feature', key)
+                      const { error } = await supabase.from('club_features')
+                        .upsert(
+                          { club_id: clubId, feature: key, unlocked: true, enabled: !enabled },
+                          { onConflict: 'club_id,feature' }
+                        )
+                      if (error) { showToast(`Error: ${error.message}`); return }
                       setClubFeatures(prev => prev.map(x => x.feature === key ? { ...x, enabled: !enabled } : x))
                       showToast(`${label} ${!enabled ? 'enabled' : 'disabled'}`)
                     }}>
