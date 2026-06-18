@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Coach Icon Ideas</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #111;
+    font-family: 'Inter', sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px;
+    min-height: 100vh;
+  }
+  h1 { color: #fff; font-size: 22px; margin-bottom: 8px; }
+  p  { color: #888; font-size: 13px; margin-bottom: 40px; }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 32px;
+    max-width: 700px;
+    width: 100%;
+  }
+  .card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  }
+  .label {
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+  }
+  .sub {
+    color: #666;
+    font-size: 11px;
+    text-align: center;
+    margin-top: -10px;
+  }
+  .btn {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background: #256575;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 6px 20px rgba(37,101,117,0.55);
+    cursor: pointer;
+    padding: 8px;
+  }
+  .btn svg { width: 100%; height: 100%; }
+
+  /* === ANIMATIONS === */
+
+  /* A: Arm swing */
+  @keyframes swingArm {
+    0%,100% { transform: rotate(-35deg); }
+    40%     { transform: rotate(28deg);  }
+  }
+  .arm-swing {
+    transform-origin: 0px 0px;
+    animation: swingArm 1.1s cubic-bezier(0.4,0,0.6,1) infinite;
+  }
+
+  /* B: Body wobble */
+  @keyframes wobble {
+    0%,100% { transform: rotate(-4deg); }
+    50%     { transform: rotate(4deg);  }
+  }
+  .body-wobble {
+    transform-origin: 40px 60px;
+    animation: wobble 0.8s ease-in-out infinite;
+  }
+
+  /* C: Shuttle spin */
+  @keyframes shuttleSpin {
+    0%   { transform: rotate(0deg);    }
+    100% { transform: rotate(360deg);  }
+  }
+  .shuttle-spin {
+    transform-origin: 38px 45px;
+    animation: shuttleSpin 2s linear infinite;
+  }
+
+  /* D: Bounce whole icon */
+  @keyframes iconBounce {
+    0%,100% { transform: translateY(0px);  }
+    50%     { transform: translateY(-5px); }
+  }
+
+  /* E: Racket swipe */
+  @keyframes racketSwipe {
+    0%,100% { transform: rotate(-20deg); }
+    45%     { transform: rotate(25deg);  }
+  }
+  .racket-swipe {
+    transform-origin: 0px 0px;
+    animation: racketSwipe 0.9s cubic-bezier(0.3,0,0.5,1) infinite;
+  }
+
+  /* F: Pulse ring */
+  @keyframes pulseRing {
+    0%   { r: 30; opacity: 0.6; }
+    100% { r: 42; opacity: 0;   }
+  }
+
+  /* Button bounce wrapper */
+  .bounce { animation: iconBounce 2.5s ease-in-out infinite; }
+</style>
+</head>
+<body>
+
+<h1>🏸 Coach Icon — Pick Your Favourite</h1>
+<p>All icons are animated exactly as they'd appear in the app</p>
+
+<div class="grid">
+
+  <!-- ═══ A: Stick Robot (current improved) ═══ -->
+  <div class="card">
+    <div class="btn bounce">
+      <svg viewBox="0 0 80 95" xmlns="http://www.w3.org/2000/svg">
+        <line x1="40" y1="6" x2="40" y2="1" stroke="rgba(255,255,255,0.7)" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="40" cy="1" r="2.5" fill="rgba(255,255,255,0.9)"/>
+        <circle cx="40" cy="18" r="13" fill="rgba(255,255,255,0.15)" stroke="white" stroke-width="2"/>
+        <circle cx="35" cy="16" r="3" fill="white"/>
+        <circle cx="45" cy="16" r="3" fill="white"/>
+        <circle cx="36" cy="17" r="1.5" fill="#256575"/>
+        <circle cx="46" cy="17" r="1.5" fill="#256575"/>
+        <path d="M35 23 Q40 27 45 23" stroke="white" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+        <rect x="29" y="32" width="22" height="24" rx="4" fill="rgba(255,255,255,0.15)" stroke="white" stroke-width="2"/>
+        <circle cx="40" cy="44" r="3" fill="rgba(255,255,255,0.6)"/>
+        <line x1="29" y1="37" x2="16" y2="52" stroke="white" stroke-width="3.5" stroke-linecap="round"/>
+        <circle cx="15" cy="53" r="3" fill="white"/>
+        <g transform="translate(51,37)" class="arm-swing">
+          <line x1="0" y1="0" x2="13" y2="13" stroke="white" stroke-width="3.5" stroke-linecap="round"/>
+          <circle cx="14" cy="14" r="3" fill="white"/>
+          <line x1="14" y1="14" x2="20" y2="3" stroke="rgba(255,220,80,0.95)" stroke-width="2.5" stroke-linecap="round"/>
+          <ellipse cx="22" cy="-4" rx="6" ry="8" fill="none" stroke="rgba(255,220,80,0.95)" stroke-width="2" transform="rotate(15 22 -4)"/>
+          <line x1="17" y1="-9" x2="19" y2="1" stroke="rgba(255,220,80,0.5)" stroke-width="0.9"/>
+          <line x1="22" y1="-11" x2="22" y2="1" stroke="rgba(255,220,80,0.5)" stroke-width="0.9"/>
+          <line x1="17" y1="-5" x2="27" y2="-4" stroke="rgba(255,220,80,0.5)" stroke-width="0.9"/>
+        </g>
+        <line x1="36" y1="56" x2="30" y2="78" stroke="white" stroke-width="3.5" stroke-linecap="round"/>
+        <line x1="44" y1="56" x2="50" y2="78" stroke="white" stroke-width="3.5" stroke-linecap="round"/>
+        <line x1="30" y1="78" x2="22" y2="80" stroke="white" stroke-width="3" stroke-linecap="round"/>
+        <line x1="50" y1="78" x2="58" y2="80" stroke="white" stroke-width="3" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <div class="label">A — Stick Robot</div>
+    <div class="sub">Simple, current style<br/>swinging arm</div>
+  </div>
+
+  <!-- ═══ B: Chunky Cute Robot ═══ -->
+  <div class="card">
+    <div class="btn bounce" style="animation-delay:0.3s">
+      <svg viewBox="0 0 80 90" xmlns="http://www.w3.org/2000/svg">
+        <!-- Antenna -->
+        <line x1="40" y1="8" x2="40" y2="3" stroke="white" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="40" cy="2" r="3" fill="rgba(255,220,80,1)"/>
+        <!-- Head - rounded square -->
+        <rect x="24" y="9" width="32" height="28" rx="8" fill="rgba(255,255,255,0.2)" stroke="white" stroke-width="2"/>
+        <!-- Eyes - big square robot eyes -->
+        <rect x="29" y="16" width="9" height="8" rx="2" fill="white"/>
+        <rect x="42" y="16" width="9" height="8" rx="2" fill="white"/>
+        <rect x="31" y="18" width="5" height="4" rx="1" fill="#256575"/>
+        <rect x="44" y="18" width="5" height="4" rx="1" fill="#256575"/>
+        <!-- Mouth pixels -->
+        <rect x="32" y="29" width="4" height="3" rx="1" fill="white" opacity="0.8"/>
+        <rect x="38" y="29" width="4" height="3" rx="1" fill="white" opacity="0.8"/>
+        <!-- Neck -->
+        <rect x="37" y="37" width="6" height="5" rx="1" fill="rgba(255,255,255,0.6)"/>
+        <!-- Body - chunky -->
+        <rect x="22" y="42" width="36" height="28" rx="7" fill="rgba(255,255,255,0.2)" stroke="white" stroke-width="2"/>
+        <!-- Chest screen -->
+        <rect x="29" y="47" width="22" height="14" rx="3" fill="rgba(255,220,80,0.25)" stroke="rgba(255,220,80,0.7)" stroke-width="1.5"/>
+        <circle cx="40" cy="54" r="3.5" fill="rgba(255,220,80,0.8)"/>
+        <!-- Left arm -->
+        <rect x="10" y="44" width="12" height="7" rx="3.5" fill="rgba(255,255,255,0.15)" stroke="white" stroke-width="1.8"/>
+        <!-- Right arm + racket animated -->
+        <g transform="translate(58,45)" class="arm-swing">
+          <rect x="0" y="0" width="12" height="7" rx="3.5" fill="rgba(255,255,255,0.15)" stroke="white" stroke-width="1.8"/>
+          <line x1="12" y1="3.5" x2="18" y2="-5" stroke="rgba(255,220,80,0.95)" stroke-width="2.5" stroke-linecap="round"/>
+          <ellipse cx="20" cy="-11" rx="5" ry="7" fill="none" stroke="rgba(255,220,80,0.95)" stroke-width="2"/>
+          <line x1="16" y1="-16" x2="17" y2="-6" stroke="rgba(255,220,80,0.45)" stroke-width="0.8"/>
+          <line x1="20" y1="-17" x2="20" y2="-6" stroke="rgba(255,220,80,0.45)" stroke-width="0.8"/>
+          <line x1="16" y1="-13" x2="24" y2="-12" stroke="rgba(255,220,80,0.45)" stroke-width="0.8"/>
+          <line x1="16" y1="-9" x2="24" y2="-8" stroke="rgba(255,220,80,0.45)" stroke-width="0.8"/>
+        </g>
+        <!-- Legs -->
+        <rect x="27" y="69" width="10" height="16" rx="5" fill="rgba(255,255,255,0.15)" stroke="white" stroke-width="1.8"/>
+        <rect x="43" y="69" width="10" height="16" rx="5" fill="rgba(255,255,255,0.15)" stroke="white" stroke-width="1.8"/>
+        <!-- Feet -->
+        <rect x="23" y="82" width="14" height="6" rx="3" fill="rgba(255,255,255,0.6)"/>
+        <rect x="43" y="82" width="14" height="6" rx="3" fill="rgba(255,255,255,0.6)"/>
+      </svg>
+    </div>
+    <div class="label">B — Chunky Robot</div>
+    <div class="sub">Cute blocky style<br/>pixel eyes, gold badge</div>
+  </div>
+
+  <!-- ═══ C: Shuttlecock Character ═══ -->
+  <div class="card">
+    <div class="btn bounce" style="animation-delay:0.6s">
+      <svg viewBox="0 0 80 90" xmlns="http://www.w3.org/2000/svg">
+        <!-- Feathers spinning group -->
+        <g transform="translate(40,55)" class="arm-swing" style="animation-duration:2s;animation-name:shuttleSpin;transform-origin:0px 0px">
+          <line x1="0" y1="0" x2="-18" y2="-28" stroke="rgba(255,255,255,0.5)" stroke-width="1.5"/>
+          <line x1="0" y1="0" x2="-8" y2="-32" stroke="rgba(255,255,255,0.55)" stroke-width="1.5"/>
+          <line x1="0" y1="0" x2="4" y2="-33" stroke="rgba(255,255,255,0.6)" stroke-width="1.5"/>
+          <line x1="0" y1="0" x2="16" y2="-30" stroke="rgba(255,255,255,0.55)" stroke-width="1.5"/>
+          <line x1="0" y1="0" x2="22" y2="-22" stroke="rgba(255,255,255,0.5)" stroke-width="1.5"/>
+          <!-- Feather tips ring -->
+          <ellipse cx="-1" cy="-29" rx="24" ry="5" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="1.2" transform="rotate(-5)"/>
+        </g>
+        <!-- Cork base -->
+        <circle cx="40" cy="58" r="11" fill="rgba(255,255,255,0.25)" stroke="white" stroke-width="2"/>
+        <!-- Face on cork -->
+        <circle cx="36" cy="56" r="2.8" fill="white"/>
+        <circle cx="44" cy="56" r="2.8" fill="white"/>
+        <circle cx="36.8" cy="56.8" r="1.4" fill="#256575"/>
+        <circle cx="44.8" cy="56.8" r="1.4" fill="#256575"/>
+        <path d="M36 62 Q40 65.5 44 62" stroke="white" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+        <!-- Little arms -->
+        <g transform="translate(29,57)" class="arm-swing" style="animation-duration:1.1s">
+          <line x1="0" y1="0" x2="-9" y2="8" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+          <line x1="-9" y1="8" x2="-14" y2="2" stroke="rgba(255,220,80,0.9)" stroke-width="2" stroke-linecap="round"/>
+          <ellipse cx="-16" cy="-2" rx="4" ry="5" fill="none" stroke="rgba(255,220,80,0.9)" stroke-width="1.8" transform="rotate(10 -16 -2)"/>
+        </g>
+        <line x1="51" y1="57" x2="60" y2="65" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+        <!-- Sweat drop -->
+        <ellipse cx="62" cy="30" rx="4" ry="6" fill="rgba(100,200,255,0.7)" transform="rotate(15 62 30)"/>
+        <circle cx="62" cy="33" r="3" fill="rgba(100,200,255,0.7)"/>
+      </svg>
+    </div>
+    <div class="label">C — Shuttlecock</div>
+    <div class="sub">Spinning feathers<br/>cute cork face</div>
+  </div>
+
+  <!-- ═══ D: Coach with Cap ═══ -->
+  <div class="card">
+    <div class="btn bounce" style="animation-delay:0.2s">
+      <svg viewBox="0 0 80 90" xmlns="http://www.w3.org/2000/svg">
+        <!-- Cap brim -->
+        <ellipse cx="40" cy="13" rx="22" ry="5" fill="rgba(255,220,80,0.9)"/>
+        <!-- Cap dome -->
+        <path d="M18 13 Q18 1 40 1 Q62 1 62 13 Z" fill="rgba(255,220,80,0.9)"/>
+        <!-- Cap button -->
+        <circle cx="40" cy="2" r="2.5" fill="rgba(255,255,255,0.7)"/>
+        <!-- Head -->
+        <circle cx="40" cy="27" r="16" fill="rgba(255,255,255,0.2)" stroke="white" stroke-width="2"/>
+        <!-- Eyes -->
+        <circle cx="34" cy="25" r="3.5" fill="white"/>
+        <circle cx="46" cy="25" r="3.5" fill="white"/>
+        <circle cx="34.8" cy="25.8" r="2" fill="#256575"/>
+        <circle cx="46.8" cy="25.8" r="2" fill="#256575"/>
+        <circle cx="35.5" cy="24.8" r="0.8" fill="white"/>
+        <circle cx="47.5" cy="24.8" r="0.8" fill="white"/>
+        <!-- Confident smile -->
+        <path d="M33 32 Q40 37 47 32" stroke="white" stroke-width="2" fill="none" stroke-linecap="round"/>
+        <!-- Whistle -->
+        <circle cx="40" cy="38" r="3" fill="rgba(255,220,80,0.9)" stroke="rgba(255,220,80,0.5)" stroke-width="1"/>
+        <line x1="43" y1="38" x2="47" y2="36" stroke="rgba(255,220,80,0.9)" stroke-width="1.5"/>
+        <!-- Body with vest -->
+        <rect x="27" y="44" width="26" height="26" rx="6" fill="rgba(255,255,255,0.15)" stroke="white" stroke-width="2"/>
+        <path d="M40 44 L36 70 L40 70 L44 70 L40 44 Z" fill="rgba(255,255,255,0.15)"/>
+        <!-- Left arm -->
+        <line x1="27" y1="49" x2="14" y2="62" stroke="white" stroke-width="4" stroke-linecap="round"/>
+        <circle cx="13" cy="63" r="3.5" fill="white"/>
+        <!-- Right arm + racket animated -->
+        <g transform="translate(53,49)" class="racket-swipe" style="animation-name:swingArm;animation-duration:1.0s">
+          <line x1="0" y1="0" x2="12" y2="12" stroke="white" stroke-width="4" stroke-linecap="round"/>
+          <circle cx="13" cy="13" r="3.5" fill="white"/>
+          <line x1="13" y1="13" x2="19" y2="3" stroke="rgba(255,220,80,0.95)" stroke-width="2.5" stroke-linecap="round"/>
+          <ellipse cx="21" cy="-4" rx="6" ry="8" fill="none" stroke="rgba(255,220,80,0.95)" stroke-width="2.2" transform="rotate(12 21 -4)"/>
+          <line x1="17" y1="-9" x2="19" y2="1" stroke="rgba(255,220,80,0.5)" stroke-width="0.9"/>
+          <line x1="21" y1="-11" x2="21" y2="1" stroke="rgba(255,220,80,0.5)" stroke-width="0.9"/>
+          <line x1="17" y1="-5" x2="26" y2="-4" stroke="rgba(255,220,80,0.5)" stroke-width="0.9"/>
+          <line x1="17" y1="-1" x2="26" y2="0" stroke="rgba(255,220,80,0.5)" stroke-width="0.9"/>
+        </g>
+        <!-- Legs -->
+        <line x1="34" y1="70" x2="28" y2="86" stroke="white" stroke-width="4" stroke-linecap="round"/>
+        <line x1="46" y1="70" x2="52" y2="86" stroke="white" stroke-width="4" stroke-linecap="round"/>
+        <line x1="28" y1="86" x2="20" y2="88" stroke="white" stroke-width="3" stroke-linecap="round"/>
+        <line x1="52" y1="86" x2="60" y2="88" stroke="white" stroke-width="3" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <div class="label">D — Coach Cap</div>
+    <div class="sub">Human coach with cap<br/>whistle + racket</div>
+  </div>
+
+  <!-- ═══ E: Robot Owl ═══ -->
+  <div class="card">
+    <div class="btn bounce" style="animation-delay:0.5s">
+      <svg viewBox="0 0 80 90" xmlns="http://www.w3.org/2000/svg">
+        <!-- Ears/horns -->
+        <polygon points="24,18 20,4 30,14" fill="rgba(255,255,255,0.7)"/>
+        <polygon points="56,18 60,4 50,14" fill="rgba(255,255,255,0.7)"/>
+        <!-- Body (round owl) -->
+        <ellipse cx="40" cy="50" rx="25" ry="32" fill="rgba(255,255,255,0.15)" stroke="white" stroke-width="2"/>
+        <!-- Head circle on top of body -->
+        <circle cx="40" cy="24" r="18" fill="rgba(255,255,255,0.2)" stroke="white" stroke-width="2"/>
+        <!-- Big owl eyes -->
+        <circle cx="33" cy="22" r="7" fill="white"/>
+        <circle cx="47" cy="22" r="7" fill="white"/>
+        <circle cx="33" cy="22" r="4.5" fill="#256575"/>
+        <circle cx="47" cy="22" r="4.5" fill="#256575"/>
+        <circle cx="33" cy="22" r="2" fill="black"/>
+        <circle cx="47" cy="22" r="2" fill="black"/>
+        <circle cx="34" cy="20" r="1" fill="white"/>
+        <circle cx="48" cy="20" r="1" fill="white"/>
+        <!-- Beak -->
+        <polygon points="40,29 36,33 44,33" fill="rgba(255,220,80,0.9)"/>
+        <!-- Chest stripe -->
+        <ellipse cx="40" cy="52" rx="13" ry="17" fill="rgba(255,255,255,0.12)" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
+        <!-- Chest dots -->
+        <circle cx="40" cy="46" r="2.5" fill="rgba(255,220,80,0.7)"/>
+        <circle cx="35" cy="53" r="1.8" fill="rgba(255,255,255,0.4)"/>
+        <circle cx="40" cy="55" r="1.8" fill="rgba(255,255,255,0.4)"/>
+        <circle cx="45" cy="53" r="1.8" fill="rgba(255,255,255,0.4)"/>
+        <!-- Left wing -->
+        <path d="M15 52 Q10 44 18 38 Q22 50 15 52Z" fill="rgba(255,255,255,0.6)" stroke="white" stroke-width="1.5"/>
+        <!-- Right wing + racket animated -->
+        <g transform="translate(65,44)" class="arm-swing" style="animation-duration:1.1s">
+          <path d="M0 8 Q5 0 0 -8 Q-4 4 0 8Z" fill="rgba(255,255,255,0.6)" stroke="white" stroke-width="1.5"/>
+          <line x1="0" y1="0" x2="8" y2="-8" stroke="rgba(255,220,80,0.95)" stroke-width="2.5" stroke-linecap="round"/>
+          <ellipse cx="11" cy="-14" rx="5" ry="7" fill="none" stroke="rgba(255,220,80,0.95)" stroke-width="2" transform="rotate(15 11 -14)"/>
+          <line x1="7" y1="-19" x2="8" y2="-9" stroke="rgba(255,220,80,0.4)" stroke-width="0.9"/>
+          <line x1="11" y1="-20" x2="11" y2="-9" stroke="rgba(255,220,80,0.4)" stroke-width="0.9"/>
+          <line x1="7" y1="-15" x2="15" y2="-14" stroke="rgba(255,220,80,0.4)" stroke-width="0.9"/>
+        </g>
+        <!-- Feet -->
+        <line x1="33" y1="78" x2="28" y2="87" stroke="white" stroke-width="3.5" stroke-linecap="round"/>
+        <line x1="47" y1="78" x2="52" y2="87" stroke="white" stroke-width="3.5" stroke-linecap="round"/>
+        <line x1="28" y1="87" x2="22" y2="86" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+        <line x1="28" y1="87" x2="26" y2="90" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+        <line x1="52" y1="87" x2="58" y2="86" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+        <line x1="52" y1="87" x2="54" y2="90" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <div class="label">E — Wise Owl</div>
+    <div class="sub">Owl coach, big eyes<br/>wing holding racket</div>
+  </div>
+
+  <!-- ═══ F: Minimal Monogram ═══ -->
+  <div class="card">
+    <div class="btn" style="animation:iconBounce 2.5s ease-in-out 0.8s infinite; position:relative; overflow:hidden;">
+      <!-- Pulse ring -->
+      <svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg" style="position:absolute;inset:0;width:100%;height:100%">
+        <circle cx="40" cy="40" r="30" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="2">
+          <animate attributeName="r" values="28;42" dur="1.5s" repeatCount="indefinite"/>
+          <animate attributeName="opacity" values="0.6;0" dur="1.5s" repeatCount="indefinite"/>
+        </circle>
+      </svg>
+      <svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%">
+        <!-- SC monogram with racket -->
+        <text x="40" y="30" text-anchor="middle" font-size="18" font-weight="900" fill="white" font-family="Arial,sans-serif">SC</text>
+        <line x1="25" y1="35" x2="55" y2="35" stroke="rgba(255,255,255,0.4)" stroke-width="1"/>
+        <!-- Racket below -->
+        <line x1="40" y1="38" x2="40" y2="50" stroke="rgba(255,220,80,0.9)" stroke-width="2.5" stroke-linecap="round"/>
+        <ellipse cx="40" cy="60" rx="10" ry="13" fill="none" stroke="rgba(255,220,80,0.9)" stroke-width="2.5"/>
+        <line x1="36" y1="50" x2="36" y2="70" stroke="rgba(255,220,80,0.4)" stroke-width="0.9"/>
+        <line x1="40" y1="48" x2="40" y2="72" stroke="rgba(255,220,80,0.4)" stroke-width="0.9"/>
+        <line x1="44" y1="50" x2="44" y2="70" stroke="rgba(255,220,80,0.4)" stroke-width="0.9"/>
+        <line x1="31" y1="56" x2="49" y2="56" stroke="rgba(255,220,80,0.4)" stroke-width="0.9"/>
+        <line x1="31" y1="62" x2="49" y2="62" stroke="rgba(255,220,80,0.4)" stroke-width="0.9"/>
+        <line x1="31" y1="66" x2="49" y2="66" stroke="rgba(255,220,80,0.4)" stroke-width="0.9"/>
+      </svg>
+    </div>
+    <div class="label">F — Monogram</div>
+    <div class="sub">SC = Shuttley Coach<br/>clean + minimal</div>
+  </div>
+
+</div>
+
+<p style="margin-top:48px; color:#555; font-size:12px">All icons bounce on idle. Arm swings continuously. Which one? Reply A–F</p>
+</body>
+</html>

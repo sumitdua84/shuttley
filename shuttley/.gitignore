@@ -2,6 +2,7 @@ node_modules
 dist
 .env.local
 .env
+.env.development
 
 # Dev tools (local only)
 generate-icons.mjs
