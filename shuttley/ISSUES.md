@@ -50,48 +50,54 @@ _None yet — Phase 0 was audit/documentation only, no code changed._
 
 ## Phase 1 + 2 implementation (2026-06-20)
 
-### Found: shuttley-dev database bugs (unrelated to this branch's code)
+### Found and fixed: shuttley-dev database bugs (unrelated to this branch's code)
 
-While testing with a real login, found the `shuttley-dev` Supabase
-project itself is broken, blocking all club-related testing regardless of
-this branch's changes:
-- `memberships.joined_at` column doesn't exist (`42703`) — present in
-  production's schema, missed during the manual table-by-table dev clone
-- Infinite recursion in the `memberships` SELECT RLS policy (`42P17`) —
-  the policy from `supabase/fix_all_rls.sql` self-references
-  `memberships` in its own `USING` clause
-- Fix written to `supabase/fix_dev_memberships_recursion.sql` — adds the
-  column and replaces the self-referencing policy with a
-  `SECURITY DEFINER` helper function. **Not yet run** — needs to be
-  executed in the Supabase SQL editor for `shuttley-dev`
-  (`ecdibuhrgdmsdvovmlvl`) only, never production.
-- Confirmed via `git diff develop -- src/pages/OnboardingPage.jsx` (where
-  the error surfaces) that this is pre-existing and not introduced by
-  this branch.
+While testing with a real login (`sumitdua84@gmail.com`), found the
+`shuttley-dev` Supabase project itself had three pre-existing bugs,
+unrelated to this branch's code, all now fixed by Sumit running the
+scripts below in the shuttley-dev SQL editor:
+- `memberships.joined_at` column was missing (`42703`) — present in
+  production's schema, missed during the manual table-by-table dev clone.
+  Fixed in `supabase/fix_dev_memberships_recursion.sql`.
+- Infinite recursion in **four** separate self-referencing `memberships`
+  RLS policies (`42P17`) — `pg_policies` showed an older duplicate SELECT
+  policy plus the UPDATE/DELETE moderator policies all self-joined
+  `memberships` directly. Fixed in the same script with two
+  `SECURITY DEFINER` helper functions.
+- `clubs` had no way for a creator to read back their own just-inserted
+  club before the membership row existed (`42501` on create) — this is a
+  genuine **application bug** in `OnboardingPage.jsx`'s `createClub()`
+  (insert-then-read-back happens before the membership insert), not just
+  dev/prod drift. Fixed in `supabase/fix_dev_clubs_creator_visibility.sql`
+  by adding `created_by = auth.uid()` to the clubs SELECT policy.
+  **Sumit still needs to check whether production has the same gap** —
+  the script includes a read-only query to check prod's `clubs` policies.
 
-### Needs Sumit review — IMPORTANT
+All three scripts have been run against shuttley-dev and verified working.
 
-**Authenticated flows were not fully tested in this session** — login
-itself was verified working, but club/dashboard flows are blocked by the
-shuttley-dev database bugs above until the fix script is run. The following
-*must* be manually verified on `feature/shuttley-app-feel-upgrade` (e.g.
-via `npm run dev`, signed in against the `shuttley-dev` Supabase project)
-before this branch merges anywhere:
+### Authenticated flows — verified in this session
 
-- Login → Member dashboard → Moderator dashboard navigation
-- Every destructive action that used to be a native `confirm()`: delete
-  match, delete session, end session, remove member, demote moderator,
-  delete poll, anonymise account (admin), sign out, request club deletion
-- Toast messages still appear/auto-dismiss correctly (visually) — logic
-  was preserved but not visually inspected
-- `DashboardSkeleton` appearance on `MemberDashboard`/`ModeratorDashboard`/
-  `RotationPage`/`SessionSummary` while data loads — looks reasonable in
-  code but not visually confirmed against real data shapes
-- Route transition (180ms fade) doesn't feel laggy or cause layout jump on
-  a real device
-- PWA install/update flow after the `React.lazy()` change — the service
-  worker's precache manifest changed shape (34 entries vs 12 before);
-  reinstall the PWA locally and confirm install + auto-update still work
+With the dev DB fixed, logged in as `sumitdua84@gmail.com`, created a
+test club ("App Feel Test Club"), and walked through:
+- Login → Onboarding → club creation → landed on **ModeratorDashboard**
+  (auto-routed correctly since creator is the club's moderator)
+- `ModeratorDashboard`'s parallelized `fetchData()` — loaded cleanly,
+  zero console/network errors from the `Promise.all()` restructure
+- `ConfirmModal` via `ProfilePage`'s Sign Out button — rendered correctly,
+  Cancel worked
+- `ConfirmModal` via `ProfilePage`'s inline "Request to Delete Club"
+  handler (the trickiest conversion, since it was an arrow function, not
+  a named `async function`) — rendered and confirmed correctly, no errors
+- Start Session modal (pre-existing UI, untouched) still works alongside
+  the changes
+
+**Not yet verified** (this test account only has one club with one
+member, and no test matches/sessions/polls exist): match/session
+deletion confirms, poll deletion, member removal/demotion, account
+anonymisation (admin), `MemberDashboard` (test account is the club
+moderator, never saw the member view), `RotationPage`/`SessionSummary`
+skeletons (no session was started), route transition feel on a real
+device, PWA install/update behaviour after the `React.lazy()` change.
 
 ### Risky areas to watch (carried over + new)
 

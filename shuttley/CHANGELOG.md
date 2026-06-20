@@ -1,5 +1,47 @@
 # Shuttley — Changelog
 
+## 2026-06-20 — Verify Phase 1 + 2 with a real login
+
+**Branch:** `feature/shuttley-app-feel-upgrade`
+
+**Summary:** Logged in as `sumitdua84@gmail.com` against `shuttley-dev`
+to verify the authenticated flows flagged as untested in the previous
+entry. Found and fixed three pre-existing shuttley-dev database bugs
+(unrelated to this branch's code) that were blocking testing entirely,
+then verified the actual app-feel changes work end-to-end.
+
+**Files changed:**
+- New: `supabase/fix_dev_memberships_recursion.sql`,
+  `supabase/fix_dev_clubs_creator_visibility.sql`
+- `ISSUES.md` updated with findings
+
+**What was found and fixed (shuttley-dev only, run by Sumit):**
+1. `memberships.joined_at` column missing + four self-referencing
+   `memberships` RLS policies causing infinite recursion (`42P17`)
+2. `clubs` RLS blocking a creator from reading back their own
+   just-created club before their membership row exists (`42501`) — a
+   genuine app bug in `OnboardingPage.jsx`'s `createClub()`, not just dev
+   drift. **Sumit still needs to check if production has the same gap.**
+
+**What was verified once the dev DB was fixed:**
+- Login → club creation → auto-routed to `ModeratorDashboard`
+- `ModeratorDashboard`'s parallelized `Promise.all()` `fetchData()` —
+  loads cleanly, no errors
+- `ConfirmModal` (both the named-function and inline-arrow-function
+  conversions) — Sign Out and "Request to Delete Club" both work
+  correctly
+- No regressions in pre-existing UI (Start Session modal) alongside the
+  changes
+
+**Still not verified** (test club has no matches/sessions/polls/other
+members yet): destructive-action confirms for match/session/poll
+deletion and member management, `MemberDashboard` (test account is a
+moderator), skeleton appearance with real session data, route transition
+feel on a real device, PWA install/update after the bundle restructure.
+See [ISSUES.md](ISSUES.md) for the full list.
+
+**Production touched:** No.
+
 ## 2026-06-20 — Phase 1 + 2: App-feel polish, code splitting, Supabase parallelization
 
 **Branch:** `feature/shuttley-app-feel-upgrade`
