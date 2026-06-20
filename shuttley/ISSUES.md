@@ -278,6 +278,19 @@ session_polls/match_edit_log column shapes). Pure `SELECT` statements
 only — no writes. **Not run** — needs Sumit's explicit approval per the
 brief before running against production.
 
+### Minor: orphaned `note` columns on shuttley-dev (not a bug, no action taken)
+
+While re-checking column shapes, found `session_polls.note` and
+`match_edit_log.note` (singular) both already existed on shuttley-dev
+*before* this session's fixes — confirmed by checking the fix scripts,
+which only ever added `notes` (plural, `session_polls`) and `edited_at`
+(`match_edit_log`), never `note`. The app code only reads/writes `notes`
+and never references `note` singular on either table, so these are dead
+columns from an earlier schema iteration, not a functional bug. Not
+dropped — that's a destructive change not worth making unprompted on a
+column that's merely unused, not broken. Sumit's call whether to clean
+these up later.
+
 ### Credentials note
 
 A Postgres connection string (session pooler, `aws-1-ap-northeast-2
