@@ -143,11 +143,11 @@ export default function MemberDashboard() {
   async function fetchData() {
     try {
     setClubFeatures([])
-    const { data: clubData } = await supabase.from('clubs').select('*').eq('id', clubId).single()
+    const [{ data: clubData }, { data: mem }] = await Promise.all([
+      supabase.from('clubs').select('*').eq('id', clubId).single(),
+      supabase.from('memberships').select('*').eq('club_id', clubId).eq('user_id', user.id).single(),
+    ])
     setClub(clubData)
-
-    const { data: mem } = await supabase.from('memberships').select('*')
-      .eq('club_id', clubId).eq('user_id', user.id).single()
     setMembership(mem)
 
     if (mem?.role === 'moderator' && mem?.status === 'approved') {
@@ -155,16 +155,34 @@ export default function MemberDashboard() {
       return
     }
 
-    const { data: mems } = await supabase
-      .from('memberships').select('*, profiles(*)').eq('club_id', clubId)
-      .order('joined_at', { ascending: false })
+    const today = new Date().toISOString().split('T')[0]
+
+    // Independent reads — fetched in parallel instead of one-by-one.
+    const [
+      { data: mems },
+      { data: matchData },
+      { data: session },
+      { data: winMatches },
+      { count: sCount },
+      { data: sessDetail },
+      { data: pollData },
+      { data: featuresData },
+    ] = await Promise.all([
+      supabase.from('memberships').select('*, profiles(*)').eq('club_id', clubId).order('joined_at', { ascending: false }),
+      mem?.status === 'approved'
+        ? supabase.from('matches').select('*, match_players(user_id, side, profiles(full_name))').eq('club_id', clubId).eq('status', 'pending')
+        : Promise.resolve({ data: null }),
+      supabase.from('sessions').select('*').eq('club_id', clubId).eq('status', 'active').maybeSingle(),
+      supabase.from('matches').select('winner_side, team1_score, team2_score, played_at, match_players(user_id, side, profiles(full_name))').eq('club_id', clubId).eq('status', 'confirmed'),
+      supabase.from('sessions').select('*', { count: 'exact', head: true }).eq('club_id', clubId),
+      supabase.from('sessions').select('started_at, rotation_player_ids').eq('club_id', clubId).order('started_at', { ascending: false }),
+      supabase.from('session_polls').select('*, poll_responses(*)').eq('club_id', clubId).eq('status', 'open').gte('session_date', today).order('session_date', { ascending: true }),
+      supabase.from('club_features').select('*').eq('club_id', clubId),
+    ])
+
     setMembers(mems || [])
 
     if (mem?.status === 'approved') {
-      const { data: matchData } = await supabase
-        .from('matches')
-        .select('*, match_players(user_id, side, profiles(full_name))')
-        .eq('club_id', clubId).eq('status', 'pending')
       const toConfirm = (matchData || []).filter(match => {
         const isPlayer = match.match_players?.some(p => p.user_id === user.id)
         const isRecorder = match.recorded_by === user.id
@@ -173,14 +191,8 @@ export default function MemberDashboard() {
       setPendingMatches(toConfirm)
     }
 
-    const { data: session } = await supabase
-      .from('sessions').select('*').eq('club_id', clubId).eq('status', 'active').maybeSingle()
     setActiveSession(session || null)
 
-    const { data: winMatches } = await supabase
-      .from('matches')
-      .select('winner_side, team1_score, team2_score, played_at, match_players(user_id, side, profiles(full_name))')
-      .eq('club_id', clubId).eq('status', 'confirmed')
     const wm = winMatches || []
     setMatchCount(wm.length)
 
@@ -276,10 +288,6 @@ export default function MemberDashboard() {
     const bestPartner = Object.entries(partnerCount).sort((a,b) => b[1]-a[1])[0]?.[0] || null
 
     // Sessions detail
-    const { count: sCount } = await supabase.from('sessions').select('*', { count:'exact', head:true }).eq('club_id', clubId)
-    const { data: sessDetail } = await supabase
-      .from('sessions').select('started_at, rotation_player_ids')
-      .eq('club_id', clubId).order('started_at', { ascending: false })
     const sd = sessDetail || []
     const lastSessionDate = sd[0] ? new Date(sd[0].started_at).toLocaleDateString('en-AU', { day:'numeric', month:'short' }) : null
     const moCount = {}
@@ -314,14 +322,6 @@ export default function MemberDashboard() {
     })
 
     // Active polls — only today or future (auto-expire by session date)
-    const today = new Date().toISOString().split('T')[0]
-    const { data: pollData } = await supabase
-      .from('session_polls')
-      .select('*, poll_responses(*)')
-      .eq('club_id', clubId)
-      .eq('status', 'open')
-      .gte('session_date', today)
-      .order('session_date', { ascending: true })
     const pd = pollData || []
     setActivePolls(pd)
     const myRespMap = {}
@@ -331,7 +331,6 @@ export default function MemberDashboard() {
     })
     setMyPollResponses(myRespMap)
 
-    const { data: featuresData } = await supabase.from('club_features').select('*').eq('club_id', clubId)
     setClubFeatures(featuresData || [])
 
     // Splits balance for live tile

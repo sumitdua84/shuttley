@@ -1,5 +1,57 @@
 # Shuttley — Changelog
 
+## 2026-06-20 — Phase 1 + 2: App-feel polish, code splitting, Supabase parallelization
+
+**Branch:** `feature/shuttley-app-feel-upgrade`
+
+**Summary:** Combined Phase 1 (app-feel) and Phase 2 (performance) work in
+one pass per Sumit's direction. No new features, no schema changes, no
+production deploy.
+
+**Files changed:**
+- New: `src/components/Toast.jsx`, `src/components/ConfirmModal.jsx`,
+  `src/components/Skeleton.jsx`, `src/hooks/useConfirm.jsx`
+- Modified: `src/index.css` (skeleton shimmer, confirm modal, route fade
+  CSS), `src/App.jsx` (React.lazy + Suspense + route transition wrapper),
+  `src/pages/AdminDashboard.jsx`, `MatchesPage.jsx`, `MemberDashboard.jsx`,
+  `ModeratorDashboard.jsx`, `ProfilePage.jsx`, `RotationPage.jsx`,
+  `SessionSummary.jsx`
+
+**What changed:**
+1. Replaced all 27 raw `alert()`/`confirm()`/`window.confirm()` calls with
+   a shared `Toast` component and a promise-based `useConfirm()` hook +
+   `ConfirmModal`. Business logic and call order unchanged — only the UI
+   mechanism for confirmation/error messaging changed.
+2. Replaced blank-splash loading on `MemberDashboard`, `ModeratorDashboard`,
+   `RotationPage`, `SessionSummary` with a `DashboardSkeleton` (skeleton
+   cards + list rows) instead of a full-screen blank wait.
+3. Added a 180ms fade route transition wrapping `<Routes>` in `App.jsx`.
+4. Converted all 18 route imports in `App.jsx` to `React.lazy()` +
+   `Suspense`. Main JS bundle dropped from **692.99 KB to 394.10 KB**
+   (181.14 KB to 112.89 KB gzip); Vite's "chunk larger than 500kB" build
+   warning is gone. Each route now loads its own small chunk on demand.
+5. Parallelized independent Supabase calls in `MemberDashboard.jsx` and
+   `ModeratorDashboard.jsx` `fetchData()` — both functions previously made
+   ~8 sequential `await` round-trips; now batched into 1-2
+   `Promise.all()` groups (only batching calls with no data dependency on
+   each other; the splits-balance fetch correctly stays sequential since
+   it depends on `featuresData`).
+
+**Testing performed:**
+- `npm run build` after every change group — all passed, no errors.
+- Verified in the dev server (`shuttley-dev` Supabase project, not
+  production) via browser automation: login page renders, lazy-loaded
+  public routes (`/privacy`, `/join/:code`) load with zero console errors,
+  full page reload works cleanly post-refactor.
+- **Not verified:** authenticated dashboard flows (Member/Moderator
+  dashboard, match recording, chat, splits) — no test login credentials
+  available in this session. See [ISSUES.md](ISSUES.md).
+
+**Known issues:** see [ISSUES.md](ISSUES.md).
+
+**Production touched:** No. All work on `feature/shuttley-app-feel-upgrade`,
+no merge to `develop` or `main`, no deploy.
+
 ## 2026-06-20 — Phase 0: Audit Shuttley app-feel upgrade scope
 
 **Branch:** `feature/shuttley-app-feel-upgrade` (created from `develop`)

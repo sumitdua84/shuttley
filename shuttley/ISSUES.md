@@ -45,3 +45,52 @@
 ### Bugs found
 
 _None yet — Phase 0 was audit/documentation only, no code changed._
+
+---
+
+## Phase 1 + 2 implementation (2026-06-20)
+
+### Needs Sumit review — IMPORTANT
+
+**Authenticated flows were not manually tested in this session** — there
+were no test login credentials available to the agent. The following
+*must* be manually verified on `feature/shuttley-app-feel-upgrade` (e.g.
+via `npm run dev`, signed in against the `shuttley-dev` Supabase project)
+before this branch merges anywhere:
+
+- Login → Member dashboard → Moderator dashboard navigation
+- Every destructive action that used to be a native `confirm()`: delete
+  match, delete session, end session, remove member, demote moderator,
+  delete poll, anonymise account (admin), sign out, request club deletion
+- Toast messages still appear/auto-dismiss correctly (visually) — logic
+  was preserved but not visually inspected
+- `DashboardSkeleton` appearance on `MemberDashboard`/`ModeratorDashboard`/
+  `RotationPage`/`SessionSummary` while data loads — looks reasonable in
+  code but not visually confirmed against real data shapes
+- Route transition (180ms fade) doesn't feel laggy or cause layout jump on
+  a real device
+- PWA install/update flow after the `React.lazy()` change — the service
+  worker's precache manifest changed shape (34 entries vs 12 before);
+  reinstall the PWA locally and confirm install + auto-update still work
+
+### Risky areas to watch (carried over + new)
+
+- `MemberDashboard.jsx` / `ModeratorDashboard.jsx` `fetchData()` were
+  restructured to batch independent Supabase calls via `Promise.all()`.
+  Each call was checked for data dependencies before batching (the
+  splits-balance fetch correctly stays sequential after `featuresData`),
+  but this is exactly the kind of change that can hide a subtle bug if a
+  dependency was missed — worth an extra careful pass against the
+  dashboards with real session/poll/splits data.
+- `club_features` RLS gotcha (see below, unchanged) still applies if any
+  future feature-flag work touches this code.
+
+### Deferred improvements (not done in this phase)
+
+- Query limits/filters on large reads
+- Shared data hooks (`useClubData`, `useMembers`, etc.) — Phase 3
+- Breaking up the 5 large page files into shared components — Phase 3
+- React Query / caching adoption
+- PWA manifest/splash deeper polish — Phase 4
+- Parallelizing Supabase calls in `MatchesPage.jsx` / `RotationPage.jsx` —
+  not done this round, kept scope to the two dashboards named in the brief

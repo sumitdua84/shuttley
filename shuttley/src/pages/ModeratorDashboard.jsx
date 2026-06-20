@@ -149,56 +149,57 @@ export default function ModeratorDashboard() {
 
   async function fetchData() {
     setClubFeatures([])
-    const { data: clubData } = await supabase.from('clubs').select('*').eq('id', clubId).single()
-    setClub(clubData)
 
     // Super admins bypass the membership guard
     const SUPER_ADMINS = ['sumit@shuttley.club']
     const isSuperAdmin = SUPER_ADMINS.includes(user?.email)
 
+    const [{ data: clubData }, { data: myMem }] = await Promise.all([
+      supabase.from('clubs').select('*').eq('id', clubId).single(),
+      isSuperAdmin
+        ? Promise.resolve({ data: null })
+        : supabase.from('memberships').select('role, status').eq('club_id', clubId).eq('user_id', user.id).single(),
+    ])
+    setClub(clubData)
+
     if (!isSuperAdmin) {
       // Guard: redirect if current user is no longer a moderator
-      const { data: myMem } = await supabase
-        .from('memberships').select('role, status').eq('club_id', clubId).eq('user_id', user.id).single()
       if (!myMem || myMem.role !== 'moderator' || myMem.status !== 'approved') {
         navigate(`/club/${clubId}/member`, { replace: true })
         return
       }
     }
 
-    const { data: mems } = await supabase
-      .from('memberships')
-      .select('*, profiles(*)')
-      .eq('club_id', clubId)
-      .order('joined_at', { ascending: false })
+    const today = new Date().toISOString().split('T')[0]
+
+    // Independent reads — fetched in parallel instead of one-by-one.
+    const [
+      { data: mems },
+      { data: disputed },
+      { data: pending },
+      { data: session },
+      { data: winMatches },
+      { count: sCount },
+      { data: sessDetail },
+      { data: pollData },
+      { data: featuresData },
+    ] = await Promise.all([
+      supabase.from('memberships').select('*, profiles(*)').eq('club_id', clubId).order('joined_at', { ascending: false }),
+      supabase.from('matches').select('*, match_players(user_id, side, profiles(full_name))').eq('club_id', clubId).eq('status', 'disputed'),
+      supabase.from('matches').select('*, match_players(user_id, side, profiles(full_name))').eq('club_id', clubId).eq('status', 'pending'),
+      supabase.from('sessions').select('*').eq('club_id', clubId).eq('status', 'active').maybeSingle(),
+      supabase.from('matches').select('winner_side, team1_score, team2_score, played_at, match_players(user_id, side, profiles(full_name))').eq('club_id', clubId).eq('status', 'confirmed'),
+      supabase.from('sessions').select('*', { count: 'exact', head: true }).eq('club_id', clubId),
+      supabase.from('sessions').select('id, name, started_at, ended_at, status, rotation_player_ids, match_type, matches(count)').eq('club_id', clubId).order('started_at', { ascending: false }),
+      supabase.from('session_polls').select('*, poll_responses(*)').eq('club_id', clubId).eq('status', 'open').gte('session_date', today).order('session_date', { ascending: true }),
+      supabase.from('club_features').select('*').eq('club_id', clubId),
+    ])
+
     setMembers(mems || [])
-
-    const { data: disputed } = await supabase
-      .from('matches')
-      .select('*, match_players(user_id, side, profiles(full_name))')
-      .eq('club_id', clubId)
-      .eq('status', 'disputed')
     setDisputedMatches(disputed || [])
-
-    const { data: pending } = await supabase
-      .from('matches')
-      .select('*, match_players(user_id, side, profiles(full_name))')
-      .eq('club_id', clubId)
-      .eq('status', 'pending')
     setPendingMatches(pending || [])
-
-    const { data: session } = await supabase
-      .from('sessions')
-      .select('*')
-      .eq('club_id', clubId)
-      .eq('status', 'active')
-      .maybeSingle()
     setActiveSession(session || null)
 
-    const { data: winMatches } = await supabase
-      .from('matches')
-      .select('winner_side, team1_score, team2_score, played_at, match_players(user_id, side, profiles(full_name))')
-      .eq('club_id', clubId).eq('status', 'confirmed')
     const wm = winMatches || []
     setMatchCount(wm.length)
 
@@ -247,10 +248,6 @@ export default function ModeratorDashboard() {
     })
 
     // Sessions detail
-    const { count: sCount } = await supabase.from('sessions').select('*', { count:'exact', head:true }).eq('club_id', clubId)
-    const { data: sessDetail } = await supabase
-      .from('sessions').select('id, name, started_at, ended_at, status, rotation_player_ids, match_type, matches(count)')
-      .eq('club_id', clubId).order('started_at', { ascending: false })
     const sd = sessDetail || []
     setSessions(sd)
     const lastSessionDate = sd[0] ? new Date(sd[0].started_at).toLocaleDateString('en-AU', { day:'numeric', month:'short' }) : null
@@ -279,17 +276,8 @@ export default function ModeratorDashboard() {
       recentMatchCount: recentWm.length, lastSessionDate, mostActiveMonth, avgPlayers })
 
     // Active polls — only today or future (auto-expire by session date)
-    const today = new Date().toISOString().split('T')[0]
-    const { data: pollData } = await supabase
-      .from('session_polls')
-      .select('*, poll_responses(*)')
-      .eq('club_id', clubId)
-      .eq('status', 'open')
-      .gte('session_date', today)
-      .order('session_date', { ascending: true })
     setActivePolls(pollData || [])
 
-    const { data: featuresData } = await supabase.from('club_features').select('*').eq('club_id', clubId)
     setClubFeatures(featuresData || [])
 
     // Splits balance for live tile

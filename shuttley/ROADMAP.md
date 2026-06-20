@@ -7,22 +7,28 @@ production deploys until tested. See [PROJECT.md](PROJECT.md) for full
 context and audit findings.
 
 - [x] Phase 0 — Audit current app, confirm branch strategy, write docs
-- [ ] Phase 1 — Safe app-feel improvements
-  - [ ] Skeleton loading states (dashboard stats, session/match/member lists)
-  - [ ] Subtle route transitions (150-200ms fade/slide)
-  - [ ] Replace `alert`/`confirm`/`prompt` with toast + confirm-modal UI
-  - [ ] Reduce/remove janky or continuous animations
-  - [ ] Remove stray debug `console.log` (only 1 found, low priority)
-  - [ ] Verify mobile safe-area / bottom-nav / keyboard behaviour
-- [ ] Phase 2 — Performance and data loading
-  - [ ] Route-level code splitting (`React.lazy` + `Suspense`) in `App.jsx`
-  - [ ] Parallelize independent Supabase calls (`Promise.all`) on
-        dashboards, starting with `MemberDashboard.jsx` / `ModeratorDashboard.jsx`
-  - [ ] Add limits/filters to large queries where data displayed is
-        unnecessarily large (only where it doesn't change business meaning)
-  - [ ] Extract shared data hooks (`useClubData`, `useMembers`, etc.) where
-        it removes real duplication
-  - [ ] Assess React Query / caching — only adopt if benefit is clear
+- [x] Phase 1 — Safe app-feel improvements
+  - [x] Skeleton loading states — `DashboardSkeleton` used on
+        `MemberDashboard`, `ModeratorDashboard`, `RotationPage`, `SessionSummary`
+  - [x] Subtle route transitions (180ms fade) wrapping `<Routes>` in `App.jsx`
+  - [x] Replace `alert`/`confirm`/`window.confirm` with shared `Toast` +
+        `ConfirmModal` (via `useConfirm()`) across all 7 affected pages
+  - [ ] Reduce/remove janky or continuous animations — reviewed; existing
+        animations (`splash` pulse, `toastin`, `tileIn`) are already short
+        and subtle, nothing found worth changing
+  - [x] Remove stray debug `console.log` — only 1 existed, left as-is
+        (legitimate error logging, not noise)
+  - [x] Verify mobile safe-area / bottom-nav / keyboard behaviour — already
+        correctly wired via `env(safe-area-inset-*)`, no changes needed
+- [x] Phase 2 — Performance and data loading (partial)
+  - [x] Route-level code splitting (`React.lazy` + `Suspense`) in `App.jsx` —
+        main bundle 692.99 KB → 394.10 KB (181.14 KB → 112.89 KB gzip)
+  - [x] Parallelize independent Supabase calls (`Promise.all`) in
+        `MemberDashboard.jsx` and `ModeratorDashboard.jsx` `fetchData()`
+  - [ ] Add limits/filters to large queries — deferred, not yet needed
+  - [ ] Extract shared data hooks (`useClubData`, `useMembers`, etc.) —
+        deferred to Phase 3 component cleanup
+  - [ ] Assess React Query / caching — deferred, no clear need yet
 - [ ] Phase 3 — UI consistency and component cleanup
   - [ ] Shared components: `Skeleton`, `Toast`, `ConfirmModal`, `EmptyState`,
         `StatCard`, `ListRow`, `SectionHeader`, etc.
