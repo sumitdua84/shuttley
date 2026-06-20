@@ -1,5 +1,66 @@
 # Shuttley — Changelog
 
+## 2026-06-20 — Verify Shuttley app-feel flows with member test data
+
+**Branch:** `feature/shuttley-app-feel-upgrade`
+
+**Summary:** Closed out Phase 1 + 2 verification. Fixed the genuine
+`OnboardingPage.jsx` `createClub()` ordering bug, added a second test
+member, and exercised every remaining untested flow end-to-end against
+`shuttley-dev`.
+
+**Files changed:**
+- `src/pages/OnboardingPage.jsx` — `createClub()` reordered (insert club
+  → insert membership → refresh), with per-step error handling
+- New dev-only SQL fix scripts in `supabase/`: `fix_dev_clubs_creator_
+  visibility.sql`, `fix_dev_sessions_missing_columns.sql`, `fix_dev_
+  matches_missing_columns.sql`, `fix_dev_match_players_recursion.sql`,
+  `fix_dev_session_polls_missing_column.sql`, `seed_dev_test_member.sql`
+- New `supabase/READONLY_production_check.sql` — read-only audit script,
+  not yet run
+- `ISSUES.md`, `PROJECT.md`, `ROADMAP.md` updated
+
+**What was verified (full list):**
+- Onboarding club creation — now succeeds with zero failed requests
+  (previously always 403'd on the read-back race, even when it
+  ultimately succeeded)
+- Member approval flow (moderator side)
+- `MemberDashboard` — never tested before this session; loads correctly
+  via the parallelized `fetchData()`
+- Session lifecycle: start → record match (auto-confirm and
+  requires-confirmation variants) → delete match → confirm match (as the
+  non-recorder) → end session
+- Poll lifecycle: create → respond → delete
+- Every remaining `ConfirmModal` conversion: sign out, delete club
+  request, match deletion, poll deletion
+- Mobile viewport (375×812): dashboard, bottom nav, confirm modal all
+  render correctly
+
+**Found and fixed along the way** (all pre-existing shuttley-dev bugs,
+none caused by this branch — full detail in `ISSUES.md`):
+- `clubs` RLS blocking the `createClub()` read-back race
+- `sessions`/`matches` column-name drift (`created_by` vs `started_by`/
+  `recorded_by`, `match_type` vs `type`) — one of these was first
+  mis-fixed by adding a duplicate column instead of renaming, corrected
+  after the mistake surfaced a new `PGRST201` ambiguity error
+- Missing `matches` DELETE policy (an existing script,
+  `fix_match_rls.sql`, was never run against shuttley-dev)
+- Cross-table RLS recursion between `matches` and `match_players`
+- Missing columns on `session_polls` and `match_edit_log`
+
+**Known unresolved:** `SessionSummary.jsx`'s embedded-profile query still
+returns `PGRST201` on shuttley-dev despite the schema being verified
+correct — looks like a stuck PostgREST cache entry that standard reload
+methods didn't clear. Likely needs a full project restart. Session
+ending itself works correctly; only this one display page is affected.
+
+**Vercel preview:** Not pushed. Found the single Vercel project's
+Supabase env vars are scoped to "Production and Preview" with no
+dev-only override — pushing would risk a live preview writing test data
+into production. See `ISSUES.md` for the suggested fix.
+
+**Production touched:** No.
+
 ## 2026-06-20 — Verify Phase 1 + 2 with a real login
 
 **Branch:** `feature/shuttley-app-feel-upgrade`

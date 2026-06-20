@@ -39,6 +39,28 @@ context and audit findings.
         configured in `vite.config.js`, recheck for gaps)
   - [ ] Optional: pull-to-refresh, offline/error fallback — only if clean
 
+## Verification status (2026-06-20)
+
+Phase 1 + 2 fully verified end-to-end against `shuttley-dev` with two
+test accounts: onboarding/club creation, member approval, both
+dashboards, full session/match lifecycle, poll lifecycle, every
+`ConfirmModal` conversion, and mobile viewport. Full detail in
+`CHANGELOG.md`/`ISSUES.md`.
+
+**Two items still open before this branch can be considered fully
+closed:**
+- `SessionSummary.jsx` is stuck behind a PostgREST cache issue on
+  shuttley-dev (likely needs a project restart) — see `ISSUES.md`.
+- Not pushed for a Vercel preview — the project's env vars don't have a
+  Preview-only override pointing at `shuttley-dev`, so pushing now would
+  risk a preview deployment writing test data into production. Needs a
+  Vercel env var change before this is safe.
+
+A separate **v2 architecture initiative** (groups/venues model) is being
+planned on its own branch (`docs/shuttley-v2-architecture-planning` →
+future `feature/shuttley-v2-group-venue-architecture`), deliberately kept
+independent of this branch. See `SHUTTLEY-V2-ARCHITECTURE.md`.
+
 ## Deferred / not in this initiative
 
 - **Court booking** — next planned feature after this upgrade and after
