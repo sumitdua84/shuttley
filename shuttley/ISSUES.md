@@ -50,10 +50,30 @@ _None yet — Phase 0 was audit/documentation only, no code changed._
 
 ## Phase 1 + 2 implementation (2026-06-20)
 
+### Found: shuttley-dev database bugs (unrelated to this branch's code)
+
+While testing with a real login, found the `shuttley-dev` Supabase
+project itself is broken, blocking all club-related testing regardless of
+this branch's changes:
+- `memberships.joined_at` column doesn't exist (`42703`) — present in
+  production's schema, missed during the manual table-by-table dev clone
+- Infinite recursion in the `memberships` SELECT RLS policy (`42P17`) —
+  the policy from `supabase/fix_all_rls.sql` self-references
+  `memberships` in its own `USING` clause
+- Fix written to `supabase/fix_dev_memberships_recursion.sql` — adds the
+  column and replaces the self-referencing policy with a
+  `SECURITY DEFINER` helper function. **Not yet run** — needs to be
+  executed in the Supabase SQL editor for `shuttley-dev`
+  (`ecdibuhrgdmsdvovmlvl`) only, never production.
+- Confirmed via `git diff develop -- src/pages/OnboardingPage.jsx` (where
+  the error surfaces) that this is pre-existing and not introduced by
+  this branch.
+
 ### Needs Sumit review — IMPORTANT
 
-**Authenticated flows were not manually tested in this session** — there
-were no test login credentials available to the agent. The following
+**Authenticated flows were not fully tested in this session** — login
+itself was verified working, but club/dashboard flows are blocked by the
+shuttley-dev database bugs above until the fix script is run. The following
 *must* be manually verified on `feature/shuttley-app-feel-upgrade` (e.g.
 via `npm run dev`, signed in against the `shuttley-dev` Supabase project)
 before this branch merges anywhere:
