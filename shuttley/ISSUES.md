@@ -120,3 +120,57 @@ device, PWA install/update behaviour after the `React.lazy()` change.
 - PWA manifest/splash deeper polish — Phase 4
 - Parallelizing Supabase calls in `MatchesPage.jsx` / `RotationPage.jsx` —
   not done this round, kept scope to the two dashboards named in the brief
+
+---
+
+## Onboarding createClub() fix (2026-06-20)
+
+### What changed
+
+`OnboardingPage.jsx`'s `createClub()` previously did
+`.insert(club).select().single()` — insert the club, then immediately
+ask PostgREST to read it back — before the membership row existed. The
+clubs SELECT policy requires a membership row, so this read-back could
+be blocked by RLS purely due to ordering, independent of whether the
+`created_by` RLS widening (from the dev DB fix above) is in place.
+
+Fixed by generating the club's `id` client-side (`crypto.randomUUID()`,
+same pattern already used in `AdminDashboard.jsx`'s `addGuest()`) and
+sequencing strictly:
+1. Insert the club (no `.select()` — no read-back, so no RLS dependency
+   on membership existing yet)
+2. Insert the membership row using the locally-generated id
+3. Only then update local state / refresh the membership list
+
+This makes the flow correct **regardless of the clubs SELECT policy
+shape** — it no longer relies on the `created_by` RLS widening applied
+to shuttley-dev to function correctly. That widening can stay (it's
+harmless — it only lets a creator see their own club, which they could
+already write to) but is no longer load-bearing for this flow.
+
+### Defensive handling added
+
+Each step now has its own error path instead of one generic catch-all:
+- **Club insert fails** → toast "Could not create the club — please try
+  again", `creating` flag cleared, nothing else attempted. Safe — no
+  partial state created.
+- **Membership insert fails** (club insert succeeded) → toast "Club
+  created, but joining it failed — contact support". **Partial-failure
+  risk**: the club row now exists with no membership pointing at it. The
+  creator can't see it (no membership, and policy requires either
+  `created_by` match or a membership row — the `created_by` clause does
+  let them see it, so they could retry joining, but there's currently no
+  UI path to retry joining your own orphaned club). Logged to console
+  for debugging. Low likelihood (membership insert has no real reason to
+  fail if the club insert just succeeded with the same `user.id`), but
+  worth a cheap follow-up: either an admin cleanup query for orphaned
+  clubs, or a "rejoin your club" affordance.
+- **Refresh (`fetchMemberships()`) fails after creation succeeds** →
+  toast "Club created — pull to refresh to see it". The club and
+  membership both exist correctly at this point; only the local list is
+  stale. Wrapped in try/catch even though `fetchMemberships()` currently
+  swallows its own errors internally (defensive, in case that changes).
+
+No navigation risk to call out — this flow only toggles local view state
+(`setView('home')`), not a router `navigate()`, so there's no
+navigation-failure case to handle here.

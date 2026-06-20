@@ -178,15 +178,42 @@ export default function OnboardingPage() {
   async function createClub() {
     if (!clubName.trim()) return
     setCreating(true)
-    const { data: club, error } = await supabase
-      .from('clubs').insert({ name: clubName.trim(), description: clubDesc.trim(), created_by: user.id })
-      .select().single()
-    if (error) { setCreating(false); showToast('Error creating club'); return }
-    await supabase.from('memberships').insert({
-      user_id: user.id, club_id: club.id, role: 'moderator', status: 'approved'
+
+    // Generate the club id client-side so we never need to read the club
+    // row back before the membership exists — the clubs SELECT policy
+    // requires membership, so reading back too early can be blocked by
+    // RLS even though the insert itself succeeded.
+    const clubId = crypto.randomUUID()
+    const { error: clubError } = await supabase
+      .from('clubs')
+      .insert({ id: clubId, name: clubName.trim(), description: clubDesc.trim(), created_by: user.id })
+    if (clubError) {
+      console.error('createClub: club insert failed', clubError)
+      setCreating(false)
+      showToast('Could not create the club — please try again')
+      return
+    }
+
+    const { error: membershipError } = await supabase.from('memberships').insert({
+      user_id: user.id, club_id: clubId, role: 'moderator', status: 'approved'
     })
-    setCreating(false); showToast('Club created!'); fetchMemberships()
+    if (membershipError) {
+      console.error('createClub: membership insert failed', membershipError)
+      setCreating(false)
+      showToast('Club created, but joining it failed — contact support')
+      return
+    }
+
+    setCreating(false)
     setView('home'); setClubName(''); setClubDesc('')
+    showToast('Club created!')
+
+    try {
+      await fetchMemberships()
+    } catch (err) {
+      console.error('createClub: refreshing club list failed', err)
+      showToast('Club created — pull to refresh to see it')
+    }
   }
 
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(''), 2500) }
