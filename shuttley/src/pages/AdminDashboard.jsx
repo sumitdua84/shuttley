@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
 import { usePushNotifications } from '../hooks/usePushNotifications'
+import Toast from '../components/Toast'
+import { useConfirm } from '../hooks/useConfirm'
 
 const FEATURES = ['splits', 'chat']
 
@@ -22,6 +24,13 @@ export default function AdminDashboard() {
   const [tab, setTab]               = useState('clubs')
   const [loading, setLoading]       = useState(true)
   const [error, setError]           = useState(null)
+  const [toast, setToast]           = useState('')
+  const [confirmDialog, confirmModal] = useConfirm()
+
+  function showToast(msg) {
+    setToast(msg)
+    setTimeout(() => setToast(''), 2500)
+  }
 
   // Broadcast state
   const [broadcastTitle, setBroadcastTitle]   = useState('')
@@ -167,7 +176,7 @@ export default function AdminDashboard() {
   }
 
   async function confirmDelete(request) {
-    if (!confirm(`Anonymise and delete account for ${request.email}? Their login will be disabled, they'll be removed from all clubs, and personal data will be removed.`)) return
+    if (!(await confirmDialog(`Anonymise and delete account for ${request.email}? Their login will be disabled, they'll be removed from all clubs, and personal data will be removed.`))) return
     const { data: { session } } = await supabase.auth.getSession()
     const res = await fetch('/api/delete-user', {
       method: 'POST',
@@ -179,10 +188,10 @@ export default function AdminDashboard() {
     })
     const data = await res.json()
     if (data.success) {
-      alert(`Done — account anonymised as "${data.anonName}"`)
+      showToast(`Done — account anonymised as "${data.anonName}"`)
       fetchDeletionRequests()
     } else {
-      alert('Error: ' + (data.error || 'Unknown error'))
+      showToast('Error: ' + (data.error || 'Unknown error'))
     }
   }
 
@@ -518,6 +527,8 @@ export default function AdminDashboard() {
         )}
 
       </div>
+      <Toast message={toast} />
+      {confirmModal}
     </div>
   )
 }

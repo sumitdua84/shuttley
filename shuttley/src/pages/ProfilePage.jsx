@@ -3,6 +3,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
 import BottomNav from '../components/BottomNav'
+import Toast from '../components/Toast'
+import { useConfirm } from '../hooks/useConfirm'
 
 export default function ProfilePage() {
   const { user, signOut } = useAuth()
@@ -18,6 +20,7 @@ export default function ProfilePage() {
   const [uploading, setUploading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState('')
+  const [confirmDialog, confirmModal] = useConfirm()
   const fileRef = useRef()
 
   useEffect(() => { fetchProfile() }, [user])
@@ -68,7 +71,7 @@ export default function ProfilePage() {
   }
 
   async function handleSignOut() {
-    if (!confirm('Sign out?')) return
+    if (!(await confirmDialog('Sign out?'))) return
     await signOut()
     navigate('/login')
   }
@@ -163,8 +166,8 @@ export default function ProfilePage() {
             <button
               className="btn btn-danger"
               style={{ width: '100%', marginTop: 14, fontSize: 13 }}
-              onClick={() => {
-                if (confirm('Send a request to delete this club? This action will be reviewed.')) {
+              onClick={async () => {
+                if (await confirmDialog('Send a request to delete this club? This action will be reviewed.')) {
                   showToast('Delete request sent')
                 }
               }}>
@@ -193,7 +196,8 @@ export default function ProfilePage() {
 
       </div>
 
-      {toast && <div className="toast">{toast}</div>}
+      <Toast message={toast} />
+      {confirmModal}
       <BottomNav clubId={clubId} activeTab="me" />
     </div>
   )

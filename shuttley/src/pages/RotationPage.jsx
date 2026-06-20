@@ -3,6 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
 import { generateSchedule, generateRebalancedSchedule, generateMatchesForNewPlayer, reorderPendingMatches } from '../utils/scheduleGenerator'
+import Toast from '../components/Toast'
+import { useConfirm } from '../hooks/useConfirm'
 
 export default function RotationPage() {
   const { clubId, sessionId } = useParams()
@@ -20,6 +22,7 @@ export default function RotationPage() {
   const [submitting, setSubmitting] = useState({})
   const [showAddPlayer, setShowAddPlayer] = useState(false)
   const [toast, setToast] = useState('')
+  const [confirmDialog, confirmModal] = useConfirm()
   const [viewRound, setViewRound] = useState(0) // 0-based index into rounds array
 
   useEffect(() => { fetchData() }, [sessionId])
@@ -127,7 +130,7 @@ export default function RotationPage() {
   }
 
   async function removePlayer(playerId) {
-    if (!confirm(`Remove ${shortName(playerId)} from rotation? Their pending matches will be cancelled.`)) return
+    if (!(await confirmDialog(`Remove ${shortName(playerId)} from rotation? Their pending matches will be cancelled.`))) return
 
     const newIds = (session.rotation_player_ids || []).filter(id => id !== playerId)
     await supabase.from('sessions').update({ rotation_player_ids: newIds }).eq('id', sessionId)
@@ -144,7 +147,7 @@ export default function RotationPage() {
   }
 
   async function rebalance() {
-    if (!confirm('Rebalance will replace all pending matches with a fresh schedule for the current players, keeping all submitted results. Continue?')) return
+    if (!(await confirmDialog('Rebalance will replace all pending matches with a fresh schedule for the current players, keeping all submitted results. Continue?'))) return
 
     // Remove all pending matches
     const pendingIds = rotationMatches.filter(m => m.status === 'pending').map(m => m.id)
@@ -215,20 +218,20 @@ export default function RotationPage() {
   async function endSession() {
     if (pending.length > 0) {
       const word = pending.length === 1 ? '1 match is' : `${pending.length} matches are`
-      if (!confirm(`${word} still pending. End session anyway?`)) return
+      if (!(await confirmDialog(`${word} still pending. End session anyway?`))) return
     }
     const { error } = await supabase
       .from('sessions')
       .update({ status: 'ended', ended_at: new Date().toISOString() })
       .eq('id', sessionId)
-    if (error) { alert('Error ending session: ' + error.message); return }
+    if (error) { showToast('Error ending session: ' + error.message); return }
     navigate(`/club/${clubId}/session/${sessionId}`)
   }
 
   async function newCycle() {
     const pending = rotationMatches.filter(m => m.status === 'pending')
     if (pending.length > 0) {
-      if (!confirm(`${pending.length} match${pending.length !== 1 ? 'es' : ''} still pending. Start new cycle anyway?`)) return
+      if (!(await confirmDialog(`${pending.length} match${pending.length !== 1 ? 'es' : ''} still pending. Start new cycle anyway?`))) return
     }
     const players = session.rotation_player_ids || []
     if (players.length < 2) { showToast('Not enough players'); return }
@@ -248,7 +251,7 @@ export default function RotationPage() {
   }
 
   async function deleteMatch(mId) {
-    if (!confirm('Delete this match? This cannot be undone.')) return
+    if (!(await confirmDialog('Delete this match? This cannot be undone.'))) return
     await supabase.from('match_players').delete().eq('match_id', mId)
     const { error } = await supabase.from('matches').delete().eq('id', mId)
     if (error) { showToast('Error deleting match'); return }
@@ -600,7 +603,8 @@ export default function RotationPage() {
         )}
 
       </div>
-      {toast && <div className="toast">{toast}</div>}
+      <Toast message={toast} />
+      {confirmModal}
     </div>
   )
 }

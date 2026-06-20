@@ -5,6 +5,8 @@ import { supabase } from '../lib/supabase'
 import { generateSchedule } from '../utils/scheduleGenerator'
 import { usePushNotifications } from '../hooks/usePushNotifications'
 import BottomNav from '../components/BottomNav'
+import Toast from '../components/Toast'
+import { useConfirm } from '../hooks/useConfirm'
 
 export default function ModeratorDashboard() {
   const { clubId } = useParams()
@@ -19,6 +21,7 @@ export default function ModeratorDashboard() {
   const [activeSession, setActiveSession] = useState(null)
   const [tab, setTab] = useState(searchParams.get('tab') || 'home')
   const [toast, setToast] = useState('')
+  const [confirmDialog, confirmModal] = useConfirm()
   const [loading, setLoading] = useState(true)
   const [linkCopied, setLinkCopied] = useState(false)
   const [guestName, setGuestName] = useState('')
@@ -412,7 +415,7 @@ export default function ModeratorDashboard() {
   }
 
   async function deletePoll(pollId) {
-    if (!window.confirm('Are you sure you want to delete this poll? This cannot be undone.')) return
+    if (!(await confirmDialog('Are you sure you want to delete this poll? This cannot be undone.'))) return
     const { error } = await supabase.from('session_polls').delete().eq('id', pollId)
     if (error) { showToast('Error deleting poll'); return }
     showToast('Poll deleted')
@@ -432,14 +435,14 @@ export default function ModeratorDashboard() {
   }
 
   async function demoteMod(membershipId) {
-    if (!confirm('Remove admin rights and make this person a regular member?')) return
+    if (!(await confirmDialog('Remove admin rights and make this person a regular member?'))) return
     await supabase.from('memberships').update({ role: 'member' }).eq('id', membershipId)
     showToast('Admin rights removed')
     fetchData()
   }
 
   async function removeMember(membershipId) {
-    if (!confirm('Remove this member from the club?')) return
+    if (!(await confirmDialog('Remove this member from the club?'))) return
     await supabase.from('memberships').delete().eq('id', membershipId)
     showToast('Member removed')
     fetchData()
@@ -478,7 +481,7 @@ export default function ModeratorDashboard() {
     const { data: existing } = await supabase
       .from('sessions').select('id, name').eq('club_id', clubId).eq('status', 'active').maybeSingle()
     if (existing) {
-      alert(`"${existing.name}" is still active. End it before starting a new session.`)
+      showToast(`"${existing.name}" is still active. End it before starting a new session.`)
       setShowStartModal(false)
       fetchData()
       return
@@ -487,7 +490,7 @@ export default function ModeratorDashboard() {
     if (sessionMode === 'rotation') {
       const minPlayers = modalMatchType === 'doubles' ? 4 : 2
       if (selectedPlayerIds.length < minPlayers) {
-        alert(`Need at least ${minPlayers} players for ${modalMatchType}`); return
+        showToast(`Need at least ${minPlayers} players for ${modalMatchType}`); return
       }
     }
     const { data: sess, error } = await supabase.from('sessions').insert({
@@ -498,7 +501,7 @@ export default function ModeratorDashboard() {
       match_type: modalMatchType,
       rotation_player_ids: selectedPlayerIds
     }).select().single()
-    if (error) { console.error('startSession error:', error); alert('Error: ' + error.message); return }
+    if (error) { console.error('startSession error:', error); showToast('Error: ' + error.message); return }
 
     if (sessionMode === 'rotation') {
       const schedule = generateSchedule(selectedPlayerIds, modalMatchType)
@@ -518,7 +521,7 @@ export default function ModeratorDashboard() {
     const sessionPending = pendingMatches.filter(m => m.session_id === activeSession.id)
     if (sessionPending.length > 0) {
       const word = sessionPending.length === 1 ? '1 match is' : `${sessionPending.length} matches are`
-      if (!confirm(`${word} still pending. You can confirm them after the session ends. End session anyway?`)) return
+      if (!(await confirmDialog(`${word} still pending. You can confirm them after the session ends. End session anyway?`))) return
     }
     const { error } = await supabase
       .from('sessions')
@@ -536,7 +539,7 @@ export default function ModeratorDashboard() {
 
   async function resolveDispute(matchId, resolution) {
     if (resolution === 'void') {
-      if (!confirm('This will delete the match entirely. Are you sure?')) return
+      if (!(await confirmDialog('This will delete the match entirely. Are you sure?'))) return
       const { error: e1 } = await supabase.from('match_players').delete().eq('match_id', matchId)
       if (e1) { showToast('Error voiding match'); return }
       const { error: e2 } = await supabase.from('matches').delete().eq('id', matchId)
@@ -1387,7 +1390,8 @@ export default function ModeratorDashboard() {
         </div>
       )}
 
-      {toast && <div className="toast">{toast}</div>}
+      <Toast message={toast} />
+      {confirmModal}
 
       {/* ── Notification permission modal ── */}
       {showNotifModal && (

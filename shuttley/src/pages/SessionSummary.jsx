@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
+import Toast from '../components/Toast'
+import { useConfirm } from '../hooks/useConfirm'
 
 export default function SessionSummary() {
   const { clubId, sessionId } = useParams()
@@ -13,6 +15,7 @@ export default function SessionSummary() {
   const [isModerator, setIsModerator] = useState(false)
   const [loading, setLoading] = useState(true)
   const [toast, setToast] = useState('')
+  const [confirmDialog, confirmModal] = useConfirm()
   const [editingMatchDate, setEditingMatchDate] = useState(null) // matchId
   const [editingDate, setEditingDate] = useState('')
   const [standingsExpanded, setStandingsExpanded] = useState(false)
@@ -147,7 +150,7 @@ export default function SessionSummary() {
   }
 
   async function deleteSession() {
-    if (!confirm('Delete this session? This cannot be undone.')) return
+    if (!(await confirmDialog('Delete this session? This cannot be undone.'))) return
     await supabase.from('rotation_matches').delete().eq('session_id', sessionId)
     const { error } = await supabase.from('sessions').delete().eq('id', sessionId)
     if (error) { showToast('Error deleting session'); return }
@@ -540,7 +543,8 @@ export default function SessionSummary() {
         ))}
       </div>
 
-      {toast && <div className="toast">{toast}</div>}
+      <Toast message={toast} />
+      {confirmModal}
     </div>
   )
 }

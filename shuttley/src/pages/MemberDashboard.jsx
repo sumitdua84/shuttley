@@ -5,6 +5,8 @@ import { supabase } from '../lib/supabase'
 import { generateSchedule } from '../utils/scheduleGenerator'
 import { usePushNotifications } from '../hooks/usePushNotifications'
 import BottomNav from '../components/BottomNav'
+import Toast from '../components/Toast'
+import { useConfirm } from '../hooks/useConfirm'
 
 export default function MemberDashboard() {
   const { clubId } = useParams()
@@ -19,6 +21,7 @@ export default function MemberDashboard() {
   const [membership, setMembership] = useState(null)
   const [loading, setLoading] = useState(true)
   const [toast, setToast] = useState('')
+  const [confirmDialog, confirmModal] = useConfirm()
   const [tab, setTab] = useState(searchParams.get('tab') || 'home')
   const [membersExpanded, setMembersExpanded] = useState(true)
   const [guestsExpanded, setGuestsExpanded] = useState(false)
@@ -402,14 +405,14 @@ export default function MemberDashboard() {
     const { data: existing } = await supabase
       .from('sessions').select('id, name').eq('club_id', clubId).eq('status', 'active').maybeSingle()
     if (existing) {
-      alert(`"${existing.name}" is still active. End it before starting a new session.`)
+      showToast(`"${existing.name}" is still active. End it before starting a new session.`)
       setShowStartModal(false); fetchData(); return
     }
 
     if (sessionMode === 'rotation') {
       const minPlayers = modalMatchType === 'doubles' ? 4 : 2
       if (selectedPlayerIds.length < minPlayers) {
-        alert(`Need at least ${minPlayers} players for ${modalMatchType}`); return
+        showToast(`Need at least ${minPlayers} players for ${modalMatchType}`); return
       }
     }
 
@@ -421,7 +424,7 @@ export default function MemberDashboard() {
       match_type: modalMatchType,
       rotation_player_ids: sessionMode === 'rotation' ? selectedPlayerIds : []
     }).select().single()
-    if (error) { alert('Error: ' + error.message); return }
+    if (error) { showToast('Error: ' + error.message); return }
 
     if (sessionMode === 'rotation') {
       const schedule = generateSchedule(selectedPlayerIds, modalMatchType)
@@ -441,7 +444,7 @@ export default function MemberDashboard() {
     const sessionPending = pendingMatches.filter(m => m.session_id === activeSession.id)
     if (sessionPending.length > 0) {
       const word = sessionPending.length === 1 ? '1 match is' : `${sessionPending.length} matches are`
-      if (!confirm(`${word} still pending. End session anyway?`)) return
+      if (!(await confirmDialog(`${word} still pending. End session anyway?`))) return
     }
     const { error } = await supabase
       .from('sessions')
@@ -487,7 +490,7 @@ export default function MemberDashboard() {
   }
 
   async function deletePoll(pollId) {
-    if (!window.confirm('Are you sure you want to delete this poll? This cannot be undone.')) return
+    if (!(await confirmDialog('Are you sure you want to delete this poll? This cannot be undone.'))) return
     const { error } = await supabase.from('session_polls').delete().eq('id', pollId)
     if (error) { showToast('Error deleting poll'); return }
     showToast('Poll deleted')
@@ -1116,7 +1119,8 @@ export default function MemberDashboard() {
         </div>
       )}
 
-      {toast && <div className="toast">{toast}</div>}
+      <Toast message={toast} />
+      {confirmModal}
 
       {/* ── Notification permission modal ── */}
       {showNotifModal && (

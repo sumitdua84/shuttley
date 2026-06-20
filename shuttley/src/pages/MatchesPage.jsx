@@ -3,6 +3,8 @@ import { useParams, useNavigate, useLocation, useSearchParams } from 'react-rout
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
 import BottomNav from '../components/BottomNav'
+import Toast from '../components/Toast'
+import { useConfirm } from '../hooks/useConfirm'
 
 export default function MatchesPage() {
   const { clubId } = useParams()
@@ -17,6 +19,7 @@ export default function MatchesPage() {
   const [sessions, setSessions] = useState([])
   const [loading, setLoading] = useState(true)
   const [toast, setToast] = useState('')
+  const [confirmDialog, confirmModal] = useConfirm()
   const [club, setClub] = useState(null)
   const [selectedPlayer, setSelectedPlayer] = useState(null)
   const [openDates, setOpenDates] = useState(null) // null = auto-open first group
@@ -343,7 +346,7 @@ export default function MatchesPage() {
   }
 
   async function endSession(sId) {
-    if (!confirm('End this session?')) return
+    if (!(await confirmDialog('End this session?'))) return
     const { error } = await supabase
       .from('sessions').update({ status: 'ended', ended_at: new Date().toISOString() }).eq('id', sId)
     if (error) { showToast('Error ending session'); return }
@@ -365,7 +368,7 @@ export default function MatchesPage() {
   }
 
   async function deleteMatch(mId) {
-    if (!confirm('Delete this match? This cannot be undone.')) return
+    if (!(await confirmDialog('Delete this match? This cannot be undone.'))) return
     await supabase.from('match_players').delete().eq('match_id', mId)
     const { error } = await supabase.from('matches').delete().eq('id', mId)
     if (error) { showToast('Error deleting match'); return }
@@ -374,7 +377,7 @@ export default function MatchesPage() {
   }
 
   async function deleteSession(sId) {
-    if (!confirm('Delete this session? This cannot be undone.')) return
+    if (!(await confirmDialog('Delete this session? This cannot be undone.'))) return
     await supabase.from('rotation_matches').delete().eq('session_id', sId)
     const { data, error } = await supabase.from('sessions').delete().eq('id', sId).select()
     if (error) { showToast('Error: ' + error.message); return }
@@ -1128,7 +1131,8 @@ export default function MatchesPage() {
 
       <BottomNav clubId={clubId} activeTab="stats" />
 
-      {toast && <div className="toast">{toast}</div>}
+      <Toast message={toast} />
+      {confirmModal}
     </div>
   )
 }
