@@ -7,6 +7,7 @@ import { usePushNotifications } from '../hooks/usePushNotifications'
 import BottomNav from '../components/BottomNav'
 import Toast from '../components/Toast'
 import { useConfirm } from '../hooks/useConfirm'
+import { DashboardSkeleton } from '../components/Skeleton'
 
 export default function MemberDashboard() {
   const { clubId } = useParams()
@@ -545,7 +546,7 @@ export default function MemberDashboard() {
     fetchData()
   }
 
-  if (loading) return <div className="splash"><div className="splash-logo">S</div></div>
+  if (loading) return <DashboardSkeleton />
 
   const approved = members.filter(m => m.status === 'approved')
 

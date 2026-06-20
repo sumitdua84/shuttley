@@ -4,6 +4,7 @@ import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
 import Toast from '../components/Toast'
 import { useConfirm } from '../hooks/useConfirm'
+import { DashboardSkeleton } from '../components/Skeleton'
 
 export default function SessionSummary() {
   const { clubId, sessionId } = useParams()
@@ -210,7 +211,7 @@ export default function SessionSummary() {
     return Object.values(stats).sort((a, b) => b.wins - a.wins || a.losses - b.losses)
   }
 
-  if (loading) return <div className="splash"><div className="splash-logo">S</div></div>
+  if (loading) return <DashboardSkeleton />
   if (!session) return (
     <div className="page"><div className="content"><p style={{ color:'var(--text2)' }}>Session not found.</p></div></div>
   )

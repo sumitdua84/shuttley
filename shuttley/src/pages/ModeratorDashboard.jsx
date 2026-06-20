@@ -7,6 +7,7 @@ import { usePushNotifications } from '../hooks/usePushNotifications'
 import BottomNav from '../components/BottomNav'
 import Toast from '../components/Toast'
 import { useConfirm } from '../hooks/useConfirm'
+import { DashboardSkeleton } from '../components/Skeleton'
 
 export default function ModeratorDashboard() {
   const { clubId } = useParams()
@@ -570,7 +571,7 @@ export default function ModeratorDashboard() {
     setTimeout(() => setToast(''), 2500)
   }
 
-  if (loading) return <div className="splash"><div className="splash-logo">S</div></div>
+  if (loading) return <DashboardSkeleton />
 
   const pending = members.filter(m => m.status === 'pending')
   const approved = members.filter(m => m.status === 'approved' && !m.profiles?.full_name?.startsWith('deleted_'))

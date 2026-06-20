@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import { generateSchedule, generateRebalancedSchedule, generateMatchesForNewPlayer, reorderPendingMatches } from '../utils/scheduleGenerator'
 import Toast from '../components/Toast'
 import { useConfirm } from '../hooks/useConfirm'
+import { DashboardSkeleton } from '../components/Skeleton'
 
 export default function RotationPage() {
   const { clubId, sessionId } = useParams()
@@ -259,7 +260,7 @@ export default function RotationPage() {
     fetchData()
   }
 
-  if (loading) return <div className="splash"><div className="splash-logo">S</div></div>
+  if (loading) return <DashboardSkeleton />
   if (!session) return (
     <div className="page"><div className="content"><p style={{ color: 'var(--text2)' }}>Session not found.</p></div></div>
   )
