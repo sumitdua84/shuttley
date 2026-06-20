@@ -17,6 +17,30 @@ commands and [docs/STAGING.md](docs/STAGING.md) for environment history.
 - `develop` — staging/integration branch, tracks `origin/develop`.
 - `feature/shuttley-app-feel-upgrade` — this initiative's working branch,
   created from `develop` on 2026-06-20.
+- `docs/shuttley-v2-architecture-planning` — planning-only branch off
+  `develop` holding `SHUTTLEY-V2-ARCHITECTURE.md`. No code on it.
+
+## Current status (stopping point, 2026-06-20)
+
+**Session paused here deliberately — see "Session Handover" at the bottom
+of [ISSUES.md](ISSUES.md) for the full restart-from-cold guide.**
+
+- Active branch: `feature/shuttley-app-feel-upgrade`, off `develop`,
+  **12 commits**, clean working tree, **not pushed, not merged**.
+- Production (`main`) untouched throughout — no schema changes, no
+  deploys, confirmed at every step.
+- App-feel work (toast/confirm/skeleton/route transitions/code
+  splitting/Supabase parallelization) is implemented and verified live
+  against `shuttley-dev` with two real test accounts. Full detail in
+  `ROADMAP.md`/`CHANGELOG.md`/`ISSUES.md`.
+- **Do not merge to `develop` or `main` yet** — Sumit wants to review the
+  diff and optionally spot-check the still-unverified areas (splits,
+  chat, admin anonymization, member removal/demotion, rotation-mode
+  scheduling, PWA install/update) before deciding to merge.
+- Phase 3 (component cleanup) and Phase 4 (PWA polish) — **not started**,
+  intentionally held.
+- V2 architecture (`SHUTTLEY-V2-ARCHITECTURE.md`) — planning document
+  only, on its own branch, **not approved for implementation yet**.
 
 ## Shuttley App-Feel Upgrade
 

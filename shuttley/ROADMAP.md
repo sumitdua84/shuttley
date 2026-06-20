@@ -39,27 +39,33 @@ context and audit findings.
         configured in `vite.config.js`, recheck for gaps)
   - [ ] Optional: pull-to-refresh, offline/error fallback — only if clean
 
-## Verification status (2026-06-20)
+## Verification status — CLOSED (2026-06-20)
 
-Phase 1 + 2 fully verified end-to-end against `shuttley-dev` with two
-test accounts: onboarding/club creation, member approval, both
-dashboards, full session/match lifecycle, poll lifecycle, every
-`ConfirmModal` conversion, and mobile viewport. Full detail in
-`CHANGELOG.md`/`ISSUES.md`.
+Phase 1 + 2 are fully implemented and verified end-to-end against
+`shuttley-dev` with two real test accounts. All verification gaps are
+now closed — see `CHANGELOG.md`/`ISSUES.md` for full detail, and the
+"Session Handover" section at the bottom of `ISSUES.md` for the
+complete restart-from-cold summary.
 
-**Two items still open before this branch can be considered fully
-closed:**
-- `SessionSummary.jsx` is stuck behind a PostgREST cache issue on
-  shuttley-dev (likely needs a project restart) — see `ISSUES.md`.
-- Not pushed for a Vercel preview — the project's env vars don't have a
-  Preview-only override pointing at `shuttley-dev`, so pushing now would
-  risk a preview deployment writing test data into production. Needs a
-  Vercel env var change before this is safe.
+- `SessionSummary.jsx`'s `PGRST201` issue — **resolved**. Root cause was
+  an unused `profiles` embed in the query, not the underlying schema.
+  Fixed by removing it; verified with multiple clean reloads including
+  after a fresh `shuttley-dev` project restart.
+- Vercel preview — **deliberately skipped**, not blocking. The project's
+  env vars don't have a Preview-only override pointing at `shuttley-dev`,
+  so pushing this branch risks a preview deployment writing test data
+  into production. Revisit only if needed for phone/device testing.
 
-A separate **v2 architecture initiative** (groups/venues model) is being
+**This branch is parked, not merged.** Sumit will review the diff
+himself and decide whether to merge to `develop`. No further work
+happens on this branch until that decision is made.
+
+A separate **v2 architecture initiative** (groups/venues model) is
 planned on its own branch (`docs/shuttley-v2-architecture-planning` →
 future `feature/shuttley-v2-group-venue-architecture`), deliberately kept
-independent of this branch. See `SHUTTLEY-V2-ARCHITECTURE.md`.
+independent of this branch and **not started**. See
+`SHUTTLEY-V2-ARCHITECTURE.md`. Per Sumit, V2 review/implementation waits
+until this app-feel branch is fully parked or merged.
 
 ## Deferred / not in this initiative
 

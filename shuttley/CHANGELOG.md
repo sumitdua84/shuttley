@@ -1,5 +1,37 @@
 # Shuttley — Changelog
 
+## 2026-06-20 — Close out app-feel verification, park the branch
+
+**Branch:** `feature/shuttley-app-feel-upgrade`
+
+**Summary:** Closed the last open item (`SessionSummary.jsx`'s
+`PGRST201` error) and stopped the session cleanly per Sumit's request,
+without merging anywhere. Full restart guide written into the "Session
+Handover" section at the bottom of `ISSUES.md`.
+
+**What happened:**
+- Root-caused `SessionSummary.jsx`'s embed ambiguity error: the
+  `sessions → profiles` embed it fetched was never actually used
+  anywhere in the component. Removed it (`select('*, profiles
+  (full_name))` → `select('*')`), which resolves the error regardless of
+  its underlying cause. Verified clean across multiple reloads,
+  including a fresh `shuttley-dev` project restart Sumit performed.
+- Documented an orphaned-but-harmless finding: `session_polls.note` and
+  `match_edit_log.note` (singular) predate this session's fixes and are
+  unused dead columns, not a bug — not touched.
+- Updated all four docs (`PROJECT.md`/`ROADMAP.md`/`CHANGELOG.md`/
+  `ISSUES.md`) with a clear stopping point and full session handover, so
+  the branch can be picked up cold by anyone (Claude Code, ChatGPT, or
+  Sumit directly) without needing this conversation's history.
+
+**Decision:** Branch is **parked, not merged**. Sumit will review the
+diff and the still-unverified areas (splits, chat, admin anonymization,
+member removal/demotion, rotation-mode scheduling, PWA install/update)
+before deciding whether to merge to `develop`. No Phase 3, Phase 4, or V2
+work started.
+
+**Production touched:** No.
+
 ## 2026-06-20 — Verify Shuttley app-feel flows with member test data
 
 **Branch:** `feature/shuttley-app-feel-upgrade`

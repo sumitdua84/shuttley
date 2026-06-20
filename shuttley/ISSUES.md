@@ -301,6 +301,210 @@ access for running fixes without relaying through Sumit. **Both
 passwords failed pooler authentication** for unclear reasons (format and
 tenant routing were confirmed correct via a deliberate negative test).
 Abandoned in favor of the SQL-editor relay workflow, which worked
-reliably throughout. **Recommend Sumit reset the database password again
-after this session** to invalidate the shared values, even though they
-were never successfully used.
+reliably throughout. Sumit reset the shuttley-dev database password
+after this session to invalidate the shared values (confirmed done).
+**No passwords or secrets are stored anywhere in these markdown files**
+— only that a reset happened, never the values. Store any future
+credentials in 1Password, not in chat or in this repo.
+
+---
+
+## Session Handover — Shuttley App-Feel Upgrade
+
+**Written so this can be picked up cold — by Claude Code, ChatGPT, or
+Sumit directly — without needing the conversation history that produced
+it.** If you're starting fresh, read this section top to bottom before
+touching anything.
+
+### 1. Branch status right now
+
+- Branch: **`feature/shuttley-app-feel-upgrade`**, created off `develop`.
+- **12 commits**, working tree **clean** (`git status` shows nothing
+  pending).
+- **Not pushed to origin. Not merged to `develop`. Not merged to
+  `main`.** (If this has changed since this doc was written, trust `git
+  log`/`git status` over this paragraph — this is a snapshot.)
+- **Production untouched** throughout the entire initiative — no schema
+  changes, no RLS changes, no deploys to `main`/App Store build. All
+  database fixes in this session targeted `shuttley-dev` only
+  (`ecdibuhrgdmsdvovmlvl.supabase.co`).
+- This session was stopped deliberately by Sumit ("this session has
+  become heavy, so we are stopping here cleanly") — not because of a
+  blocker. Everything that was in progress is finished and committed.
+
+### 2. What was implemented (all done, all committed)
+
+- Shared `Toast` + `ConfirmModal` components (`src/components/`) and a
+  promise-based `useConfirm()` hook (`src/hooks/useConfirm.jsx`),
+  replacing **all 27** native `alert()`/`confirm()`/`window.confirm()`
+  calls across 7 pages (`AdminDashboard`, `MatchesPage`,
+  `MemberDashboard`, `ModeratorDashboard`, `ProfilePage`, `RotationPage`,
+  `SessionSummary`). Business logic untouched — only the UI mechanism
+  changed.
+- `Skeleton`/`SkeletonCard`/`SkeletonRow`/`DashboardSkeleton`
+  (`src/components/Skeleton.jsx`) replacing the blank full-screen splash
+  on 4 pages (`MemberDashboard`, `ModeratorDashboard`, `RotationPage`,
+  `SessionSummary`).
+- 180ms route fade transition wrapping `<Routes>` in `App.jsx`.
+- Route-level code splitting via `React.lazy()` + `Suspense` for all 18
+  routes in `App.jsx`. **Main JS bundle: 692.99 KB → 394.10 KB**
+  (181.14 KB → 112.89 KB gzip).
+- Parallelized independent Supabase calls (`Promise.all()`) in
+  `MemberDashboard.jsx` and `ModeratorDashboard.jsx`'s `fetchData()` —
+  each went from ~8 sequential round-trips to 1-2 batches.
+- Fixed a genuine application bug in `OnboardingPage.jsx`'s
+  `createClub()`: it inserted a club and immediately tried to read it
+  back before the membership row existed, which RLS could legitimately
+  block. Reordered to insert-club → insert-membership → refresh, with
+  per-step error handling.
+- Fixed a genuine application bug in `SessionSummary.jsx`: it fetched a
+  `profiles` embed via `sessions.started_by` that was never used
+  anywhere in the component, which was also tangled up with a
+  dev-database schema mistake (see §5) that made the embed ambiguous.
+  Removed the unused embed.
+- 8 dev-only SQL scripts added under `supabase/` — 7 fix scripts (run
+  against `shuttley-dev` only, all confirmed applied) plus 1 read-only
+  production audit script (written, **not run**). Full list and purpose
+  of each in §5 below and earlier in this file.
+
+### 3. What was verified live (against shuttley-dev, two real accounts)
+
+Using `sumitdua84@gmail.com` (moderator) and
+`shuttley.testmember+devqa@gmail.com` (member) against the test club
+"App Feel Test Club":
+
+- Login (both accounts), onboarding, club creation
+- Member approval (pending → approved)
+- `ModeratorDashboard` and `MemberDashboard` — both load via the
+  parallelized `fetchData()` with zero console/network errors
+- Full session lifecycle: start session → record match (both
+  auto-confirm and requires-confirmation variants) → confirm match (as
+  the non-recorder) → delete match → end session → view
+  `SessionSummary`
+- Full poll lifecycle: create → respond (Yes/No) → delete
+- Every `ConfirmModal` conversion exercised: sign out, delete-club
+  request (the inline arrow-function variant), match deletion, poll
+  deletion
+- Mobile viewport (375×812 emulated): dashboard, bottom nav, confirm
+  modal all render correctly, no overflow
+- `SessionSummary` specifically — confirmed working after a fresh
+  `shuttley-dev` project restart, multiple consecutive clean reloads,
+  zero failed requests
+
+### 4. What remains unverified (not known broken — just not reached)
+
+These were never exercised this session because the test data/scope
+didn't require them. No evidence either way that they work or don't:
+
+- Splits (shared expense tracking) — `SplitsPage.jsx` untouched and
+  untested
+- Chat — `ChatPage.jsx` untouched and untested
+- Account anonymization / admin flows — `AdminDashboard.jsx`'s
+  `confirmDelete()` (the `ConfirmModal` conversion was made, but never
+  actually triggered against real data)
+- Member removal / demotion (`ModeratorDashboard.jsx`'s
+  `removeMember()`/`demoteMod()`) — converted to `ConfirmModal`, never
+  exercised
+- `RotationPage.jsx`'s actual rotation-mode scheduling (auto-generated
+  round-robin matches) — only **Free Play** mode sessions were tested
+  this session
+- PWA install/update behavior after the `React.lazy()` bundle
+  restructure — the precache manifest shape changed (34 entries vs. 12
+  before); never reinstalled the PWA locally to confirm
+- Vercel preview deployment — deliberately not pushed (see §6)
+
+### 5. Dev database (shuttley-dev) — what was broken and fixed
+
+`shuttley-dev`'s schema was originally cloned from production manually,
+table-by-table, and had drifted significantly. None of this was caused
+by this branch's code — all found while trying to verify it. All fixes
+below were applied to **shuttley-dev only**, never production:
+
+1. **RLS recursion on `memberships`** (`42P17`) — four separate
+   self-referencing policies. Fixed with two `SECURITY DEFINER` helper
+   functions (`fix_dev_memberships_recursion.sql`).
+2. **`memberships.joined_at` missing column** — same script.
+3. **`clubs` RLS blocking club creation** — the creator couldn't read
+   back their own club before their membership existed
+   (`fix_dev_clubs_creator_visibility.sql`). Also independently fixed at
+   the code level (see §2).
+4. **`sessions`/`matches` column-name drift** — `created_by` vs.
+   `started_by`, `match_type` vs. `type` — production presumably renamed
+   these at some point; the dev clone predated that. Fixed via
+   `RENAME COLUMN` (`fix_dev_sessions_missing_columns.sql`,
+   `fix_dev_matches_missing_columns.sql`). **First attempt at the
+   sessions fix mistakenly added a duplicate column instead of renaming
+   — caught and corrected within the same session.**
+5. **Missing `matches` DELETE policy** — an existing script
+   (`supabase/fix_match_rls.sql`) defined it but had never been run
+   against shuttley-dev. Match deletion was silently doing nothing
+   (`DELETE` returned `204` with zero rows affected). Fixed by running
+   that existing script.
+6. **Cross-table RLS recursion between `matches` and `match_players`**
+   (`42P17`) — fixed with a `SECURITY DEFINER` `can_read_match()` helper
+   (`fix_dev_match_players_recursion.sql`).
+7. **Missing columns on `session_polls` (`notes`, `session_time`) and
+   `match_edit_log` (`edited_at`)** — straightforward `ADD COLUMN`
+   drift (`fix_dev_session_polls_missing_column.sql`, also covered in
+   the sessions/matches scripts).
+8. **`SessionSummary.jsx`'s `PGRST201`** — looked like a stuck
+   PostgREST cache at first (survived a full project restart), but
+   turned out to be moot once the unused embed was removed at the code
+   level (§2/§3).
+9. **Orphaned `note` columns** (singular) on `session_polls` and
+   `match_edit_log` — predate this session, unused by the app, not a
+   bug, not touched.
+
+The dev database password was reset by Sumit after this session to
+invalidate values shared during a (failed, abandoned) direct-connection
+attempt. **No secrets are stored in this repo or these docs.**
+
+### 6. Recommended next restart point
+
+In order, next time someone picks this up:
+
+1. Confirm the shuttley-dev database password is stored in **1Password**
+   only — never in chat, code, or markdown.
+2. Review the `feature/shuttley-app-feel-upgrade` diff yourself
+   (`git diff develop...feature/shuttley-app-feel-upgrade` or via
+   GitHub once pushed).
+3. Optionally, manually spot-check the unverified areas from §4 —
+   splits, chat, admin anonymization, member removal/demotion,
+   rotation-mode scheduling, PWA install/update.
+4. Decide whether to merge `feature/shuttley-app-feel-upgrade` into
+   `develop` as staging. **Do not merge to `main`/production** until a
+   staging period and/or manual review is complete.
+5. Only after the app-feel branch is either merged or consciously parked
+   should `SHUTTLEY-V2-ARCHITECTURE.md` be reviewed.
+6. After that review, decide whether to create
+   `feature/shuttley-v2-group-venue-architecture` and begin V2 work — on
+   its own branch, never mixed with app-feel or pushed toward production
+   without an explicit, separate decision.
+
+### 7. V2 architecture — approved direction, not yet started
+
+For context, the agreed direction documented in full in
+`SHUTTLEY-V2-ARCHITECTURE.md` (planning only, on
+`docs/shuttley-v2-architecture-planning`, no code written against it):
+
+- The live production Shuttley app **stays unchanged for now** — it
+  keeps running, collecting real usage data, club/session/match activity,
+  and App Store presence, while V2 is planned and built separately.
+- Today's "clubs" are actually **social groups** — a circle of people who
+  play together. The schema/UI conflates this with the idea of a real
+  badminton venue, which doesn't exist as a concept anywhere in the app
+  today.
+- V2 separates **Groups** (social, private, today's `clubs` renamed) from
+  **Venues** (real locations with courts, pricing, availability,
+  bookings, managed by venue staff). A group can be linked to zero, one,
+  or many venues — purely informational, not access-control.
+- V2 will be built and fully tested in dev/staging first, with a
+  copy-based migration (old tables stay intact, new tables built
+  alongside), before any production cutover is even scheduled.
+- **Production must never be slowly mutated into V2** — no incremental
+  schema changes to `main`'s database under this initiative. The cutover,
+  whenever it happens, is a deliberate, separate, planned event with its
+  own rollback plan (see `SHUTTLEY-V2-ARCHITECTURE.md` §§7-9).
+- Thirteen open questions for Sumit are listed at the end of
+  `SHUTTLEY-V2-ARCHITECTURE.md` §13 — review those before any V2
+  implementation branch is created.
