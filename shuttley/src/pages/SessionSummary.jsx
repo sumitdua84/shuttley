@@ -33,7 +33,7 @@ export default function SessionSummary() {
 
   async function fetchData() {
     const [{ data: s }, { data: m }, { data: c }, { data: mem }, { data: mems }, { data: prof }] = await Promise.all([
-      supabase.from('sessions').select('*, profiles(full_name)').eq('id', sessionId).single(),
+      supabase.from('sessions').select('*').eq('id', sessionId).single(),
       supabase.from('matches')
         .select('*, match_players(user_id, side, profiles(id, full_name))')
         .eq('session_id', sessionId)

@@ -235,24 +235,25 @@ branch's code, blocking testing until fixed:
    straightforward drift, fixed with `ADD COLUMN IF NOT EXISTS`.
 6. **`match_edit_log` missing `edited_at`** — same.
 
-### Known unresolved: SessionSummary still broken on shuttley-dev
+### RESOLVED: SessionSummary fixed at the code level
 
 After fixing the `sessions.started_by` duplicate-column mistake (#1
 above), `SessionSummary.jsx`'s `select('*, profiles(full_name)')` query
-**still** fails with the same `PGRST201` ambiguity error, even though
-`information_schema.columns` confirms only one `started_by` column exists
-now (verified twice, including after a fresh password reset and a
-60-90 second wait). This looks like a stuck PostgREST relationship-cache
-entry on Supabase's hosted instance — `NOTIFY pgrst, 'reload schema'` and
-a no-op Settings→API save did not clear it.
+kept failing with `PGRST201` — even after Sumit did a full project
+restart, and even though `pg_constraint` confirmed only one correct FK
+definition (`sessions_created_by_fkey` now pointing at `started_by`)
+existed. Several consecutive page reloads after the restart still
+returned `300`, ruling out a simple cache-propagation delay.
 
-**Underlying functionality is fine** — ending a session correctly
-updates `sessions.status` to `'ended'` (`PATCH` returns `204`); only this
-one display page's embedded-profile query is stuck. Likely fix: a full
-project restart (Settings → General → Restart project, shuttley-dev
-only, ~1-2 min downtime) to force PostgREST to fully reinitialize. Not
-done in this session — **needs Sumit to do this and confirm
-`SessionSummary` loads** before this is considered fully verified.
+Root cause turned out to be moot: `SessionSummary.jsx` fetched
+`profiles(full_name)` via the `sessions.started_by` relationship but
+**never actually used it anywhere in the component** (confirmed via
+grep — `session.profiles` has zero references in the file). Fixed by
+removing the unused embed entirely (`select('*, profiles(full_name))`
+→ `select('*')`), which sidesteps the ambiguity regardless of its root
+cause and is also simply not fetching data nobody reads. Verified
+working with two consecutive clean page loads showing full session
+detail, MVP, standings, and match history.
 
 ### Vercel preview — NOT pushed, and why
 
