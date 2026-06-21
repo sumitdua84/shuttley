@@ -44,10 +44,12 @@ session's full detail, and §6 for the restart-from-cold guide.**
     Vercel serverless functions don't execute under local `vite dev`.
     Confirm Delete has not been clicked; no account has been
     anonymized.
+- **Member removal/demotion** — QA'd and fixed (last-admin protection
+  added, promote confirmation added), verified end-to-end against
+  shuttley-dev. See ISSUES.md and CHANGELOG.md.
 - **Do not merge to `develop` or `main` yet** — still-unverified areas:
-  member removal/demotion, rotation-mode scheduling, PWA install/update,
-  Vercel preview readiness, and the account-deletion runtime test noted
-  above.
+  rotation-mode scheduling, PWA install/update, Vercel preview readiness,
+  and the account-deletion runtime test noted above.
 - Phase 3 (component cleanup) and Phase 4 (PWA polish) — **not started**,
   intentionally held.
 - V2 architecture (`SHUTTLEY-V2-ARCHITECTURE.md`) — planning document

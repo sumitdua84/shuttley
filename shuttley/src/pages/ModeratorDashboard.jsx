@@ -418,12 +418,19 @@ export default function ModeratorDashboard() {
   }
 
   async function promoteMod(membershipId) {
+    if (!(await confirmDialog('Make this person an admin?'))) return
     await supabase.from('memberships').update({ role: 'moderator' }).eq('id', membershipId)
     showToast('Promoted to admin')
     fetchData()
   }
 
   async function demoteMod(membershipId) {
+    const target = members.find(m => m.id === membershipId)
+    const moderatorCount = members.filter(m => m.status === 'approved' && m.role === 'moderator').length
+    if (target?.role === 'moderator' && moderatorCount <= 1) {
+      showToast('Club must have at least one admin')
+      return
+    }
     if (!(await confirmDialog('Remove admin rights and make this person a regular member?'))) return
     await supabase.from('memberships').update({ role: 'member' }).eq('id', membershipId)
     showToast('Admin rights removed')
@@ -431,6 +438,12 @@ export default function ModeratorDashboard() {
   }
 
   async function removeMember(membershipId) {
+    const target = members.find(m => m.id === membershipId)
+    const moderatorCount = members.filter(m => m.status === 'approved' && m.role === 'moderator').length
+    if (target?.role === 'moderator' && moderatorCount <= 1) {
+      showToast('Club must have at least one admin')
+      return
+    }
     if (!(await confirmDialog('Remove this member from the club?'))) return
     await supabase.from('memberships').delete().eq('id', membershipId)
     showToast('Member removed')

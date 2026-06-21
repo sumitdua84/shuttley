@@ -646,9 +646,80 @@ it's safe to leave renamed for continued shuttley-dev work.
 
 ### Still unverified after this session
 
-- Member removal / demotion
+- ~~Member removal / demotion~~ — verified and fixed, see below
+  (2026-06-21)
 - `RotationPage.jsx` rotation-mode scheduling
 - PWA install/update behavior
 - Vercel preview readiness
 - Account deletion's actual runtime execution (needs `vercel dev` or a
   deployment — see above)
+
+---
+
+## Member removal / demotion QA (2026-06-21)
+
+Inspected `ModeratorDashboard.jsx`'s `promoteMod()`, `demoteMod()`, and
+`removeMember()` (member list tab). Good news: **all three already use
+the correct `memberships` table**, not the old `club_members` — no
+schema-reference bug here (unlike the account-deletion bug found above).
+
+### Bugs found and fixed
+
+- **No last-admin protection**: `demoteMod()` and `removeMember()` had
+  no guard against acting on the only remaining moderator, which could
+  leave a club with zero admins and no way to manage it. Fixed by
+  checking `moderatorCount <= 1` for the target before allowing the
+  action; shows a toast (`Club must have at least one admin`) and
+  aborts instead.
+- **`promoteMod()` had no confirmation**, inconsistent with
+  `demoteMod()`/`removeMember()` which both already used the app's
+  `ConfirmModal` via `confirmDialog()`. Fixed by adding the same
+  confirm step ("Make this person an admin?").
+
+### Verified working, left unchanged
+
+- Self-removal/self-demotion is blocked at the UI level (`m.user_id !==
+  user.id` checks) — confirmed still in place and working in the
+  browser test below.
+- All three actions use `ConfirmModal`/`Toast`, no native
+  `alert`/`confirm`.
+- Member list is mobile-first/responsive, consistent with the rest of
+  the app-feel work.
+
+### Known gap, deliberately not touched this session
+
+- The `memberships` DELETE RLS policy (`fix_dev_memberships_recursion.sql`)
+  technically allows a user to delete their own membership row directly
+  (`user_id = auth.uid()`), which is a backend-level self-removal path
+  that bypasses the UI guard. No feature in the app currently uses
+  self-delete (there's no "Leave Club" button), so this isn't exploited
+  today, but it means the self-protection is UI-only, not enforced by
+  RLS. Tightening this requires a SQL change on shuttley-dev — flagged
+  for Sumit, not applied automatically. Suggested policy (shuttley-dev
+  only, **not run**):
+
+  ```sql
+  -- shuttley-dev only — review before running
+  DROP POLICY "Moderators can delete memberships" ON memberships;
+  CREATE POLICY "Moderators can delete memberships" ON memberships
+  FOR DELETE TO authenticated
+  USING (public.is_club_moderator(club_id));
+  ```
+
+  This would remove the self-delete path entirely. Don't apply this
+  if a future "Leave Club" feature is planned to reuse self-delete.
+
+### Tested in browser against shuttley-dev
+
+Using club `App Feel Test Club` (`afd39feb-9e7d-4524-b0ee-427988cc8506`)
+with real user `Sam Dua` (sole moderator) and `Test Member`:
+- Promote "Test Member" → confirm modal appeared ("Make this person an
+  admin?") → confirmed → toast "Promoted to admin" → role updated to
+  `(mod)`.
+- Demote "Test Member" back to member (2 moderators present, so allowed)
+  → confirm modal → toast "Admin rights removed" → role reverted.
+- No console errors during either flow. `npm run build` succeeds.
+- Self-action buttons (Remove Admin/Remove) correctly absent for the
+  logged-in user (Sam) throughout.
+
+No SQL run. No production access. Only `ModeratorDashboard.jsx` changed.

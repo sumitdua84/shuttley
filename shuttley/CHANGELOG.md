@@ -1,5 +1,33 @@
 # Shuttley — Changelog
 
+## 2026-06-21 — Fix Shuttley member removal and demotion QA blockers
+
+**Branch:** `feature/shuttley-app-feel-upgrade`
+
+**Summary:** QA pass on the member removal/demotion flows in
+`ModeratorDashboard.jsx`, the next item from the unverified list. Unlike
+the account-deletion bug, removal/demotion already used the correct
+`memberships` table — no schema fix needed. Found and fixed two UX/safety
+gaps: no protection against removing the last moderator from a club, and
+no confirmation step on promotion (inconsistent with demote/remove).
+
+**What changed:**
+- `demoteMod()` / `removeMember()` now block acting on a club's last
+  remaining moderator, showing a toast instead of proceeding.
+- `promoteMod()` now shows a `ConfirmModal` confirmation, matching
+  demote/remove.
+
+**Verified, unchanged:** self-removal/self-demotion UI guard, use of
+`ConfirmModal`/`Toast` (no native alert/confirm), mobile-first layout.
+
+**Flagged, not applied:** the `memberships` DELETE RLS policy on
+shuttley-dev technically permits self-delete (`user_id = auth.uid()`),
+which is a backend-only gap since no UI feature uses it. SQL suggestion
+left in [ISSUES.md](ISSUES.md) for Sumit to review — not run.
+
+Tested in-browser against shuttley-dev (`App Feel Test Club`). No SQL
+run, no production access, only `ModeratorDashboard.jsx` changed.
+
 ## 2026-06-21 — QA pass: fix Splits, Chat, and Account Deletion blockers
 
 **Branch:** `feature/shuttley-app-feel-upgrade`

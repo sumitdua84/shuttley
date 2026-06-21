@@ -70,8 +70,15 @@ unverified above — see `ISSUES.md` §8 for full detail:
   "Vercel serverless functions don't execute under local `vite dev`"
   limitation already known from `/api/coach`/`/api/send-push`. Confirm
   Delete has not been clicked; no account has been anonymized.
-- Still unverified: member removal/demotion, rotation-mode scheduling,
-  PWA install/update, Vercel preview readiness.
+- **Member removal/demotion** — QA'd and fixed: added last-admin
+  protection (can't demote/remove a club's only remaining moderator)
+  and a confirmation step on promotion for consistency with
+  demote/remove. Verified end-to-end against shuttley-dev. See
+  `ISSUES.md` for a flagged-but-not-applied RLS tightening suggestion
+  (self-delete is currently permitted at the DB level, though unused by
+  any UI feature today).
+- Still unverified: rotation-mode scheduling, PWA install/update, Vercel
+  preview readiness.
 
 **This branch is parked, not merged.** Sumit will review the diff
 himself and decide whether to merge to `develop`. No further work
