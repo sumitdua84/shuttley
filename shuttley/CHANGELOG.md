@@ -1,5 +1,32 @@
 # Shuttley — Changelog
 
+## 2026-06-21 — Verify Shuttley rotation scheduling after dev schema fix
+
+**Branch:** `feature/shuttley-app-feel-upgrade`
+
+**Summary:** Sumit applied the `rotation_matches` schema fix SQL
+(flagged in the previous entry below) manually on shuttley-dev. This
+session re-verified the schema live (didn't assume the prior session's
+findings were still accurate) and ran a full end-to-end QA pass on
+Auto Schedule: start session, score a match, New Cycle, Rebalance, and
+confirmed `rotation_matches`/`matches`/`match_players` all stay
+consistent. Free Play retested as a regression check, unaffected.
+
+**No code changes** — the error-handling fix from the previous commit
+was already correctly wired to the new schema once it existed.
+
+**Found and flagged separately (not fixed, out of scope):** the
+"Add Guest" feature is also broken on shuttley-dev — missing
+`create_guest_profile` RPC function, same schema-drift pattern as the
+bug just fixed but a different, unrelated feature. Spun off as a
+separate follow-up task rather than expanding this one's scope.
+
+All QA test data (sessions, matches, rotation_matches rows) created
+during this pass was cleaned up afterward. `npm run build` succeeds. No
+SQL run by this session, no production access.
+
+**Auto Schedule rotation mode is now fully functional on shuttley-dev.**
+
 ## 2026-06-21 — Fix Shuttley rotation scheduling QA blockers
 
 **Branch:** `feature/shuttley-app-feel-upgrade`

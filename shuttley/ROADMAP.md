@@ -77,16 +77,16 @@ unverified above — see `ISSUES.md` §8 for full detail:
   `ISSUES.md` for a flagged-but-not-applied RLS tightening suggestion
   (self-delete is currently permitted at the DB level, though unused by
   any UI feature today).
-- **Rotation-mode scheduling (Auto Schedule)** — QA'd. Found a
-  shuttley-dev schema drift bug: `rotation_matches` still has the old
-  pre-redesign columns, so every Auto Schedule attempt silently failed
-  to generate matches and landed the moderator on what looked like
-  Free Play with no error. Fixed the silent-failure part in code (toast
-  + rollback to the dashboard instead of navigating into a broken
-  session), but **Auto Schedule itself remains non-functional on
-  shuttley-dev** until the SQL fix in `ISSUES.md` is reviewed and run —
-  flagged for Sumit, not applied. Free Play mode is unaffected and
-  fully functional, verified end-to-end.
+- **Rotation-mode scheduling (Auto Schedule)** — QA'd, fixed, and now
+  **fully verified working** on shuttley-dev. Found a schema drift bug
+  (`rotation_matches` had old pre-redesign columns), fixed the
+  silent-failure handling in code, Sumit applied the flagged SQL fix,
+  then re-verified end-to-end: start session, score a match, New
+  Cycle, Rebalance all confirmed consistent across
+  `rotation_matches`/`matches`/`match_players`. Free Play retested,
+  unaffected. (Separately found and flagged, not fixed: "Add Guest" is
+  also broken on shuttley-dev — missing RPC function, spun off as its
+  own task.)
 - Still unverified: PWA install/update, Vercel preview readiness.
 
 **This branch is parked, not merged.** Sumit will review the diff

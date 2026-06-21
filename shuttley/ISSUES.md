@@ -850,3 +850,69 @@ unrelated changes).
 
 **Auto Schedule rotation mode remains non-functional on shuttley-dev
 until the SQL above is run.** Free Play mode is fully functional.
+
+---
+
+## RotationPage Auto Schedule — verified working after SQL fix (2026-06-21)
+
+Sumit applied the SQL above manually in the shuttley-dev SQL editor.
+Re-verified from scratch (didn't assume the doc was still accurate —
+re-checked column existence and row count live before testing):
+- `rotation_matches` now has `p1, p2, p3, p4, club_id, score1, score2,
+  match_id` and no longer has `team1, team2, sitting, team1_score,
+  team2_score`. Table was still 0 rows immediately before testing.
+- `clubs`, `profiles`, `matches` (the new columns' FK targets) all
+  confirmed reachable.
+
+### End-to-end test (singles, 2 real players — `Sam Dua` + `Test
+Member` in `App Feel Test Club`)
+
+1. **Auto Schedule start** — selected Singles + Auto Schedule, selected
+   both players, started. Navigated straight into the rotation session
+   (no longer stuck on the dashboard) — confirmed 1 match was
+   correctly inserted into `rotation_matches` with real `p1`/`p3`/
+   `club_id`/`status: pending`.
+2. **Session opens correctly** — round header, player chips, VS card
+   all rendered as expected ("Round 1 of 1", "0/1 matches, 0% done").
+3. **Refresh persistence** — reloaded the page; the same pending match
+   was still there, unchanged.
+4. **Score update** — incremented the score steppers to 3–1 and hit
+   Save. Confirmed all three tables updated consistently:
+   `rotation_matches` (`status: submitted`, `score1: 3`, `score2: 1`,
+   `match_id` set), `matches` (`team1_score: 3`, `team2_score: 1`,
+   `winner_side: team1`, `status: confirmed`), and `match_players` (one
+   row per side, correct `user_id`s). Progress UI updated to "1/1
+   matches, 100% done".
+5. **New Cycle** — generated a fresh pending match (2/2 total, 50%
+   done) for the same two players. Confirmed via DB.
+6. **Rebalance** — with only 2 players who'd already played each
+   other, rebalance correctly removed the redundant pending match
+   (`status: removed`) and added no new one — this is correct behavior
+   for the "all pairs already played" case, not a bug. Confirmed via
+   DB: seq 1 `submitted`, seq 2 `removed`.
+7. **Add Player** — could not be exercised live: the test club only
+   has 2 real members (both already in the rotation), and the
+   separate "Add Guest" feature turned out to be broken on
+   shuttley-dev too (missing `create_guest_profile` RPC function,
+   confirmed via direct call returning PGRST202 — same schema-drift
+   pattern as the bug just fixed, but a different, unrelated table/
+   function). Flagged as a separate follow-up task rather than fixed
+   here, since it's outside this task's scope. `addPlayer()`'s
+   `rotation_matches` insert uses the exact same shape already proven
+   working by Rebalance/New Cycle above, so it's covered by the schema
+   fix with high confidence even though it wasn't exercised live.
+8. **Console/network** — no console errors at any point during this
+   pass.
+9. **Free Play** — started, displayed, ended, and deleted cleanly in a
+   separate test — unaffected by any of this.
+10. **Cleanup** — all test sessions, matches, match_players, and
+    rotation_matches rows created during this QA pass were deleted
+    afterward. shuttley-dev now has only the same 2 pre-existing ended
+    sessions it had before this session started, and 0 rows in
+    `rotation_matches`.
+
+No code changes were needed — the error-handling fix from the previous
+commit was already correctly wired to the new schema. `npm run build`
+succeeds.
+
+**Auto Schedule rotation mode is now fully functional on shuttley-dev.**

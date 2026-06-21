@@ -45,18 +45,18 @@ session's full detail, and §6 for the restart-from-cold guide.**
 - **Member removal/demotion** — QA'd and fixed (last-admin protection
   added, promote confirmation added), verified end-to-end against
   shuttley-dev. See ISSUES.md and CHANGELOG.md.
-- **Rotation-mode scheduling (Auto Schedule)** — QA'd; found a
-  shuttley-dev schema drift bug in `rotation_matches` (still has the
-  old pre-redesign columns) that silently broke schedule generation.
-  Code-side fix makes the failure visible and non-destructive (toast +
-  rollback instead of a silent broken session), but Auto Schedule
-  itself **remains non-functional on shuttley-dev** until the flagged
-  SQL fix (see ISSUES.md) is reviewed and run by Sumit. Free Play mode
-  is unaffected and fully functional.
+- **Rotation-mode scheduling (Auto Schedule)** — QA'd, found a
+  shuttley-dev schema drift bug in `rotation_matches`, fixed in code
+  (toast + rollback on failure) and then Sumit applied the flagged SQL
+  fix on shuttley-dev. **Re-verified end-to-end and fully working**:
+  start session, score a match, New Cycle, Rebalance all confirmed
+  consistent across `rotation_matches`/`matches`/`match_players`. Free
+  Play retested, unaffected. See ISSUES.md and CHANGELOG.md. (Separately
+  found and flagged, not fixed: "Add Guest" is also broken on
+  shuttley-dev — missing RPC function, spun off as its own task.)
 - **Do not merge to `develop` or `main` yet** — still-unverified/blocked
-  areas: rotation-mode scheduling (blocked on SQL above), PWA
-  install/update, Vercel preview readiness, and the account-deletion
-  runtime test noted above.
+  areas: PWA install/update, Vercel preview readiness, and the
+  account-deletion runtime test noted above.
 - Phase 3 (component cleanup) and Phase 4 (PWA polish) — **not started**,
   intentionally held.
 - V2 architecture (`SHUTTLEY-V2-ARCHITECTURE.md`) — planning document
