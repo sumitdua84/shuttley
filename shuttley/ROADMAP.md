@@ -99,7 +99,15 @@ unverified above — see `ISSUES.md` §8 for full detail:
   device QA**: iOS Safari install, Android Chrome install banner, and
   a genuine update-while-installed scenario, none of which are
   possible in this tool.
-- Still unverified: Vercel preview readiness.
+- Still unverified: Vercel preview readiness, the account-deletion
+  Vercel runtime test, and the three manual PWA device tests noted
+  above (iOS install, Android install, update-while-installed).
+
+**Session closed for the night (2026-06-21) at commit `13ce90f`.**
+Full restart context: `SHUTTLEY — APP FEEL CLOSE OF DAY HANDOVER.md`
+(repo root). **Next recommended restart task: Vercel preview
+readiness, then the account-deletion Vercel runtime test.** Do not
+start V2 before then.
 
 **This branch is parked, not merged.** Sumit will review the diff
 himself and decide whether to merge to `develop`. No further work

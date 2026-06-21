@@ -651,7 +651,9 @@ it's safe to leave renamed for continued shuttley-dev work.
 - ~~`RotationPage.jsx` rotation-mode scheduling~~ — found blocked by a
   shuttley-dev schema drift bug, code-side error handling fixed, SQL
   fix needed and flagged below (2026-06-21)
-- PWA install/update behavior
+- ~~PWA install/update behavior~~ — QA'd against the production build,
+  two stale references fixed, manual device testing still required
+  (2026-06-21)
 - Vercel preview readiness
 - Account deletion's actual runtime execution (needs `vercel dev` or a
   deployment — see above)
@@ -1054,3 +1056,17 @@ this tool — not part of this repo's tracked files. No git changes
 beyond `.gitignore`, `index.html`, `vite.config.js`. No Supabase
 access of any kind was needed for this task; shuttley-dev was not
 touched.
+
+---
+
+## Close of day (2026-06-21)
+
+Session closed for the night at commit `13ce90f`. Full restart context
+is in `SHUTTLEY — APP FEEL CLOSE OF DAY HANDOVER.md` at the repo root
+(one level up from this `shuttley/` folder). Short version: Splits,
+Chat, Member removal/demotion, Rotation Auto Schedule, and PWA
+install/update are all QA'd and verified. Remaining before this branch
+is ready for review: Vercel preview readiness, the account-deletion
+Vercel runtime test, and three manual device tests (iOS install,
+Android install, update-while-installed). `main`/`develop` untouched,
+nothing pushed, nothing merged, nothing deployed.

@@ -20,10 +20,13 @@ commands and [docs/STAGING.md](docs/STAGING.md) for environment history.
 - `docs/shuttley-v2-architecture-planning` — planning-only branch off
   `develop` holding `SHUTTLEY-V2-ARCHITECTURE.md`. No code on it.
 
-## Current status (stopping point, 2026-06-21)
+## Current status (close of day, 2026-06-21)
 
-**Session paused here deliberately — see ISSUES.md §8 for this QA
-session's full detail, and §6 for the restart-from-cold guide.**
+**Session closed for the night at commit `13ce90f`. Full restart
+context: `SHUTTLEY — APP FEEL CLOSE OF DAY HANDOVER.md` (repo root, one
+level up from this `shuttley/` folder). See also ISSUES.md's "Close of
+day" entry at the bottom and §6 for the original restart-from-cold
+guide.**
 
 - Active branch: `feature/shuttley-app-feel-upgrade`, off `develop`,
   clean working tree, **not pushed, not merged**.
@@ -71,6 +74,19 @@ session's full detail, and §6 for the restart-from-cold guide.**
   intentionally held.
 - V2 architecture (`SHUTTLEY-V2-ARCHITECTURE.md`) — planning document
   only, on its own branch, **not approved for implementation yet**.
+
+## Strategy decision (2026-06-21)
+
+The current production polish / app-feel upgrade (this branch) ships
+**first**, as its own complete piece of work. V2 architecture
+(groups/venues) starts **later**, as a separate phase on its own
+branch — never folded into this polish branch. See
+`SHUTTLEY-V2-ARCHITECTURE.md` and `docs/shuttley-v2-architecture-planning`
+for the V2 direction (current clubs become Groups; real venues/clubs
+become separate Venues; a Group can use multiple Venues; a venue/club
+management portal; bookings/court availability; migration off the
+current live app only after V2 itself is fully tested). V2 is **not
+started** and does not begin until this branch is parked or merged.
 
 ## Shuttley App-Feel Upgrade
 

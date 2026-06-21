@@ -1,5 +1,24 @@
 # Shuttley — Changelog
 
+## 2026-06-21 — Close Shuttley app-feel PWA QA session
+
+**Branch:** `feature/shuttley-app-feel-upgrade`
+
+End-of-day checkpoint at `13ce90f`. No code changes this entry — docs
+only, recording where the session stopped. Full detail in
+`SHUTTLEY — APP FEEL CLOSE OF DAY HANDOVER.md`. Verified before
+closing: `main`/`develop` untouched, branch never pushed (no remote
+tracking ref), nothing merged, nothing deployed, no `.env` file
+staged, `.env.local.disabled`/`.claude/launch.json`/
+`.env.production.local` all correctly untracked or gitignored.
+
+Remaining before this branch is ready for review: Vercel preview
+readiness, the account-deletion Vercel runtime test, and three manual
+device tests (iOS Safari install, Android Chrome install,
+update-while-installed). Two optional/non-blocking items also remain:
+the Add Guest RPC schema-drift fix and the maskable-icon padding
+asset.
+
 ## 2026-06-21 — Fix Shuttley PWA install and update QA blockers
 
 **Branch:** `feature/shuttley-app-feel-upgrade`
