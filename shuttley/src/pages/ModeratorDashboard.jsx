@@ -508,9 +508,16 @@ export default function ModeratorDashboard() {
     if (sessionMode === 'rotation') {
       const schedule = generateSchedule(selectedPlayerIds, modalMatchType)
       if (schedule.length > 0) {
-        await supabase.from('rotation_matches').insert(
+        const { error: rmError } = await supabase.from('rotation_matches').insert(
           schedule.map((m, i) => ({ ...m, session_id: sess.id, club_id: clubId, seq: i + 1, status: 'pending' }))
         )
+        if (rmError) {
+          console.error('rotation schedule error:', rmError)
+          await supabase.from('sessions').delete().eq('id', sess.id)
+          showToast('Could not generate schedule — session not started: ' + rmError.message)
+          fetchData()
+          return
+        }
       }
     }
 

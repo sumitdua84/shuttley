@@ -163,9 +163,10 @@ export default function RotationPage() {
 
     if (newMatches.length > 0) {
       const maxSeq = rotationMatches.reduce((mx, r) => Math.max(mx, r.seq), 0)
-      await supabase.from('rotation_matches').insert(
+      const { error: rmError } = await supabase.from('rotation_matches').insert(
         newMatches.map((m, i) => ({ ...m, session_id: sessionId, club_id: clubId, seq: maxSeq + i + 1, status: 'pending' }))
       )
+      if (rmError) { showToast('Rebalance failed: ' + rmError.message); fetchData(); return }
       showToast(`Schedule rebalanced — ${newMatches.length} matches remaining`)
     } else {
       showToast('All pairs already played — start a new cycle!')
@@ -190,9 +191,10 @@ export default function RotationPage() {
     const newMatches = generateMatchesForNewPlayer(profileId, newIds, rotationMatches, session.match_type)
     if (newMatches.length > 0) {
       const maxSeq = rotationMatches.reduce((mx, r) => Math.max(mx, r.seq), 0)
-      await supabase.from('rotation_matches').insert(
+      const { error: rmError } = await supabase.from('rotation_matches').insert(
         newMatches.map((m, i) => ({ ...m, session_id: sessionId, club_id: clubId, seq: maxSeq + i + 1, status: 'pending' }))
       )
+      if (rmError) { showToast('Adding player failed: ' + rmError.message); setShowAddPlayer(false); fetchData(); return }
     }
 
     setShowAddPlayer(false)
@@ -239,9 +241,10 @@ export default function RotationPage() {
 
     const newMatches = generateSchedule(players, session.match_type)
     const maxSeq = rotationMatches.reduce((mx, r) => Math.max(mx, r.seq), 0)
-    await supabase.from('rotation_matches').insert(
+    const { error: rmError } = await supabase.from('rotation_matches').insert(
       newMatches.map((m, i) => ({ ...m, session_id: sessionId, club_id: clubId, seq: maxSeq + i + 1, status: 'pending' }))
     )
+    if (rmError) { showToast('New cycle failed: ' + rmError.message); fetchData(); return }
     showToast('New cycle started!')
     fetchData()
   }

@@ -648,7 +648,9 @@ it's safe to leave renamed for continued shuttley-dev work.
 
 - ~~Member removal / demotion~~ — verified and fixed, see below
   (2026-06-21)
-- `RotationPage.jsx` rotation-mode scheduling
+- ~~`RotationPage.jsx` rotation-mode scheduling~~ — found blocked by a
+  shuttley-dev schema drift bug, code-side error handling fixed, SQL
+  fix needed and flagged below (2026-06-21)
 - PWA install/update behavior
 - Vercel preview readiness
 - Account deletion's actual runtime execution (needs `vercel dev` or a
@@ -723,3 +725,128 @@ with real user `Sam Dua` (sole moderator) and `Test Member`:
   logged-in user (Sam) throughout.
 
 No SQL run. No production access. Only `ModeratorDashboard.jsx` changed.
+
+---
+
+## RotationPage scheduling QA (2026-06-21)
+
+Inspected `RotationPage.jsx`, `ModeratorDashboard.jsx`'s/`MemberDashboard.jsx`'s
+"Start Session" → "Auto Schedule" flow, and `utils/scheduleGenerator.js`.
+No old `club_members` references anywhere in this area, and `sessions`
+already has the correct `match_type`/`rotation_player_ids` columns on
+shuttley-dev (confirmed live). The bug is isolated to one table.
+
+### Root cause: `rotation_matches` schema drift on shuttley-dev
+
+`rotation_matches` on shuttley-dev still has an **old, pre-redesign
+schema** that was never migrated to match `supabase/rotation.sql` (the
+schema the current app code actually uses):
+
+- **Actual columns on shuttley-dev:** `id, session_id, seq, team1, team2,
+  sitting, status, team1_score, team2_score, created_at`
+- **Columns the code expects** (per `rotation.sql` and every
+  `RotationPage.jsx`/`ModeratorDashboard.jsx`/`MemberDashboard.jsx` call
+  site): `id, session_id, club_id, p1, p2, p3, p4, seq, status, score1,
+  score2, match_id, created_at`
+
+Confirmed live in-browser via the real Supabase client (anon key, real
+auth session) — selecting `p1`, `p2`, `p3`, `p4`, `club_id`, `score1`,
+`score2`, `match_id` each returns `"column ... does not exist"`, while
+inserting a row with only `session_id`/`seq`/`status` succeeds and
+echoes back `team1`, `team2`, `sitting`, `team1_score`, `team2_score` —
+proving the old columns are what's actually there. Confirmed via grep
+that the current app code never reads/writes `team1`/`team2`/`sitting`/
+`team1_score`/`team2_score` on `rotation_matches` (those names only
+exist, separately and correctly, on the unrelated `matches` table) — so
+the old columns are dead weight, safe to drop. The table is also
+completely empty on shuttley-dev (0 rows, confirmed via count query), so
+there's no data to migrate.
+
+**Effect:** "Start Session" → "Auto Schedule" silently failed to
+generate any matches. The session itself was still created (with
+correct `match_type`/`rotation_player_ids`), so the moderator landed on
+what looked like a "Free Play" session with no indication anything had
+gone wrong — Auto Schedule was indistinguishable from Free Play. Verified
+this is what's actually happening by reproducing it live with two real
+shuttley-dev test accounts before changing any code.
+
+### Code bug found and fixed (the part that doesn't need SQL)
+
+All five places that insert into `rotation_matches` after generating a
+schedule (`ModeratorDashboard.jsx` `startSessionWithRotation()`,
+`MemberDashboard.jsx` `startSession()`, and `RotationPage.jsx`'s
+`rebalance()`, `addPlayer()`, `newCycle()`) **never checked the insert's
+`error`** — so the schema-drift failure above was swallowed completely
+silently, with no toast, no console log, nothing. Fixed by checking
+`error` on every one of these inserts:
+- `rebalance()`/`addPlayer()`/`newCycle()` (existing active session) now
+  show a toast naming the failure and refresh state.
+- `startSessionWithRotation()`/`startSession()` (new session) now roll
+  back by deleting the just-created `sessions` row and show a toast
+  ("Could not generate schedule — session not started"), instead of
+  navigating into a session that looks like Free Play but isn't. The
+  modal stays open so the moderator can retry once the schema is fixed.
+
+This fix makes the failure visible and non-destructive, but **does not
+by itself make Auto Schedule work** — that needs the SQL below.
+
+### SQL needed — shuttley-dev only, NOT run
+
+```sql
+-- shuttley-dev only — review before running. Confirmed 0 rows in
+-- rotation_matches on shuttley-dev, so this is safe with no data loss.
+-- Drops the old, unused, pre-redesign columns and adds the columns the
+-- current app code (and supabase/rotation.sql) actually expects.
+
+ALTER TABLE rotation_matches
+  DROP COLUMN IF EXISTS team1,
+  DROP COLUMN IF EXISTS team2,
+  DROP COLUMN IF EXISTS sitting,
+  DROP COLUMN IF EXISTS team1_score,
+  DROP COLUMN IF EXISTS team2_score;
+
+ALTER TABLE rotation_matches
+  ADD COLUMN IF NOT EXISTS club_id uuid REFERENCES clubs(id),
+  ADD COLUMN IF NOT EXISTS p1 uuid REFERENCES profiles(id),
+  ADD COLUMN IF NOT EXISTS p2 uuid REFERENCES profiles(id),
+  ADD COLUMN IF NOT EXISTS p3 uuid REFERENCES profiles(id),
+  ADD COLUMN IF NOT EXISTS p4 uuid REFERENCES profiles(id),
+  ADD COLUMN IF NOT EXISTS score1 integer,
+  ADD COLUMN IF NOT EXISTS score2 integer,
+  ADD COLUMN IF NOT EXISTS match_id uuid REFERENCES matches(id);
+
+-- Safe to enforce NOT NULL since the table is currently empty.
+ALTER TABLE rotation_matches
+  ALTER COLUMN club_id SET NOT NULL,
+  ALTER COLUMN p1 SET NOT NULL,
+  ALTER COLUMN p3 SET NOT NULL;
+```
+
+RLS already exists on the table (it predates this session, came back
+on every test query without needing changes) — not touched.
+
+### Verified in browser against shuttley-dev
+
+Using club `App Feel Test Club` (`afd39feb-9e7d-4524-b0ee-427988cc8506`)
+with real users `Sam Dua` and `Test Member`:
+- Reproduced the silent-failure bug first (Auto Schedule → landed on a
+  session that displayed as Free Play with no error).
+- After the code fix: same Auto Schedule attempt now stays on the
+  dashboard's player-select step (doesn't navigate into the broken
+  session), logs the underlying error to console, and leaves no
+  orphaned `active` session or stray `rotation_matches` rows (confirmed
+  via direct query after each test).
+- Free Play mode (unaffected by this fix) still works correctly
+  end-to-end — started, recorded, ended, deleted cleanly.
+- `npm run build` succeeds. No console errors beyond the intentional
+  `console.error` log added by the fix itself.
+- All test sessions/rows created during this QA were cleaned up
+  afterward; shuttley-dev was left in the same state it started in.
+
+No SQL run. No production access. Only `RotationPage.jsx`,
+`ModeratorDashboard.jsx`, and `MemberDashboard.jsx` changed (the latter
+two only in their existing `rotation_matches` insert call site — no
+unrelated changes).
+
+**Auto Schedule rotation mode remains non-functional on shuttley-dev
+until the SQL above is run.** Free Play mode is fully functional.

@@ -26,9 +26,7 @@ commands and [docs/STAGING.md](docs/STAGING.md) for environment history.
 session's full detail, and §6 for the restart-from-cold guide.**
 
 - Active branch: `feature/shuttley-app-feel-upgrade`, off `develop`,
-  **14 commits** (latest: `428abe6`, code-only — this docs update is a
-  separate commit), clean working tree otherwise, **not pushed, not
-  merged**.
+  clean working tree, **not pushed, not merged**.
 - Production (`main`) untouched throughout — no schema changes, no
   deploys, confirmed at every step. Every SQL fix this session was
   applied directly to the shuttley-dev Supabase project only.
@@ -47,9 +45,18 @@ session's full detail, and §6 for the restart-from-cold guide.**
 - **Member removal/demotion** — QA'd and fixed (last-admin protection
   added, promote confirmation added), verified end-to-end against
   shuttley-dev. See ISSUES.md and CHANGELOG.md.
-- **Do not merge to `develop` or `main` yet** — still-unverified areas:
-  rotation-mode scheduling, PWA install/update, Vercel preview readiness,
-  and the account-deletion runtime test noted above.
+- **Rotation-mode scheduling (Auto Schedule)** — QA'd; found a
+  shuttley-dev schema drift bug in `rotation_matches` (still has the
+  old pre-redesign columns) that silently broke schedule generation.
+  Code-side fix makes the failure visible and non-destructive (toast +
+  rollback instead of a silent broken session), but Auto Schedule
+  itself **remains non-functional on shuttley-dev** until the flagged
+  SQL fix (see ISSUES.md) is reviewed and run by Sumit. Free Play mode
+  is unaffected and fully functional.
+- **Do not merge to `develop` or `main` yet** — still-unverified/blocked
+  areas: rotation-mode scheduling (blocked on SQL above), PWA
+  install/update, Vercel preview readiness, and the account-deletion
+  runtime test noted above.
 - Phase 3 (component cleanup) and Phase 4 (PWA polish) — **not started**,
   intentionally held.
 - V2 architecture (`SHUTTLEY-V2-ARCHITECTURE.md`) — planning document

@@ -1,5 +1,37 @@
 # Shuttley — Changelog
 
+## 2026-06-21 — Fix Shuttley rotation scheduling QA blockers
+
+**Branch:** `feature/shuttley-app-feel-upgrade`
+
+**Summary:** QA pass on `RotationPage.jsx`'s Auto Schedule (rotation
+mode). Found that Auto Schedule was silently broken on shuttley-dev:
+the `rotation_matches` table still has an old, pre-redesign schema
+(`team1`/`team2`/`sitting`/`team1_score`/`team2_score`) instead of the
+columns the current app code and `supabase/rotation.sql` expect
+(`p1`-`p4`, `club_id`, `score1`/`score2`, `match_id`). Every schedule
+insert into that table failed, but nothing checked the error, so
+moderators landed on a session that silently looked like Free Play
+instead of the rotation they asked for.
+
+**What changed:** Added error handling to all five `rotation_matches`
+insert call sites (`ModeratorDashboard.jsx`'s `startSessionWithRotation()`,
+`MemberDashboard.jsx`'s `startSession()`, and `RotationPage.jsx`'s
+`rebalance()`/`addPlayer()`/`newCycle()`). On failure, in-session actions
+now show a toast and refresh; starting a new session now rolls back the
+just-created `sessions` row and keeps the moderator on the player-select
+step instead of navigating into a broken-looking session.
+
+**Not fixed by this commit:** Auto Schedule still won't actually
+generate matches until the `rotation_matches` schema drift is fixed —
+SQL is written up in [ISSUES.md](ISSUES.md), confirmed safe (table is
+empty on shuttley-dev), **not run**, flagged for Sumit to review and
+apply. Free Play mode is unaffected and fully functional.
+
+Tested in-browser against shuttley-dev (`App Feel Test Club`), including
+confirming the rollback leaves no orphaned sessions or stray rows. No
+SQL run, no production access, only the three files above changed.
+
 ## 2026-06-21 — Fix Shuttley member removal and demotion QA blockers
 
 **Branch:** `feature/shuttley-app-feel-upgrade`
