@@ -4,6 +4,8 @@ import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
 import { usePushNotifications } from '../hooks/usePushNotifications'
 import BottomNav from '../components/BottomNav'
+import Toast from '../components/Toast'
+import { Skeleton, SkeletonRow } from '../components/Skeleton'
 
 const SUPER_ADMINS = ['sumit@shuttley.club']
 
@@ -43,7 +45,6 @@ export default function ChatPage() {
   const { clubId } = useParams()
   const { user }   = useAuth()
   const navigate   = useNavigate()
-  console.log('[ChatPage] mount — clubId:', clubId, 'user:', user?.id)
 
   const [status, setStatus]           = useState('loading') // 'loading'|'error'|'ready'
   const [errorMsg, setErrorMsg]       = useState('')
@@ -63,6 +64,8 @@ export default function ChatPage() {
   const [groupName, setGroupName]     = useState('')
   const [groupSel, setGroupSel]       = useState([])
   const [creatingGroup, setCreatingGroup] = useState(false)
+  const [toast, setToast]             = useState('')
+  function flash(msg) { setToast(msg); setTimeout(() => setToast(''), 3000) }
   // Read state: convId → ISO timestamp of when user last read it
   const readKey = `chat-read:${user?.id}:${clubId}`
   const [readState, setReadState] = useState(() => {
@@ -102,6 +105,7 @@ export default function ChatPage() {
       .then(() => clearTimeout(t))
       .catch(e => {
         clearTimeout(t)
+        console.error('[chat] load failed:', e)
         setErrorMsg(e.message || String(e))
         setStatus('error')
       })
@@ -154,8 +158,19 @@ export default function ChatPage() {
         .from('chat_conversations')
         .insert({ club_id: clubId, type:'all', name:'All Members', created_by: user.id })
         .select().single()
-      if (insertErr) console.error('[chat] create allConv error:', insertErr)
-      allConv = c
+      if (insertErr?.code === '23505') {
+        // Lost the race to another concurrent load() (e.g. StrictMode double-invoke) —
+        // the unique index already let the winner create it, so just fetch that one.
+        const { data: existing, error: refetchErr } = await supabase
+          .from('chat_conversations').select('*')
+          .eq('club_id', clubId).eq('type', 'all').single()
+        if (refetchErr) console.error('[chat] refetch allConv after conflict error:', refetchErr)
+        allConv = existing
+      } else if (insertErr) {
+        console.error('[chat] create allConv error:', insertErr)
+      } else {
+        allConv = c
+      }
     }
 
     // User's other convs (DMs, groups)
@@ -257,9 +272,15 @@ export default function ChatPage() {
     setInputText('')
     setSending(true)
 
-    const { data: msg } = await supabase.from('chat_messages')
+    const { data: msg, error: sendErr } = await supabase.from('chat_messages')
       .insert({ conversation_id: activeConv.id, club_id: clubId, sender_id: user.id, content })
       .select().single()
+
+    if (sendErr) {
+      console.error('[chat] send error:', sendErr)
+      flash('Message failed to send')
+      setInputText(content)
+    }
 
     if (msg) {
       // Optimistic update
@@ -368,31 +389,38 @@ export default function ChatPage() {
 
   // ── guard states ─────────────────────────────────────────────────────────────
   if (status === 'loading') return (
-    <div style={{ width:'100%', height:'100dvh', display:'flex', alignItems:'center', justifyContent:'center',
-      background:'#256575', flexDirection:'column', gap:12 }}>
-      <div style={{ fontSize:36, fontWeight:800, color:'#fff', fontFamily:"'Plus Jakarta Sans',sans-serif" }}>S</div>
-      <div style={{ fontSize:13, color:'rgba(255,255,255,0.75)' }}>Loading chat…</div>
+    <div style={{ position:'fixed', top:0, left:0, right:0, bottom:'calc(80px + env(safe-area-inset-bottom))',
+      background:'var(--bg)', overflow:'hidden' }}>
+    <div style={{ maxWidth:480, margin:'0 auto', height:'100%',
+      display:'flex', flexDirection:'column', background:'var(--bg)', overflow:'hidden' }}>
+      <div style={{ height:56, flexShrink:0, display:'flex', alignItems:'center', gap:10,
+        paddingLeft:16, paddingRight:16, paddingTop:'env(safe-area-inset-top)',
+        borderBottom:'0.5px solid var(--border)', background:'var(--bg2)' }}>
+        <Skeleton width={120} height={16} />
+      </div>
+      <div style={{ flex:1, overflow:'hidden', padding:'4px 0' }}>
+        {Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} />)}
+      </div>
+    </div>
     </div>
   )
 
   if (status === 'error') return (
-    <div style={{ width:'100%', height:'100dvh', display:'flex', alignItems:'center', justifyContent:'center',
-      background:'#256575', flexDirection:'column', gap:16, padding:32, textAlign:'center' }}>
-      <div style={{ fontSize:36 }}>⚠️</div>
-      <div style={{ fontSize:16, fontWeight:700, color:'#fff' }}>Chat couldn't load</div>
-      <div style={{ fontSize:13, color:'rgba(255,255,255,0.75)', lineHeight:1.6 }}>
-        Make sure you ran the SQL setup in Supabase.<br/>Then reload the page.
-      </div>
-      {errorMsg ? (
-        <div style={{ fontSize:11, color:'#ffcccc', background:'rgba(0,0,0,0.25)',
-          padding:'10px 16px', borderRadius:10, maxWidth:340, wordBreak:'break-all', fontFamily:'monospace' }}>
-          {errorMsg}
+    <div style={{ position:'fixed', top:0, left:0, right:0, bottom:'calc(80px + env(safe-area-inset-bottom))',
+      background:'var(--bg)', overflow:'hidden' }}>
+    <div style={{ maxWidth:480, margin:'0 auto', height:'100%',
+      display:'flex', alignItems:'center', justifyContent:'center', padding:24 }}>
+      <div className="card" style={{ maxWidth:340, textAlign:'center' }}>
+        <div style={{ fontSize:32, marginBottom:8 }}>💬</div>
+        <div style={{ fontSize:16, fontWeight:700, color:'var(--text)', marginBottom:6 }}>Chat is unavailable right now</div>
+        <div style={{ fontSize:13, color:'var(--text3)', lineHeight:1.6, marginBottom:18 }}>
+          Something went wrong loading this chat. Please try again.
         </div>
-      ) : null}
-      <button onClick={() => navigate(-1)} style={{
-        marginTop:8, padding:'10px 24px', background:'rgba(255,255,255,0.15)',
-        border:'1px solid rgba(255,255,255,0.4)', borderRadius:10,
-        color:'#fff', fontSize:14, fontWeight:600, cursor:'pointer' }}>← Go back</button>
+        <button className="btn btn-primary btn-sm" style={{ marginBottom:8 }}
+          onClick={() => window.location.reload()}>Try again</button>
+        <button className="btn btn-ghost btn-sm" onClick={() => navigate(-1)}>← Go back</button>
+      </div>
+    </div>
     </div>
   )
 
@@ -403,9 +431,12 @@ export default function ChatPage() {
     : [{id:'home',label:'Home'},{id:'members',label:'Members'}]
 
   // ── render ───────────────────────────────────────────────────────────────────
-  // Use position:fixed to break out of body max-width:430px on desktop
+  // Single mobile-style layout everywhere — centered with a max width on
+  // wider screens so Chat doesn't stretch into a desktop dashboard.
   return (
-    <div style={{ position:'fixed', top:0, left:0, right:0, bottom:'calc(80px + env(safe-area-inset-bottom))', display:'flex', flexDirection:'column',
+    <div style={{ position:'fixed', top:0, left:0, right:0, bottom:'calc(80px + env(safe-area-inset-bottom))',
+      background:'var(--bg)', overflow:'hidden' }}>
+    <div style={{ maxWidth:480, margin:'0 auto', height:'100%', display:'flex', flexDirection:'column',
       background:'var(--bg)', overflow:'hidden' }}>
 
       {/* ══ Top bar ══ */}
@@ -416,16 +447,16 @@ export default function ChatPage() {
         {/* Mobile only: back arrow when viewing a chat */}
         {panel === 'chat' && (
           <button className="chat-back-btn" onClick={() => setPanel('list')} style={{
-            background:'none', border:'none', fontSize:22, color:'var(--text2)',
-            cursor:'pointer', padding:'0 14px', flexShrink:0 }}>←</button>
+            background:'none', border:'none', fontSize:20, fontWeight:600, color:'var(--text2)',
+            cursor:'pointer', padding:'0 16px', flexShrink:0 }}>←</button>
         )}
 
         {/* Back to dashboard (hidden on mobile when in chat panel) */}
         <button onClick={() => navigate(basePath)} style={{
-          background:'none', border:'none', fontSize:13, color:'var(--text3)',
-          cursor:'pointer', padding:'0 14px', flexShrink:0,
+          background:'none', border:'none', fontSize:14, fontWeight:600, color:'var(--text2)',
+          cursor:'pointer', padding:'0 16px', flexShrink:0,
           display: panel === 'chat' ? 'none' : 'flex', alignItems:'center', gap:4 }}>
-          ← Back
+          ←
         </button>
 
         {/* Center: active conv name (mobile chat) or club name */}
@@ -451,36 +482,8 @@ export default function ChatPage() {
         )}
       </div>
 
-      {/* ══ 3-column body ══ */}
+      {/* ══ Body ══ */}
       <div style={{ flex:1, display:'flex', overflow:'hidden', minHeight:0 }}>
-
-        {/* ── Col 1: Actions (desktop only, hidden on mobile) ── */}
-        <div className="chat-col1" style={{
-          width:0, overflow:'hidden', flexShrink:0,
-          flexDirection:'column', alignItems:'stretch',
-          borderRight:'0.5px solid var(--border)', background:'var(--bg2)',
-        }}>
-          <div style={{ padding:'16px 10px', display:'flex', flexDirection:'column', gap:8 }}>
-            <button onClick={() => setShowNewDM(true)} style={{
-              display:'flex', flexDirection:'column', alignItems:'center', gap:4,
-              padding:'12px 8px', borderRadius:'var(--radius)', border:'none',
-              background:'var(--accent-dim)', color:'var(--accent)', cursor:'pointer',
-              fontSize:11, fontWeight:600, fontFamily:"'Inter',sans-serif",
-            }}>
-              <span style={{ fontSize:20 }}>💬</span>
-              New Chat
-            </button>
-            <button onClick={() => { setGroupName(''); setGroupSel([]); setShowNewGroup(true) }} style={{
-              display:'flex', flexDirection:'column', alignItems:'center', gap:4,
-              padding:'12px 8px', borderRadius:'var(--radius)', border:'0.5px solid var(--border)',
-              background:'var(--bg3)', color:'var(--text2)', cursor:'pointer',
-              fontSize:11, fontWeight:600, fontFamily:"'Inter',sans-serif",
-            }}>
-              <span style={{ fontSize:20 }}>👥</span>
-              New Group
-            </button>
-          </div>
-        </div>
 
         {/* ── Col 2: All Members group + individual members ── */}
         <div className="chat-col2" style={{
@@ -489,12 +492,17 @@ export default function ChatPage() {
           borderRight:'0.5px solid var(--border)',
           width:'100%', minHeight:0,
         }}>
-          {/* Mobile-only: New Group button at top */}
+          {/* New Chat / New Group actions */}
           <div className="chat-col2-actions" style={{
-            padding:'10px 12px', borderBottom:'0.5px solid var(--border)',
+            display:'flex', gap:8, padding:'10px 12px', borderBottom:'0.5px solid var(--border)',
           }}>
+            <button onClick={() => setShowNewDM(true)} style={{
+              flex:1, padding:'8px', borderRadius:'var(--radius-sm)',
+              border:'none', background:'var(--accent-dim)', color:'var(--accent)',
+              fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:"'Inter',sans-serif",
+            }}>💬 New Chat</button>
             <button onClick={() => { setGroupName(''); setGroupSel([]); setShowNewGroup(true) }} style={{
-              width:'100%', padding:'8px', borderRadius:'var(--radius-sm)',
+              flex:1, padding:'8px', borderRadius:'var(--radius-sm)',
               border:'0.5px solid var(--border)', background:'var(--bg3)', color:'var(--text2)',
               fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:"'Inter',sans-serif",
             }}>👥 New Group</button>
@@ -629,23 +637,6 @@ export default function ChatPage() {
         }}>
           {activeConv ? (
             <>
-              {/* Conversation header (desktop — shows name above messages) */}
-              <div className="chat-conv-header" style={{
-                display:'none', alignItems:'center', gap:10,
-                padding:'10px 16px', borderBottom:'0.5px solid var(--border)',
-                background:'var(--bg2)', flexShrink:0,
-              }}>
-                <Avatar src={activeConv.type==='dm' ? activeConv.otherUser?.avatar_url : null}
-                  name={convName(activeConv)} size={36}
-                  accent={activeConv.type==='all'} emoji={activeConv.type==='all' ? '👥' : null} />
-                <div>
-                  <div style={{ fontSize:15, fontWeight:600 }}>{convName(activeConv)}</div>
-                  {activeConv.type === 'all' && (
-                    <div style={{ fontSize:11, color:'var(--text3)' }}>{members.length} members</div>
-                  )}
-                </div>
-              </div>
-
               {/* Message scroll area */}
               <div style={{ flex:1, overflowY:'auto', padding:'12px 14px',
                 display:'flex', flexDirection:'column', gap:2, minHeight:0 }}>
@@ -798,6 +789,8 @@ export default function ChatPage() {
         </div>
       )}
       <BottomNav clubId={clubId} activeTab="home" />
+      <Toast message={toast} />
+    </div>
     </div>
   )
 }

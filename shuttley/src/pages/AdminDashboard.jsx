@@ -163,11 +163,17 @@ export default function AdminDashboard() {
   const [deletionRequests, setDeletionRequests] = useState([])
 
   async function fetchDeletionRequests() {
-    const { data, error } = await supabase
-      .from('account_deletion_requests')
-      .select('*')
-      .order('requested_at', { ascending: false })
-    setDeletionRequests(data || [])
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch('/api/deletion-requests', {
+        headers: { 'Authorization': `Bearer ${session.access_token}` },
+      })
+      const json = await res.json()
+      if (res.ok) setDeletionRequests(json.requests || [])
+      else console.error('[admin] fetchDeletionRequests error:', json.error)
+    } catch (e) {
+      console.error('[admin] fetchDeletionRequests error:', e.message)
+    }
   }
 
   async function markDeletionDone(id) {
