@@ -393,15 +393,25 @@ Using `sumitdua84@gmail.com` (moderator) and
 
 ### 4. What remains unverified (not known broken — just not reached)
 
-These were never exercised this session because the test data/scope
-didn't require them. No evidence either way that they work or don't:
+**Updated 2026-06-21 — see §8 for the full QA session that closed out
+Splits and Chat, and made progress on account deletion/admin.** This
+list now reflects what's still genuinely unverified after that session:
 
-- Splits (shared expense tracking) — `SplitsPage.jsx` untouched and
-  untested
-- Chat — `ChatPage.jsx` untouched and untested
-- Account anonymization / admin flows — `AdminDashboard.jsx`'s
-  `confirmDelete()` (the `ConfirmModal` conversion was made, but never
-  actually triggered against real data)
+- Account anonymization / admin flows — **fixed in code, needs Vercel
+  runtime test.** Schema drift (`account_deletion_requests` missing
+  `email`, `created_at`/`requested_at` mismatch, missing
+  `get_next_deleted_seq` RPC) and a wrong table reference
+  (`club_members` → `memberships`) in `api/delete-user.js` were found
+  and fixed. A new admin-only service-role endpoint
+  (`api/deletion-requests.js`) was added to fix a separate RLS
+  visibility bug (admins couldn't see other users' pending requests).
+  None of this has been exercised through a real Vercel runtime
+  (`vite dev` can't execute serverless functions) — **Confirm Delete was
+  never clicked, `/api/delete-user` was never called, no account was
+  anonymized.** Two disposable test rows
+  (`account_deletion_requests` for `sumitdua2@gmail.com`) are
+  intentionally left pending on shuttley-dev for that later test. Full
+  detail in §8.
 - Member removal / demotion (`ModeratorDashboard.jsx`'s
   `removeMember()`/`demoteMod()`) — converted to `ConfirmModal`, never
   exercised
@@ -412,6 +422,9 @@ didn't require them. No evidence either way that they work or don't:
   restructure — the precache manifest shape changed (34 entries vs. 12
   before); never reinstalled the PWA locally to confirm
 - Vercel preview deployment — deliberately not pushed (see §6)
+
+~~Splits~~ and ~~Chat~~ are no longer on this list — both fixed and
+verified end-to-end on shuttley-dev, see §8.
 
 ### 5. Dev database (shuttley-dev) — what was broken and fixed
 
@@ -508,3 +521,134 @@ For context, the agreed direction documented in full in
 - Thirteen open questions for Sumit are listed at the end of
   `SHUTTLEY-V2-ARCHITECTURE.md` §13 — review those before any V2
   implementation branch is created.
+
+## 8. QA session — Splits, Chat, Account Deletion fixes (2026-06-21)
+
+Picked up from the §6 restart point. Spot-checked the previously
+unverified areas in order: Splits, Chat, Account deletion/admin. All
+schema fixes were applied directly to **shuttley-dev only**, in the SQL
+editor, by Sumit — never run by the assistant directly. Code committed
+in `428abe6` (separate from this docs commit). **Production/main
+untouched throughout — confirmed via git log and via every SQL change
+being explicitly scoped to the shuttley-dev project.**
+
+### Splits — fixed and verified
+
+`splits_expenses` was missing `created_by`, `image_url`, `is_settlement`,
+`edit_history` on shuttley-dev (dev-clone drift, same pattern as prior
+sessions). Added via `supabase/fix_dev_splits_schema.sql`. Verified
+end-to-end: add expense (all three split types), balance calculation,
+settle-up, history — all working with no RLS issues encountered.
+
+### Chat — fixed, polished, and converted to one mobile-first layout
+
+Three separate issues found and fixed:
+1. **Schema drift** — `chat_conversations` was missing `type`, `name`,
+   `created_by`, `last_message_at`, `last_message_preview`;
+   `chat_messages.user_id` needed renaming to `sender_id` (preserving
+   its existing FK to `profiles`, not duplicating it — same lesson as
+   the earlier `matches`/`sessions` rename fixes) and was missing
+   `club_id`. Fixed via `supabase/fix_dev_chat_schema.sql`.
+2. **Duplicate "All Members" conversation race** — `load()`'s
+   check-then-insert had no atomicity; React StrictMode's double-invoke
+   (and potentially slow networks/double tabs in real usage) could
+   create duplicate `type='all'` rows per club. Fixed with a partial
+   unique index (`chat_conversations_one_all_per_club` on
+   `(club_id) WHERE type = 'all'`) plus an app-level `23505`
+   conflict-and-refetch handler in `ChatPage.jsx`'s `load()`. Verified
+   with repeated reloads post-fix — exactly one row per club, no
+   duplicates recur.
+3. **App-feel polish** — replaced the old full-bleed teal "S" splash
+   loading screen with shared `Skeleton`/`SkeletonRow`, replaced the
+   developer-facing error screen with a friendly card-styled one, added
+   `Toast` feedback on send failure, removed a leftover debug
+   `console.log`. Converted Chat from a separate 3-column desktop
+   dashboard layout to **one mobile-first layout used on both desktop
+   and mobile** (centered, max-width ~480px on wide screens) per Sumit's
+   direction that Shuttley is primarily a mobile app and desktop
+   shouldn't feel like a separate web dashboard.
+
+All verified clean across multiple fresh dev-server restarts (ruling out
+stale console/network log buffering, which was observed several times
+this session — old entries persist in the preview tooling's logs across
+reloads and can look like live failures when they aren't).
+
+### Account deletion / admin — fixed in code, needs Vercel runtime test
+
+Found the entire flow was broken on shuttley-dev, end to end:
+- `account_deletion_requests` was missing `email`; had `created_at`
+  where `AdminDashboard.jsx` expected `requested_at`; the
+  `get_next_deleted_seq()` RPC `api/delete-user.js` calls didn't exist.
+  All fixed via direct SQL (column add, rename, sequence + function
+  create) on shuttley-dev.
+- `api/delete-user.js` deleted from a table called `club_members`,
+  which **does not exist anywhere in this schema** — the real table is
+  `memberships`. Fixed. Also added a `chat_members` cleanup call
+  alongside the existing `chat_messages` cleanup, so a departing user is
+  fully removed from chat conversation membership too.
+- Separately, even after the schema fixes, **Admin's Deletions tab
+  silently showed "0 requests" with no error** even though real pending
+  rows existed — root cause was RLS: the admin dashboard queried
+  `account_deletion_requests` with the regular authenticated client, and
+  Postgres RLS has no concept of the JS-only `SUPER_ADMINS` list, so it
+  restricted reads to the requester's own row only. Fixed by adding a
+  new service-role-backed endpoint, `api/deletion-requests.js` (mirrors
+  `api/delete-user.js`'s existing auth pattern), and pointing
+  `AdminDashboard.jsx`'s `fetchDeletionRequests()` at it instead of
+  querying directly. **No RLS policy was changed** — this fix works
+  entirely by routing the admin read through a trusted server-side
+  endpoint instead.
+- A confirmed-unused, dead Supabase Edge Function
+  (`supabase/functions/delete-user/index.ts`) implementing a
+  contradictory hard-delete strategy was found and flagged, but
+  deliberately left alone — out of scope for this fix, not called from
+  anywhere in the UI.
+
+**None of this has been exercised through a real serverless runtime.**
+`vite dev` cannot execute Vercel API routes locally (confirmed: requests
+to `/api/delete-user` and the new `/api/deletion-requests` either 404 or
+return the raw unexecuted source file instead of running) — the same
+known limitation already accepted for `/api/coach` and
+`/api/send-push`. **Confirm Delete was never clicked. `/api/delete-user`
+was never called. No account was anonymized.**
+
+A fresh disposable test account (`sumitdua2@gmail.com`, created this
+session after the original second test account's password couldn't be
+recovered — see note below) was used to submit two real pending
+deletion requests, intentionally **left in place** on shuttley-dev for
+the eventual Vercel runtime test:
+- `account_deletion_requests.id = 90476878-de8a-42f4-b0a8-380eb94be9d3`
+- `account_deletion_requests.id = 4cd59cbc-27d4-4b26-8f94-a5bdc4043fb4`
+
+Both `status: pending`. **Do not delete these without checking with
+Sumit first** — they're needed for the next test step.
+
+### Note: original second test account's password lost
+
+The `shuttley.testmember+devqa@gmail.com` account created in the
+2026-06-20 session has no recoverable password — it was never recorded
+anywhere (correctly, per this project's no-secrets-in-docs policy), and
+Supabase's own password-reset flow rejected the address as invalid
+during this session for unclear reasons. A fresh disposable account was
+created instead rather than spending more time recovering the old one.
+The old account is harmless and can be ignored/cleaned up later; it
+holds no test data relevant to ongoing work.
+
+### Note: local `.env.local` was temporarily disabled
+
+To make the local dev server target shuttley-dev instead of whatever
+`.env.local` pointed at (confirmed to be a different — production —
+Supabase project ref), `.env.local` was renamed to `.env.local.disabled`
+for the duration of this session. **This is a local filesystem change
+only, never committed, never staged.** Rename it back to `.env.local`
+if local work against that other project is needed again; otherwise
+it's safe to leave renamed for continued shuttley-dev work.
+
+### Still unverified after this session
+
+- Member removal / demotion
+- `RotationPage.jsx` rotation-mode scheduling
+- PWA install/update behavior
+- Vercel preview readiness
+- Account deletion's actual runtime execution (needs `vercel dev` or a
+  deployment — see above)

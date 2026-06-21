@@ -20,23 +20,34 @@ commands and [docs/STAGING.md](docs/STAGING.md) for environment history.
 - `docs/shuttley-v2-architecture-planning` — planning-only branch off
   `develop` holding `SHUTTLEY-V2-ARCHITECTURE.md`. No code on it.
 
-## Current status (stopping point, 2026-06-20)
+## Current status (stopping point, 2026-06-21)
 
-**Session paused here deliberately — see "Session Handover" at the bottom
-of [ISSUES.md](ISSUES.md) for the full restart-from-cold guide.**
+**Session paused here deliberately — see ISSUES.md §8 for this QA
+session's full detail, and §6 for the restart-from-cold guide.**
 
 - Active branch: `feature/shuttley-app-feel-upgrade`, off `develop`,
-  **12 commits**, clean working tree, **not pushed, not merged**.
+  **14 commits** (latest: `428abe6`, code-only — this docs update is a
+  separate commit), clean working tree otherwise, **not pushed, not
+  merged**.
 - Production (`main`) untouched throughout — no schema changes, no
-  deploys, confirmed at every step.
-- App-feel work (toast/confirm/skeleton/route transitions/code
-  splitting/Supabase parallelization) is implemented and verified live
-  against `shuttley-dev` with two real test accounts. Full detail in
-  `ROADMAP.md`/`CHANGELOG.md`/`ISSUES.md`.
-- **Do not merge to `develop` or `main` yet** — Sumit wants to review the
-  diff and optionally spot-check the still-unverified areas (splits,
-  chat, admin anonymization, member removal/demotion, rotation-mode
-  scheduling, PWA install/update) before deciding to merge.
+  deploys, confirmed at every step. Every SQL fix this session was
+  applied directly to the shuttley-dev Supabase project only.
+- App-feel work from the 2026-06-20 session, plus this session's QA
+  fixes, are implemented and verified live against `shuttley-dev`:
+  - **Splits** — fixed and verified end-to-end.
+  - **Chat** — schema fixed, duplicate-conversation race fixed,
+    app-feel polish done, converted to one mobile-first layout across
+    desktop and mobile. Verified end-to-end.
+  - **Account deletion / admin** — fixed in code (schema, RPC, table
+    reference, and a new admin-visibility endpoint), but **not yet
+    verified at runtime** — needs `vercel dev` or a deployment, since
+    Vercel serverless functions don't execute under local `vite dev`.
+    Confirm Delete has not been clicked; no account has been
+    anonymized.
+- **Do not merge to `develop` or `main` yet** — still-unverified areas:
+  member removal/demotion, rotation-mode scheduling, PWA install/update,
+  Vercel preview readiness, and the account-deletion runtime test noted
+  above.
 - Phase 3 (component cleanup) and Phase 4 (PWA polish) — **not started**,
   intentionally held.
 - V2 architecture (`SHUTTLEY-V2-ARCHITECTURE.md`) — planning document

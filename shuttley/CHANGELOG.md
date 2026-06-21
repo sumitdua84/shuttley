@@ -1,5 +1,58 @@
 # Shuttley — Changelog
 
+## 2026-06-21 — QA pass: fix Splits, Chat, and Account Deletion blockers
+
+**Branch:** `feature/shuttley-app-feel-upgrade`
+
+**Commit:** `428abe6` — "Fix Shuttley splits, chat, and account deletion
+QA blockers" (code only; this docs update is a separate commit)
+
+**Summary:** Picked up the §6 restart point from the 2026-06-20 handover
+and spot-checked the previously unverified areas in order: Splits, Chat,
+Account deletion/admin. All three had genuine shuttley-dev schema drift
+or wrong table/RLS issues, all now fixed and verified except where noted.
+
+**What happened:**
+- **Splits** — fixed missing `splits_expenses` columns
+  (`created_by`/`image_url`/`is_settlement`/`edit_history`) on
+  shuttley-dev. Verified the full add/balance/settle/history flow
+  end-to-end.
+- **Chat** — fixed schema drift (`chat_conversations` missing 5 columns;
+  `chat_messages.user_id` renamed to `sender_id`, `club_id` added),
+  fixed a duplicate "All Members" conversation race condition with a DB
+  unique index + app-level conflict handling, polished the loading/error
+  states and send-failure feedback to match the rest of the app-feel
+  work, and converted Chat from a separate 3-column desktop layout to
+  one mobile-first layout used everywhere (per Sumit's direction that
+  desktop shouldn't feel like a separate dashboard).
+- **Account deletion / admin** — found the entire flow broken on
+  shuttley-dev (missing `email` column, `created_at`/`requested_at`
+  naming mismatch, missing `get_next_deleted_seq` RPC, and
+  `api/delete-user.js` referencing a `club_members` table that doesn't
+  exist anywhere in this schema — the real table is `memberships`).
+  Fixed all of it, and separately found and fixed an RLS visibility gap
+  where Admin's Deletions tab silently showed zero requests even with
+  real pending ones — fixed via a new service-role-backed endpoint
+  (`api/deletion-requests.js`) rather than any RLS policy change.
+  **This part is fixed in code but not yet verified at runtime** — Vercel
+  serverless functions don't execute under local `vite dev`, so this
+  needs `vercel dev` or a deployment to fully confirm. Confirm Delete was
+  never clicked; `/api/delete-user` was never called; no account was
+  anonymized. Two disposable test deletion requests
+  (`sumitdua2@gmail.com`) are intentionally left pending on shuttley-dev
+  for that future test.
+- Full detail, root causes, and exact SQL/code changes are in
+  `ISSUES.md` §8.
+
+**Decision:** Branch remains **parked, not merged**. Still-unverified
+areas: member removal/demotion, `RotationPage.jsx` rotation-mode
+scheduling, PWA install/update, Vercel preview readiness, and the
+account-deletion runtime test noted above.
+
+**Production touched:** No — every schema change was applied directly
+to the shuttley-dev Supabase project only, confirmed by project ref at
+every step. No commits beyond the working branch, no pushes, no merges.
+
 ## 2026-06-20 — Close out app-feel verification, park the branch
 
 **Branch:** `feature/shuttley-app-feel-upgrade`

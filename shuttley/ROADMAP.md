@@ -39,7 +39,7 @@ context and audit findings.
         configured in `vite.config.js`, recheck for gaps)
   - [ ] Optional: pull-to-refresh, offline/error fallback — only if clean
 
-## Verification status — CLOSED (2026-06-20)
+## Verification status — CLOSED (2026-06-20), QA pass added (2026-06-21)
 
 Phase 1 + 2 are fully implemented and verified end-to-end against
 `shuttley-dev` with two real test accounts. All verification gaps are
@@ -55,6 +55,23 @@ complete restart-from-cold summary.
   env vars don't have a Preview-only override pointing at `shuttley-dev`,
   so pushing this branch risks a preview deployment writing test data
   into production. Revisit only if needed for phone/device testing.
+
+A follow-up QA session (2026-06-21) spot-checked the areas left
+unverified above — see `ISSUES.md` §8 for full detail:
+- **Splits** — found and fixed shuttley-dev schema drift, verified
+  end-to-end.
+- **Chat** — found and fixed schema drift and a duplicate-conversation
+  race condition, polished the app-feel, converted to one mobile-first
+  layout across desktop and mobile. Verified end-to-end.
+- **Account deletion / admin** — found and fixed schema drift, an RPC
+  that didn't exist, a wrong table reference, and an RLS visibility gap
+  in the admin dashboard. **Fixed in code, not yet verified at
+  runtime** — needs `vercel dev` or a deployment, since this is the same
+  "Vercel serverless functions don't execute under local `vite dev`"
+  limitation already known from `/api/coach`/`/api/send-push`. Confirm
+  Delete has not been clicked; no account has been anonymized.
+- Still unverified: member removal/demotion, rotation-mode scheduling,
+  PWA install/update, Vercel preview readiness.
 
 **This branch is parked, not merged.** Sumit will review the diff
 himself and decide whether to merge to `develop`. No further work
