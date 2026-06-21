@@ -87,7 +87,19 @@ unverified above — see `ISSUES.md` §8 for full detail:
   unaffected. (Separately found and flagged, not fixed: "Add Guest" is
   also broken on shuttley-dev — missing RPC function, spun off as its
   own task.)
-- Still unverified: PWA install/update, Vercel preview readiness.
+- **PWA install/update** — QA'd against the real production build
+  (`vite preview`, since `vite dev` disables the service worker).
+  Manifest, icons, SW registration/activation, install-prompt UI
+  (live-tested via synthetic `beforeinstallprompt`), offline-fallback
+  precaching, and the silent no-stale-version auto-update design all
+  verified working. Fixed two stale references (`index.html`/
+  `vite.config.js` only: a dead `logo.svg` link and a `theme-color`
+  mismatch). Found and flagged, not fixed: the maskable icon has no
+  safe-zone padding — needs a new image asset. **Still needs real
+  device QA**: iOS Safari install, Android Chrome install banner, and
+  a genuine update-while-installed scenario, none of which are
+  possible in this tool.
+- Still unverified: Vercel preview readiness.
 
 **This branch is parked, not merged.** Sumit will review the diff
 himself and decide whether to merge to `develop`. No further work

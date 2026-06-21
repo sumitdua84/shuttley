@@ -1,5 +1,49 @@
 # Shuttley — Changelog
 
+## 2026-06-21 — Fix Shuttley PWA install and update QA blockers
+
+**Branch:** `feature/shuttley-app-feel-upgrade`
+
+**Summary:** QA pass on PWA install/update behavior. No backend
+involvement — pure frontend build config and static assets. Tested
+against the real production build (`vite preview`) since `vite dev`
+disables the service worker entirely. Found that the production build
+renders blank locally because no `.env.production`/`.env.local` exists
+(a local-testing-environment gap, not an app bug — Vercel production
+has its own env vars). Added a local-only, gitignored
+`.env.production.local` to get the build to render for testing — never
+committed, no secrets exposed. Also closed a real gitignore gap:
+`.env.production`/`.env.production.local` weren't previously listed
+alongside `.env.local`/`.env`/`.env.development`.
+
+**What's verified working:** manifest validity, icon file integrity
+(dimensions confirmed via byte inspection), service worker registration
+and activation, the install-prompt UI (live-tested via a synthetic
+`beforeinstallprompt` event), offline-fallback precaching, and the
+no-stale-version auto-update design. Mobile layout clean at 390×844.
+`npm run build` succeeds.
+
+**Fixed (smallest safe fix, `index.html` + `vite.config.js` only):**
+- Removed a dead `<link rel="icon" href="/logo.svg">` reference — the
+  file doesn't exist anywhere in the repo and was silently served as
+  the SPA's `index.html` fallback instead of a real icon.
+- Fixed `theme-color` meta tag from a stale dark navy (`#0d1321`,
+  matching no theme that exists in the CSS) to `#256575`, matching the
+  manifest and the app's actual teal/white design.
+
+**Found and flagged, NOT fixed (needs a real image asset, not code):**
+the maskable icon (`maskable-icon-512x512.png`) is byte-identical to
+the regular 512px icon — no safe-zone padding, risking edge-clipping
+on platforms with aggressive icon masking. Documented in ISSUES.md for
+design follow-up.
+
+**Manual device QA still required:** real iOS Safari install flow,
+real Android Chrome install banner (incl. the maskable-icon risk
+above), and a genuine update-while-installed scenario — none of which
+can be exercised in this tool.
+
+No SQL run, no Supabase access needed, no production deploy.
+
 ## 2026-06-21 — Verify Shuttley rotation scheduling after dev schema fix
 
 **Branch:** `feature/shuttley-app-feel-upgrade`

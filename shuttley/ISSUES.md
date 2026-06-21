@@ -916,3 +916,141 @@ commit was already correctly wired to the new schema. `npm run build`
 succeeds.
 
 **Auto Schedule rotation mode is now fully functional on shuttley-dev.**
+
+---
+
+## PWA install/update QA (2026-06-21)
+
+Inspected `vite.config.js` (VitePWA config), `index.html`, `src/sw.js`,
+`src/App.jsx` (`AutoUpdate`), `src/pages/LoginPage.jsx` (install-prompt
+UI), and the actual `public/*` icon files. No Supabase/schema
+involvement in this area — purely frontend build config + static
+assets, no backend access needed beyond loading the app.
+
+### Testing approach
+
+`vite dev` explicitly disables the service worker
+(`devOptions.enabled: false` in `vite.config.js`), so SW/manifest
+behavior can't be exercised under the normal dev server. Tested instead
+against the real production build via `vite preview` (port 4173, added
+as `shuttley-preview` in `.claude/launch.json` — local launch config
+only, not committed without explicit approval per this session's
+constraints).
+
+The production build initially rendered a **blank page with zero
+console output** under `vite preview`. Root cause: `vite build`
+defaults to `mode=production`, which loads `.env.production`/`.env`/
+`.env.local` — none of which exist locally (`.env.local` was
+previously disabled in an earlier QA session specifically because it
+pointed at *production* Supabase, not shuttley-dev). With no Supabase
+URL/key, `createClient(undefined, undefined)` in `src/lib/supabase.js`
+throws at module-load time, before React ever mounts — explaining the
+blank page and why the service worker's own automatic registration
+(via `useRegisterSW()` in `App.jsx`) never even attempted to run. This
+is a **local-testing-environment gap, not an app bug** — the real
+Vercel production deployment has its own env vars configured
+separately (see `docs/STAGING.md`).
+
+To get the production build to actually render so SW/install-prompt
+behavior could be exercised, created `.env.production.local` (copied
+from `.env.development`'s shuttley-dev credentials) for local testing
+only. Added `.env.production` and `.env.production.local` to
+`.gitignore` first (they weren't previously listed, unlike
+`.env.local`/`.env`/`.env.development` — a real gap that could have
+let a future `vite build` run with real credentials get accidentally
+staged). Never committed, never staged, no secrets printed anywhere.
+**Sumit: this file still exists locally at
+`shuttley/.env.production.local` for future PWA/preview testing — it's
+gitignored and harmless, but flagging its existence for awareness.**
+
+### What's working (verified live against the real `dist/` build)
+
+- Manifest (`/manifest.webmanifest`) is valid JSON, all 4 icon
+  entries fetch 200 with pixel dimensions confirmed to exactly match
+  their filenames (`64x64`, `192x192`, `512x512`,
+  `apple-touch-icon-180x180`) via direct PNG IHDR-chunk inspection.
+- Service worker registers and activates cleanly
+  (`active.state: "activated"`) once the app actually renders; zero
+  console errors at any point.
+- Install-prompt UI in `LoginPage.jsx` verified live: dispatched a
+  synthetic `beforeinstallprompt` event → the "+ Add Shuttley to Home
+  Screen" button correctly appeared → clicking it calls
+  `installPrompt.prompt()`/handles `userChoice` with no errors. The
+  "already installed" check (`matchMedia('(display-mode: standalone)')`)
+  and the iOS-specific instructional hints (Safari vs Chrome-iOS vs
+  other-iOS-browsers) were verified by code review — correct logic,
+  but iOS UA-spoofing couldn't survive a full page reload in this tool,
+  so the iOS path itself needs real-device confirmation (see below).
+- Offline fallback in `sw.js` (serves cached `/index.html` on failed
+  navigation fetches) — confirmed `index.html` is actually present in
+  the Workbox precache manifest (35 entries), so the fallback has
+  something to serve. Couldn't simulate true network-offline in this
+  tool; this is logic-reviewed, not live-tested.
+- No stale-version trap: `sw.js`'s `self.skipWaiting()` on install +
+  `clients.claim()` on activate, combined with `App.jsx`'s `AutoUpdate`
+  component forcing `updateServiceWorker(true)` (a full reload) the
+  instant `needRefresh` flips true, means users are never stuck on an
+  old cached version — by design, this is silent/automatic rather than
+  prompting the user, which is a reasonable existing trade-off, not
+  something introduced or changed here.
+- Mobile-first layout confirmed clean at 390×844 viewport.
+- `npm run build` succeeds.
+
+### Bugs found and fixed (smallest safe fix — `index.html` +
+`vite.config.js` only)
+
+1. **Dead `logo.svg` reference.** `index.html` had
+   `<link rel="icon" href="/logo.svg" type="image/svg+xml">` and
+   `vite.config.js`'s `includeAssets` listed `'logo.svg'` — but the
+   file doesn't exist anywhere in the repo (confirmed via full
+   repo-wide search). Live-fetching `/logo.svg` returned HTTP 200 with
+   `content-type: text/html` — Vite/SPA-hosting's catch-all fallback
+   serving `index.html` itself, not a real icon. No console error
+   resulted (browsers silently ignore unparseable favicon links), but
+   it's a stale/misleading reference left over from original
+   scaffolding, never cleaned up when the real Shuttley icons were
+   added. **Fixed: removed the dead `<link>` and the dead
+   `includeAssets` entry.**
+2. **`theme-color` mismatch.** `index.html` had
+   `<meta name="theme-color" content="#0d1321">` (dark navy) while the
+   manifest's `theme_color` and the entire actual design system
+   (`--accent`/`--text` in `src/index.css`) use `#256575` (teal) on a
+   white background — there is no dark theme anywhere in the CSS, so
+   `#0d1321` was just stale. This affects the installed-PWA window
+   chrome color and the mobile browser address-bar tint shown while
+   browsing normally. **Fixed: aligned to `#256575`.**
+
+### Found and flagged, NOT fixed — needs a real image asset
+
+3. **Maskable icon has no safe-zone padding.**
+   `public/maskable-icon-512x512.png` is **byte-for-byte identical**
+   to `public/pwa-512x512.png` (confirmed via direct byte comparison).
+   A maskable icon needs the logo confined to roughly the center 80%
+   "safe zone" with padding around it, because Android (and other
+   platforms) apply shape masks (circle, squircle, etc.) that can clip
+   anything outside that zone. Right now the same un-padded icon is
+   declared as both regular and maskable, so on platforms that apply
+   aggressive masking, parts of the Shuttley logo could get cropped
+   off the home-screen icon. **This needs a new image asset generated
+   with proper padding — not something fixable in code. Flagged for
+   Sumit/design, not touched.**
+
+### Manual device QA still required (cannot be verified in this tool)
+
+- Real iOS Safari "Add to Home Screen" → confirm the resulting
+  standalone app's icon, status bar, and splash screen look correct.
+- Real Android Chrome install banner → confirm the installed icon
+  isn't clipped by the maskable-icon padding issue above.
+- A genuine update-while-installed scenario (deploy a new version
+  while the PWA is already installed and open on a device, confirm the
+  silent auto-reload behaves smoothly and doesn't interrupt anything
+  important like an in-progress score entry).
+
+### Cleanup
+
+`.claude/launch.json`'s new `shuttley-preview` entry was added only to
+the local (uncommitted, home-directory-level) launch config used by
+this tool — not part of this repo's tracked files. No git changes
+beyond `.gitignore`, `index.html`, `vite.config.js`. No Supabase
+access of any kind was needed for this task; shuttley-dev was not
+touched.

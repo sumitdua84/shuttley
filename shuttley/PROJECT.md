@@ -54,9 +54,19 @@ session's full detail, and §6 for the restart-from-cold guide.**
   Play retested, unaffected. See ISSUES.md and CHANGELOG.md. (Separately
   found and flagged, not fixed: "Add Guest" is also broken on
   shuttley-dev — missing RPC function, spun off as its own task.)
+- **PWA install/update** — QA'd. Manifest, icons, service worker
+  registration/activation, and the install-prompt UI all verified
+  working against the real production build. Fixed a dead `logo.svg`
+  reference and a stale `theme-color` mismatch (both `index.html` +
+  `vite.config.js` only, no backend involved). Found and flagged, not
+  fixed: the maskable icon has no safe-zone padding (needs a new image
+  asset, not a code fix). **Real iOS Safari install, real Android
+  Chrome install banner, and a genuine update-while-installed scenario
+  still need manual device testing** — none of that is possible in
+  this tool. See ISSUES.md and CHANGELOG.md.
 - **Do not merge to `develop` or `main` yet** — still-unverified/blocked
-  areas: PWA install/update, Vercel preview readiness, and the
-  account-deletion runtime test noted above.
+  areas: Vercel preview readiness, the account-deletion runtime test
+  noted above, and the manual device QA noted above for PWA.
 - Phase 3 (component cleanup) and Phase 4 (PWA polish) — **not started**,
   intentionally held.
 - V2 architecture (`SHUTTLEY-V2-ARCHITECTURE.md`) — planning document

@@ -3,6 +3,8 @@ dist
 .env.local
 .env
 .env.development
+.env.production
+.env.production.local
 
 # Dev tools (local only)
 generate-icons.mjs
