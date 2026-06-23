@@ -1,17 +1,71 @@
-# Shuttley — App Feel Close of Day Handover (2026-06-21)
+# Shuttley — App Feel Close of Day Handover (updated 2026-06-23)
 
-Session closed for the night. This is the single restart-from-cold
-document for the `feature/shuttley-app-feel-upgrade` branch. For full
-play-by-play detail on any item below, see `ISSUES.md` and
-`CHANGELOG.md` in this folder.
+Session closed. This is the single restart-from-cold document for the
+`feature/shuttley-app-feel-upgrade` branch. For full play-by-play
+detail on any item below, see `ISSUES.md` and `CHANGELOG.md` in this
+folder.
+
+## Update 2026-06-23 — Vercel preview readiness + account-deletion runtime test: PASS
+
+The two items this handover originally listed as "next recommended
+restart task" are now both done:
+
+1. **New dev-only Vercel project created**: `shuttley-dev`, under the
+   `sumitdua84` personal Vercel account, GitHub repo
+   `sumitdua84/shuttley`, Root Directory `shuttley`. Connected to
+   shuttley-dev Supabase only (`https://ecdibuhrgdmsdvovmlvl.supabase.co`).
+   No `shuttley.club` domain added. No production Supabase keys used.
+2. **Existing production Shuttley app**: an accidental redeploy
+   happened during env var scope cleanup. Checked immediately after —
+   confirmed still working. Existing production Vercel vars were
+   tightened to Production-only scope where applicable. No production
+   deletion testing was done.
+3. **Feature branch pushed**: `feature/shuttley-app-feel-upgrade` was
+   pushed to GitHub for the first time (was local-only before) so the
+   new Vercel project could deploy the correct code — its first deploy
+   had only seen `main`, which made Admin → Deletions fall back to the
+   old direct Supabase query. Correct deployment now uses
+   `/api/deletion-requests`.
+4. **Vercel Preview / API runtime test: PASS.** Admin → Deletions
+   visibility works through the Vercel API route; `/api/deletion-requests`
+   returns `200` with real pending rows on real Vercel runtime.
+5. **Account deletion runtime test: PASS.** One disposable deletion
+   completed successfully at approximately `13:50:19`:
+   `/api/delete-user` executed successfully, super admin authorization
+   passed, profile anonymized, auth email changed to
+   `deleted_2@deleted.com`, memberships cleanup completed, chat cleanup
+   completed, deletion request marked `Completed` in the UI. No
+   production Supabase touched. No code changes were needed. The
+   second pending `sumitdua2@gmail.com` deletion request row was left
+   untouched as fallback test data.
+
+**Rules held throughout:** no production Supabase touched, no
+production SQL run, no merge to `develop`, no merge to `main`, no
+production deploy intentionally performed for release, V2 not started,
+second pending row left untouched, no `.env` file committed
+(`.env.local.disabled`/`.env.production.local` remain
+untracked/gitignored), no service role keys or secrets exposed.
+
+**Next recommended restart task: manual PWA device QA** (iOS Safari
+install, Android Chrome install banner, update-while-installed) using
+the `shuttley-dev` Vercel Preview URL. **Do not start V2 yet.**
+
+Full detail: `ISSUES.md` — "Close of day (2026-06-23)" — and
+`CHANGELOG.md`'s 2026-06-23 entry.
+
+---
+
+## Original handover (2026-06-21)
 
 ## Current branch
 
 `feature/shuttley-app-feel-upgrade`
 
-Off `develop`. Clean working tree. **Never pushed** (no remote
-tracking ref exists for this branch) — so by definition nothing on it
-has been merged or deployed anywhere.
+Off `develop`. **Update 2026-06-23: now pushed to `origin`** (tracking
+`origin/feature/shuttley-app-feel-upgrade`) so the `shuttley-dev`
+Vercel project could deploy it — see the update section at the top of
+this file. Still **not merged** to `develop` or `main`, no production
+deploy.
 
 ## Latest commits
 
@@ -102,8 +156,11 @@ This handover file itself lands in a docs-only commit on top of
 
 ## Still pending before production polish release
 
-1. Vercel preview readiness.
-2. Account deletion Vercel runtime test.
+**Update 2026-06-23: items 1 and 2 below are now PASS — see the update
+section at the top of this file. Items 3-5 remain.**
+
+1. ~~Vercel preview readiness.~~ **PASS (2026-06-23).**
+2. ~~Account deletion Vercel runtime test.~~ **PASS (2026-06-23).**
 3. Manual iPhone/Safari PWA install test.
 4. Manual Android/Chrome PWA install test.
 5. Manual update-while-installed test.
@@ -172,8 +229,12 @@ parked or merged.
 
 ## Next recommended restart task
 
-**Vercel preview readiness.**
+**Update 2026-06-23: Vercel preview readiness and the account-deletion
+Vercel runtime test are both PASS now — see the update section at the
+top of this file.**
 
-After that: **Account deletion Vercel runtime test.**
+**Next: manual PWA device QA** (iOS Safari install, Android Chrome
+install banner, update-while-installed) using the `shuttley-dev` Vercel
+Preview URL.
 
 **Do not start V2 yet.**

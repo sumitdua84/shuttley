@@ -397,21 +397,25 @@ Using `sumitdua84@gmail.com` (moderator) and
 Splits and Chat, and made progress on account deletion/admin.** This
 list now reflects what's still genuinely unverified after that session:
 
-- Account anonymization / admin flows — **fixed in code, needs Vercel
-  runtime test.** Schema drift (`account_deletion_requests` missing
-  `email`, `created_at`/`requested_at` mismatch, missing
+- Account anonymization / admin flows — **PASS, verified on Vercel
+  runtime 2026-06-23.** Schema drift (`account_deletion_requests`
+  missing `email`, `created_at`/`requested_at` mismatch, missing
   `get_next_deleted_seq` RPC) and a wrong table reference
   (`club_members` → `memberships`) in `api/delete-user.js` were found
   and fixed. A new admin-only service-role endpoint
   (`api/deletion-requests.js`) was added to fix a separate RLS
   visibility bug (admins couldn't see other users' pending requests).
-  None of this has been exercised through a real Vercel runtime
-  (`vite dev` can't execute serverless functions) — **Confirm Delete was
-  never clicked, `/api/delete-user` was never called, no account was
-  anonymized.** Two disposable test rows
-  (`account_deletion_requests` for `sumitdua2@gmail.com`) are
-  intentionally left pending on shuttley-dev for that later test. Full
-  detail in §8.
+  Both endpoints were exercised end-to-end on a real Vercel Preview
+  deployment (shuttley-dev project, `feature/shuttley-app-feel-upgrade`
+  branch) against shuttley-dev Supabase: `/api/deletion-requests`
+  returned the pending rows correctly, and `Confirm Delete` was clicked
+  on one disposable `sumitdua2@gmail.com` row — `/api/delete-user`
+  anonymized the profile to `deleted_2`, changed the auth email to
+  `deleted_2@deleted.com`, cleared club/chat membership, and marked the
+  request `Completed`, all confirmed via Vercel runtime logs. A second
+  disposable `sumitdua2@gmail.com` row is intentionally left `pending`
+  on shuttley-dev as fallback test data — not consumed, not deleted.
+  Full detail in §8.
 - Member removal / demotion (`ModeratorDashboard.jsx`'s
   `removeMember()`/`demoteMod()`) — converted to `ConfirmModal`, never
   exercised
@@ -573,7 +577,7 @@ stale console/network log buffering, which was observed several times
 this session — old entries persist in the preview tooling's logs across
 reloads and can look like live failures when they aren't).
 
-### Account deletion / admin — fixed in code, needs Vercel runtime test
+### Account deletion / admin — PASS, verified on Vercel runtime 2026-06-23
 
 Found the entire flow was broken on shuttley-dev, end to end:
 - `account_deletion_requests` was missing `email`; had `created_at`
@@ -604,24 +608,47 @@ Found the entire flow was broken on shuttley-dev, end to end:
   deliberately left alone — out of scope for this fix, not called from
   anywhere in the UI.
 
-**None of this has been exercised through a real serverless runtime.**
+**Update 2026-06-23 — Vercel runtime test result: PASS.**
 `vite dev` cannot execute Vercel API routes locally (confirmed: requests
-to `/api/delete-user` and the new `/api/deletion-requests` either 404 or
+to `/api/delete-user` and `/api/deletion-requests` either 404 or
 return the raw unexecuted source file instead of running) — the same
 known limitation already accepted for `/api/coach` and
-`/api/send-push`. **Confirm Delete was never clicked. `/api/delete-user`
-was never called. No account was anonymized.**
+`/api/send-push`. This was resolved by standing up a dedicated
+`shuttley-dev` Vercel project (separate from the real production
+Vercel project), connected to the `feature/shuttley-app-feel-upgrade`
+branch and to shuttley-dev Supabase only. Two env var scoping bugs were
+found and fixed along the way: `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY`
+and the server-side `SUPABASE_URL`/`SUPABASE_ANON_KEY`/
+`SUPABASE_SERVICE_ROLE_KEY` vars were initially scoped to Production
+only in the new Vercel project, not Preview — causing a white screen
+(`supabaseUrl is required`) and then `500`s on `/api/admin-data` and
+`/api/deletion-requests` until Preview scope was added to all five.
 
-A fresh disposable test account (`sumitdua2@gmail.com`, created this
-session after the original second test account's password couldn't be
-recovered — see note below) was used to submit two real pending
-deletion requests, intentionally **left in place** on shuttley-dev for
-the eventual Vercel runtime test:
+With that fixed:
+- `GET /api/deletion-requests` returned `200` with the real pending
+  rows, confirmed working through the Vercel API route (not the old
+  direct-Supabase-query path).
+- `Confirm Delete` was clicked on **one** of the two disposable
+  `sumitdua2@gmail.com` pending rows. `POST /api/delete-user` returned
+  `200`; Vercel runtime logs confirmed every step: profile anonymized
+  to `deleted_2`, auth email changed to `deleted_2@deleted.com`,
+  removed from all clubs, chat messages cleared, removed from chat
+  conversations, and the request row flipped to `status: completed` in
+  the UI.
+- No production Supabase touched, no SQL run, no merge, `main`/
+  `develop` untouched.
+
+A fresh disposable test account (`sumitdua2@gmail.com`, created in the
+2026-06-21 session after the original second test account's password
+couldn't be recovered — see note below) had submitted two real pending
+deletion requests:
 - `account_deletion_requests.id = 90476878-de8a-42f4-b0a8-380eb94be9d3`
 - `account_deletion_requests.id = 4cd59cbc-27d4-4b26-8f94-a5bdc4043fb4`
 
-Both `status: pending`. **Do not delete these without checking with
-Sumit first** — they're needed for the next test step.
+One of these two was consumed by the 2026-06-23 test above (now
+`completed`). **The other is intentionally left `pending` on
+shuttley-dev as fallback test data — do not delete or consume it
+without checking with Sumit first.**
 
 ### Note: original second test account's password lost
 
@@ -1070,3 +1097,79 @@ is ready for review: Vercel preview readiness, the account-deletion
 Vercel runtime test, and three manual device tests (iOS install,
 Android install, update-while-installed). `main`/`develop` untouched,
 nothing pushed, nothing merged, nothing deployed.
+
+---
+
+## Close of day (2026-06-23) — Vercel preview readiness + account-deletion runtime test
+
+Session closed at this docs commit. Full detail in
+`SHUTTLEY — APP FEEL CLOSE OF DAY HANDOVER.md` at the repo root.
+
+**1. New dev-only Vercel project created** — `shuttley-dev`, under the
+`sumitdua84` personal Vercel account, GitHub repo `sumitdua84/shuttley`,
+Root Directory `shuttley`. Connected to shuttley-dev Supabase only
+(`https://ecdibuhrgdmsdvovmlvl.supabase.co`). No `shuttley.club` domain
+added to this project. No production Supabase keys used anywhere in
+this dev project.
+
+**2. Existing production Shuttley app** — an accidental redeploy of the
+real production Vercel project happened while cleaning up env var
+scopes during this session. The production app was checked immediately
+after and confirmed still working. Existing production Vercel env vars
+were tightened to Production-only scope where applicable (cleanup, not
+a functional change). **No production deletion testing was done.**
+
+**3. Feature branch remote availability** — the new `shuttley-dev`
+Vercel project initially only had visibility of `main` (this branch
+had never been pushed), so its first deployment ran old code, and
+Admin → Deletions fell back to the old direct Supabase query path
+instead of the new API route. Fixed by pushing
+`feature/shuttley-app-feel-upgrade` to GitHub so the correct branch
+could be deployed. The correct deployment now uses
+`/api/deletion-requests` as intended.
+
+**4. Vercel Preview / API runtime test — PASS.** Admin → Deletions
+visibility confirmed working through the Vercel API route;
+`/api/deletion-requests` returns `200` with real pending rows on a real
+Vercel runtime. This validates the `AdminDashboard.jsx` deletion
+visibility fix from the 2026-06-21 session.
+
+**5. Account deletion runtime test — PASS.** One disposable deletion
+completed successfully at approximately `13:50:19`: `/api/delete-user`
+executed successfully in Vercel runtime, super admin authorization
+passed, profile anonymized, auth email changed to
+`deleted_2@deleted.com`, memberships cleanup completed, chat cleanup
+completed, deletion request marked `Completed` in the UI. No production
+Supabase touched. No code changes were needed from this runtime test —
+the code from the 2026-06-21 session worked as written once the
+environment was correctly configured. The second pending
+`sumitdua2@gmail.com` deletion request row was left untouched as
+fallback test data (not consumed in this session).
+
+**6. PASS summary:**
+- Vercel preview / API readiness: **PASS**
+- Account deletion Vercel runtime test: **PASS**
+
+**7. Still remaining before production polish release:**
+- Manual iPhone/Safari PWA install test
+- Manual Android/Chrome PWA install test
+- Manual update-while-installed test
+
+**8. Optional / still unresolved (non-blocking):**
+- Add Guest RPC/schema-drift fix (missing `create_guest_profile` RPC
+  on shuttley-dev)
+- Maskable icon safe-zone asset improvement
+- `memberships` DELETE RLS tightening (self-delete technically
+  permitted at the DB level, unused by any current UI feature)
+
+**Rules held throughout this session:** no production Supabase
+touched, no production SQL run, no merge to `develop`, no merge to
+`main`, no production deploy intentionally performed for release, V2
+not started, second pending deletion row left untouched, no `.env`
+file committed (`.env.local.disabled` and `.env.production.local`
+remain untracked/gitignored), no service role keys or secrets exposed.
+
+`main`/`develop` untouched. Nothing merged. Nothing deployed to
+production intentionally (the one accidental redeploy of the existing
+production project was checked and confirmed healthy, unrelated to this
+branch's code).

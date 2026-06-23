@@ -20,6 +20,21 @@ commands and [docs/STAGING.md](docs/STAGING.md) for environment history.
 - `docs/shuttley-v2-architecture-planning` — planning-only branch off
   `develop` holding `SHUTTLEY-V2-ARCHITECTURE.md`. No code on it.
 
+## Vercel projects
+
+- **`shuttley`** — production project, serves `shuttley.club`, deploys
+  from `main`. Real production Supabase. Do not touch during this
+  initiative.
+- **`shuttley-dev`** (added 2026-06-23) — dev-only project, `sumitdua84`
+  personal Vercel account, same GitHub repo (`sumitdua84/shuttley`),
+  Root Directory `shuttley`. Connected to shuttley-dev Supabase only
+  (`https://ecdibuhrgdmsdvovmlvl.supabase.co`). No `shuttley.club`
+  domain attached, no production Supabase keys used. Exists purely so
+  Vercel serverless functions (`api/*.js`) can be exercised on a real
+  runtime — `vite dev` cannot execute them locally. Test via this
+  project's Preview deployments of `feature/shuttley-app-feel-upgrade`,
+  never its "Production" deployment.
+
 ## Current status (close of day, 2026-06-21)
 
 **Session closed for the night at commit `13ce90f`. Full restart
@@ -67,9 +82,12 @@ guide.**
   Chrome install banner, and a genuine update-while-installed scenario
   still need manual device testing** — none of that is possible in
   this tool. See ISSUES.md and CHANGELOG.md.
-- **Do not merge to `develop` or `main` yet** — still-unverified/blocked
-  areas: Vercel preview readiness, the account-deletion runtime test
-  noted above, and the manual device QA noted above for PWA.
+- **Update 2026-06-23**: Vercel preview readiness and the
+  account-deletion Vercel runtime test are now both **PASS** — see
+  ISSUES.md and ROADMAP.md for detail. **Do not merge to `develop` or
+  `main` yet** — still-unverified: the manual device QA noted above for
+  PWA (iOS Safari install, Android Chrome install banner,
+  update-while-installed).
 - Phase 3 (component cleanup) and Phase 4 (PWA polish) — **not started**,
   intentionally held.
 - V2 architecture (`SHUTTLEY-V2-ARCHITECTURE.md`) — planning document

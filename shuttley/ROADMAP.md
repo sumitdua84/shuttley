@@ -99,15 +99,25 @@ unverified above — see `ISSUES.md` §8 for full detail:
   device QA**: iOS Safari install, Android Chrome install banner, and
   a genuine update-while-installed scenario, none of which are
   possible in this tool.
-- Still unverified: Vercel preview readiness, the account-deletion
-  Vercel runtime test, and the three manual PWA device tests noted
-  above (iOS install, Android install, update-while-installed).
+- **Update 2026-06-23 — Vercel preview readiness: PASS.** Stood up a
+  dedicated `shuttley-dev` Vercel project (separate from the real
+  production Vercel project), deployed `feature/shuttley-app-feel-upgrade`
+  as a Preview build wired to shuttley-dev Supabase only. Found and
+  fixed an env var scoping bug along the way (Supabase vars were
+  Production-only, not Preview, in the new project) — see ISSUES.md §8.
+- **Update 2026-06-23 — Account-deletion Vercel runtime test: PASS.**
+  `/api/deletion-requests` and `/api/delete-user` both verified working
+  against shuttley-dev on the real Vercel runtime; one disposable
+  `sumitdua2@gmail.com` row anonymized end-to-end, confirmed via
+  runtime logs. Full detail in ISSUES.md §8.
+- Still unverified: the three manual PWA device tests (iOS Safari
+  install, Android Chrome install banner, update-while-installed).
 
 **Session closed for the night (2026-06-21) at commit `13ce90f`.**
 Full restart context: `SHUTTLEY — APP FEEL CLOSE OF DAY HANDOVER.md`
-(repo root). **Next recommended restart task: Vercel preview
-readiness, then the account-deletion Vercel runtime test.** Do not
-start V2 before then.
+(repo root). **Next recommended task: manual PWA device QA** (iOS
+Safari install, Android Chrome install banner, update-while-installed)
+using the shuttley-dev Vercel Preview URL. Do not start V2 before then.
 
 **This branch is parked, not merged.** Sumit will review the diff
 himself and decide whether to merge to `develop`. No further work

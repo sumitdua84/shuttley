@@ -1,5 +1,58 @@
 # Shuttley — Changelog
 
+## 2026-06-23 — Vercel preview readiness + account-deletion runtime test: PASS
+
+**Branch:** `feature/shuttley-app-feel-upgrade`
+
+**Summary:** Closed out the two items left unverified from the
+2026-06-21 session — Vercel preview readiness and the account-deletion
+Vercel runtime test. No application code changes were required; the
+code from the 2026-06-21 session worked once the environment was
+correctly configured.
+
+**Infra changes (Vercel dashboard/CLI, not app code):**
+- Created a new dev-only Vercel project, `shuttley-dev`, under the
+  `sumitdua84` personal Vercel account, same GitHub repo
+  (`sumitdua84/shuttley`), Root Directory `shuttley`. Connected to
+  shuttley-dev Supabase only (`https://ecdibuhrgdmsdvovmlvl.supabase.co`).
+  No `shuttley.club` domain attached, no production Supabase keys used.
+- Pushed `feature/shuttley-app-feel-upgrade` to GitHub for the first
+  time (previously local-only) so the new Vercel project could deploy
+  the correct branch — its first deployment had only seen `main` and
+  served stale code, which made Admin → Deletions fall back to the old
+  direct Supabase query instead of `/api/deletion-requests`.
+- Found and fixed an env var scope bug in the new project:
+  `SUPABASE_URL`/`SUPABASE_ANON_KEY`/`SUPABASE_SERVICE_ROLE_KEY` and
+  initially `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` were scoped to
+  Production only, not Preview — caused a white screen
+  (`supabaseUrl is required`) and then `500`s on `/api/admin-data` and
+  `/api/deletion-requests` until Preview scope was added to all five.
+- While cleaning up env var scopes, an accidental redeploy of the
+  **existing production** Vercel project happened. Checked immediately
+  after — production app confirmed still working. Production env vars
+  were tightened to Production-only scope where applicable (cleanup,
+  no functional change). No production deletion testing was done.
+
+**Verification performed (real Vercel runtime, shuttley-dev only):**
+- `GET /api/deletion-requests` → `200`, real pending rows returned —
+  confirms the admin-visibility fix from 2026-06-21 works at runtime.
+- `Confirm Delete` clicked on one disposable `sumitdua2@gmail.com`
+  pending row. `POST /api/delete-user` → `200`. Runtime logs confirmed:
+  super admin authorization passed, profile anonymized to `deleted_2`,
+  auth email changed to `deleted_2@deleted.com`, removed from all
+  clubs, chat messages cleared, removed from chat conversations,
+  request marked `completed` in the UI. The second pending
+  `sumitdua2@gmail.com` row was left untouched as fallback test data.
+
+**Known issues:** see [ISSUES.md](ISSUES.md) — "Close of day
+(2026-06-23)".
+
+**Production touched:** No application code or schema change. One
+accidental redeploy of the existing production Vercel project occurred
+during env var cleanup; confirmed working immediately after, no
+production Supabase data touched, no production SQL run. No merge to
+`develop` or `main`. V2 not started.
+
 ## 2026-06-21 — Close Shuttley app-feel PWA QA session
 
 **Branch:** `feature/shuttley-app-feel-upgrade`
