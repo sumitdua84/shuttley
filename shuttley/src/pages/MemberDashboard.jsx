@@ -186,7 +186,7 @@ export default function MemberDashboard() {
       supabase.from('matches').select('winner_side, team1_score, team2_score, played_at, match_players(user_id, side, profiles(full_name))').eq('club_id', clubId).eq('status', 'confirmed'),
       supabase.from('sessions').select('*', { count: 'exact', head: true }).eq('club_id', clubId),
       supabase.from('sessions').select('id, name, status, started_at, ended_at, rotation_player_ids').eq('club_id', clubId).order('started_at', { ascending: false }),
-      supabase.from('session_polls').select('*, poll_responses(*)').eq('club_id', clubId).eq('status', 'open').gte('session_date', today).order('session_date', { ascending: true }),
+      supabase.from('session_polls').select('*, poll_responses(*)').eq('club_id', clubId).eq('status', 'open').or(`session_date.gte.${today},session_date.is.null`).order('session_date', { ascending: true, nullsFirst: false }),
       supabase.from('club_features').select('*').eq('club_id', clubId),
     ])
 
@@ -640,12 +640,13 @@ export default function MemberDashboard() {
             {/* Session hero */}
             {activeSession ? (
               <div style={{ background:'var(--accent)', borderRadius:'var(--radius)', padding:'20px', marginBottom:16, color:'#fff' }}>
-                <div style={{ fontSize:11, fontWeight:700, opacity:0.7, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:6 }}>● Live Session</div>
-                <div style={{ fontSize:22, fontWeight:700, marginBottom:16, fontFamily:"'Plus Jakarta Sans',sans-serif" }}>{activeSession.name}</div>
+                <div style={{ fontSize:11, fontWeight:700, opacity:0.7, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:6 }}>● Session in Progress</div>
+                <div style={{ fontSize:22, fontWeight:700, marginBottom:4, fontFamily:"'Plus Jakarta Sans',sans-serif" }}>{activeSession.name}</div>
+                <div style={{ fontSize:13, opacity:0.75, marginBottom:16, lineHeight:1.4 }}>A session is currently running. Tap to continue.</div>
                 <button
                   onClick={() => navigate(`/club/${clubId}/session/${activeSession.id}/rotation`)}
                   style={{ width:'100%', background:'#fff', color:'var(--accent)', border:'none', borderRadius:'var(--radius-sm)', padding:'11px', fontWeight:700, fontSize:14, cursor:'pointer', fontFamily:"'Inter',sans-serif" }}>
-                  View Schedule →
+                  Open Current Session →
                 </button>
               </div>
             ) : (
@@ -762,8 +763,9 @@ export default function MemberDashboard() {
                 background:'var(--accent)', borderRadius:'var(--radius)',
                 padding:'20px', marginBottom:16, color:'#fff',
               }}>
-                <div style={{ fontSize:11, fontWeight:700, opacity:0.7, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:6 }}>● Live Session</div>
-                <div style={{ fontSize:22, fontWeight:700, marginBottom:16, fontFamily:"'Plus Jakarta Sans',sans-serif" }}>{activeSession.name}</div>
+                <div style={{ fontSize:11, fontWeight:700, opacity:0.7, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:6 }}>● Session in Progress</div>
+                <div style={{ fontSize:22, fontWeight:700, marginBottom:4, fontFamily:"'Plus Jakarta Sans',sans-serif" }}>{activeSession.name}</div>
+                <div style={{ fontSize:13, opacity:0.75, marginBottom:16, lineHeight:1.4 }}>A session is currently running. Tap to continue.</div>
                 <div style={{ display:'flex', gap:8 }}>
                   <button
                     onClick={() => navigate(`/club/${clubId}/session/${activeSession.id}/rotation`)}
@@ -954,7 +956,8 @@ export default function MemberDashboard() {
               const yes   = poll.poll_responses?.filter(r => r.response === 'yes').length   || 0
               const no    = poll.poll_responses?.filter(r => r.response === 'no').length    || 0
               const maybe = poll.poll_responses?.filter(r => r.response === 'maybe').length || 0
-              const dateLabel = formatPollDate(poll.session_date)
+              const isCustom = !poll.session_date
+              const dateLabel = isCustom ? null : formatPollDate(poll.session_date)
               const myResp = myPollResponses[poll.id]
               const regularMembers = approved.filter(m => !m.is_guest)
               const pendingCount = regularMembers.filter(m => !responseMap[m.user_id]).length
@@ -962,21 +965,29 @@ export default function MemberDashboard() {
               return (
                 <div key={poll.id} style={{
                   background:'var(--bg2)', border:'1px solid var(--border)',
-                  borderLeft:'4px solid #b04400',
+                  borderLeft:`4px solid ${isCustom ? 'var(--accent)' : '#b04400'}`,
                   borderRadius:'var(--radius)', marginBottom:10, overflow:'hidden',
                 }}>
                   {/* ── Collapsed header (always visible, tap to expand) ── */}
                   <div onClick={() => setExpandedPolls(prev => ({ ...prev, [poll.id]: !prev[poll.id] }))}
                     style={{ padding:'13px 14px', cursor:'pointer', display:'flex', alignItems:'flex-start', gap:8 }}>
                     <div style={{ flex:1 }}>
-                      <div style={{ fontSize:14, fontWeight:700, marginBottom: poll.session_time ? 2 : 7 }}>
-                        Coming {dateLabel}?
-                      </div>
-                      {poll.session_time && (
-                        <div style={{ fontSize:12, color:'var(--text2)', marginBottom: poll.notes ? 2 : 7 }}>{poll.session_time}</div>
-                      )}
-                      {poll.notes && (
-                        <div style={{ fontSize:11, color:'var(--text3)', marginBottom:7 }}>{poll.notes}</div>
+                      {isCustom ? (
+                        <div style={{ fontSize:14, fontWeight:700, marginBottom:7 }}>
+                          {poll.notes?.split('\n')[0] || 'Custom Poll'}
+                        </div>
+                      ) : (
+                        <>
+                          <div style={{ fontSize:14, fontWeight:700, marginBottom: poll.session_time ? 2 : 7 }}>
+                            Coming {dateLabel}?
+                          </div>
+                          {poll.session_time && (
+                            <div style={{ fontSize:12, color:'var(--text2)', marginBottom: poll.notes ? 2 : 7 }}>{poll.session_time}</div>
+                          )}
+                          {poll.notes && (
+                            <div style={{ fontSize:11, color:'var(--text3)', marginBottom:7 }}>{poll.notes}</div>
+                          )}
+                        </>
                       )}
                       <div style={{ display:'flex', gap:5, flexWrap:'wrap' }}>
                         <span style={{ padding:'2px 9px', borderRadius:99, fontSize:11, fontWeight:700, background:'rgba(42,140,85,0.1)', color:'#2a8c55' }}>{yes} Yes</span>

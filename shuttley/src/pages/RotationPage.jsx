@@ -379,9 +379,8 @@ export default function RotationPage() {
         {rotationMatches.length === 0 ? (
           <div>
             {/* Header + Record button */}
-            <div style={{ textAlign:'center', padding:'24px 0 20px' }}>
-              <div style={{ fontSize:36, marginBottom:10 }}>🏸</div>
-              <div style={{ fontSize:16, fontWeight:600, marginBottom:4 }}>Free Play</div>
+            <div style={{ padding:'8px 0 20px' }}>
+              <div style={{ fontSize:16, fontWeight:700, marginBottom:4, color:'var(--text)' }}>Free Play</div>
               <div style={{ fontSize:13, color:'var(--text2)', marginBottom:20 }}>
                 Record matches as you play them.
               </div>

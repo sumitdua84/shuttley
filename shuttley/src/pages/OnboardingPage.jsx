@@ -275,7 +275,6 @@ export default function OnboardingPage() {
                 const isAdmin = m.role === 'moderator'
                 const count = memberCounts[m.club_id]
                 const clubPolls = polls.filter(p => p.club_id === m.club_id)
-                const initial = (m.clubs?.name || '?')[0].toUpperCase()
                 return (
                   <div key={m.id}
                     onClick={() => {
@@ -286,20 +285,10 @@ export default function OnboardingPage() {
                       display: 'flex', alignItems: 'center',
                       background: 'var(--bg2)', borderRadius: 'var(--radius)',
                       border: '0.5px solid var(--border)',
-                      marginBottom: 8, padding: '10px 14px',
+                      marginBottom: 8, padding: '14px 16px',
                       cursor: m.status === 'approved' ? 'pointer' : 'default',
                       gap: 12,
                     }}>
-                    <div style={{
-                      width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
-                      background: isAdmin ? 'var(--accent-dim)' : 'rgba(110,166,180,0.12)',
-                      border: `1.5px solid ${isAdmin ? 'rgba(37,101,117,0.25)' : 'rgba(110,166,180,0.25)'}`,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 15, fontWeight: 700,
-                      color: isAdmin ? 'var(--accent)' : '#6ea6b4',
-                    }}>
-                      {initial}
-                    </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontWeight: 600, fontSize: 15 }}>{m.clubs?.name}</div>
                       {m.status === 'pending' ? (

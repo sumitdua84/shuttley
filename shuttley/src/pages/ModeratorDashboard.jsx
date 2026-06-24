@@ -43,6 +43,10 @@ export default function ModeratorDashboard() {
   const tileTransMs  = useRef({ history:2000, leaders:2000, stats:2000, polls:2000, splits:2000 })
   const [sessions, setSessions] = useState([])
   const [showPollModal, setShowPollModal] = useState(false)
+  const [showCustomPollModal, setShowCustomPollModal] = useState(false)
+  const [customPollQ, setCustomPollQ] = useState('')
+  const [customPollNotes, setCustomPollNotes] = useState('')
+  const [creatingCustomPoll, setCreatingCustomPoll] = useState(false)
   const [pollDate, setPollDate] = useState('')
   const [pollStartH, setPollStartH] = useState('')
   const [pollStartM, setPollStartM] = useState('00')
@@ -200,7 +204,7 @@ export default function ModeratorDashboard() {
       supabase.from('matches').select('winner_side, team1_score, team2_score, played_at, match_players(user_id, side, profiles(full_name))').eq('club_id', clubId).eq('status', 'confirmed'),
       supabase.from('sessions').select('*', { count: 'exact', head: true }).eq('club_id', clubId),
       supabase.from('sessions').select('id, name, started_at, ended_at, status, rotation_player_ids, match_type, matches(count)').eq('club_id', clubId).order('started_at', { ascending: false }),
-      supabase.from('session_polls').select('*, poll_responses(*)').eq('club_id', clubId).eq('status', 'open').gte('session_date', today).order('session_date', { ascending: true }),
+      supabase.from('session_polls').select('*, poll_responses(*)').eq('club_id', clubId).eq('status', 'open').or(`session_date.gte.${today},session_date.is.null`).order('session_date', { ascending: true, nullsFirst: false }),
       supabase.from('club_features').select('*').eq('club_id', clubId),
     ])
 
@@ -396,6 +400,27 @@ export default function ModeratorDashboard() {
 
   async function closePoll(pollId) {
     await supabase.from('session_polls').update({ status: 'closed' }).eq('id', pollId)
+    fetchData()
+  }
+
+  async function createCustomPoll() {
+    if (!customPollQ.trim()) return
+    setCreatingCustomPoll(true)
+    const { error } = await supabase.from('session_polls').insert({
+      club_id: clubId, created_by: user.id,
+      session_date: null,
+      notes: customPollQ.trim() + (customPollNotes.trim() ? '\n' + customPollNotes.trim() : ''),
+    })
+    if (!error) {
+      const memberUserIds = members.filter(m => m.status === 'approved').map(m => m.user_id)
+      if (memberUserIds.length > 0) {
+        await sendPush(memberUserIds, `${club?.name} — Poll`, customPollQ.trim(), '/')
+      }
+    }
+    setCreatingCustomPoll(false)
+    setShowCustomPollModal(false)
+    setCustomPollQ('')
+    setCustomPollNotes('')
     fetchData()
   }
 
@@ -614,13 +639,14 @@ export default function ModeratorDashboard() {
           {/* Session hero card */}
           {activeSession ? (
             <div style={{ background:'var(--accent)', borderRadius:'var(--radius)', padding:'20px', marginBottom:16, color:'#fff' }}>
-              <div style={{ fontSize:11, fontWeight:700, opacity:0.7, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:6 }}>● Live Session</div>
-              <div style={{ fontSize:22, fontWeight:700, marginBottom:16, fontFamily:"'Plus Jakarta Sans',sans-serif" }}>{activeSession.name}</div>
+              <div style={{ fontSize:11, fontWeight:700, opacity:0.7, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:6 }}>● Session in Progress</div>
+              <div style={{ fontSize:22, fontWeight:700, marginBottom:4, fontFamily:"'Plus Jakarta Sans',sans-serif" }}>{activeSession.name}</div>
+              <div style={{ fontSize:13, opacity:0.75, marginBottom:16, lineHeight:1.4 }}>A session is currently running. Tap to continue.</div>
               <div style={{ display:'flex', gap:8 }}>
                 <button
                   onClick={() => navigate(`/club/${clubId}/session/${activeSession.id}/rotation`)}
                   style={{ flex:1, background:'#fff', color:'var(--accent)', border:'none', borderRadius:'var(--radius-sm)', padding:'10px', fontWeight:700, fontSize:13, cursor:'pointer', fontFamily:"'Inter',sans-serif" }}>
-                  View Schedule
+                  Open Current Session
                 </button>
                 <button
                   onClick={endSession}
@@ -728,13 +754,14 @@ export default function ModeratorDashboard() {
               background: 'var(--accent)', borderRadius: 'var(--radius)',
               padding: '20px', marginBottom: 16, color: '#fff',
             }}>
-              <div style={{ fontSize:11, fontWeight:700, opacity:0.7, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:6 }}>● Live Session</div>
-              <div style={{ fontSize:22, fontWeight:700, marginBottom:16, fontFamily:"'Plus Jakarta Sans',sans-serif" }}>{activeSession.name}</div>
+              <div style={{ fontSize:11, fontWeight:700, opacity:0.7, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:6 }}>● Session in Progress</div>
+              <div style={{ fontSize:22, fontWeight:700, marginBottom:4, fontFamily:"'Plus Jakarta Sans',sans-serif" }}>{activeSession.name}</div>
+              <div style={{ fontSize:13, opacity:0.75, marginBottom:16, lineHeight:1.4 }}>A session is currently running. Tap to continue.</div>
               <div style={{ display:'flex', gap:8 }}>
                 <button
                   onClick={() => navigate(`/club/${clubId}/session/${activeSession.id}/rotation`)}
                   style={{ flex:1, background:'#fff', color:'var(--accent)', border:'none', borderRadius:'var(--radius-sm)', padding:'10px', fontWeight:700, fontSize:13, cursor:'pointer', fontFamily:"'Inter',sans-serif" }}>
-                  View Schedule
+                  Open Current Session
                 </button>
                 <button
                   onClick={endSession}
@@ -945,14 +972,24 @@ export default function ModeratorDashboard() {
         {/* ── POLLS ── */}
         {tab === 'polls' && (
           <div>
-            <button onClick={() => { setPollDate(''); setPollStartH(''); setPollStartM('00'); setPollStartAP('PM'); setPollEndH(''); setPollEndM('00'); setPollEndAP('PM'); setPollNotes(''); setShowPollModal(true) }} style={{
-              width:'100%', marginBottom:16, padding:'11px',
-              background:'transparent', border:'1.5px dashed var(--border2)',
-              borderRadius:'var(--radius)', color:'var(--accent)',
-              fontSize:14, fontWeight:600, cursor:'pointer', fontFamily:"'Inter',sans-serif",
-            }}>
-              + New Poll
-            </button>
+            <div style={{ display:'flex', gap:8, marginBottom:16 }}>
+              <button onClick={() => { setPollDate(''); setPollStartH(''); setPollStartM('00'); setPollStartAP('PM'); setPollEndH(''); setPollEndM('00'); setPollEndAP('PM'); setPollNotes(''); setShowPollModal(true) }} style={{
+                flex:1, padding:'11px',
+                background:'transparent', border:'1.5px dashed var(--border2)',
+                borderRadius:'var(--radius)', color:'var(--accent)',
+                fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:"'Inter',sans-serif",
+              }}>
+                + Session Poll
+              </button>
+              <button onClick={() => { setCustomPollQ(''); setCustomPollNotes(''); setShowCustomPollModal(true) }} style={{
+                flex:1, padding:'11px',
+                background:'transparent', border:'1.5px dashed var(--border2)',
+                borderRadius:'var(--radius)', color:'var(--accent)',
+                fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:"'Inter',sans-serif",
+              }}>
+                + Custom Poll
+              </button>
+            </div>
             {activePolls.length === 0 ? (
               <div className="empty">
                 <div className="empty-icon">📊</div>
@@ -964,7 +1001,8 @@ export default function ModeratorDashboard() {
               const yes   = poll.poll_responses?.filter(r => r.response === 'yes').length   || 0
               const no    = poll.poll_responses?.filter(r => r.response === 'no').length    || 0
               const maybe = poll.poll_responses?.filter(r => r.response === 'maybe').length || 0
-              const dateLabel = formatPollDate(poll.session_date)
+              const isCustom = !poll.session_date
+              const dateLabel = isCustom ? null : formatPollDate(poll.session_date)
               const myResp = poll.poll_responses?.find(r => r.user_id === user.id)?.response
               const regularMembers = approved.filter(m => !m.is_guest)
               const pendingCount = regularMembers.filter(m => !responseMap[m.user_id]).length
@@ -972,21 +1010,29 @@ export default function ModeratorDashboard() {
               return (
                 <div key={poll.id} style={{
                   background:'var(--bg2)', border:'1px solid var(--border)',
-                  borderLeft:'4px solid #b04400',
+                  borderLeft:`4px solid ${isCustom ? 'var(--accent)' : '#b04400'}`,
                   borderRadius:'var(--radius)', marginBottom:10, overflow:'hidden',
                 }}>
                   {/* ── Collapsed header (always visible, tap to expand) ── */}
                   <div onClick={() => setExpandedPolls(prev => ({ ...prev, [poll.id]: !prev[poll.id] }))}
                     style={{ padding:'13px 14px', cursor:'pointer', display:'flex', alignItems:'flex-start', gap:8 }}>
                     <div style={{ flex:1 }}>
-                      <div style={{ fontSize:14, fontWeight:700, marginBottom: poll.session_time ? 2 : 7 }}>
-                        Coming {dateLabel}?
-                      </div>
-                      {poll.session_time && (
-                        <div style={{ fontSize:12, color:'var(--text2)', marginBottom: poll.notes ? 2 : 7 }}>{poll.session_time}</div>
-                      )}
-                      {poll.notes && (
-                        <div style={{ fontSize:11, color:'var(--text3)', marginBottom:7 }}>{poll.notes}</div>
+                      {isCustom ? (
+                        <div style={{ fontSize:14, fontWeight:700, marginBottom:7 }}>
+                          {poll.notes?.split('\n')[0] || 'Custom Poll'}
+                        </div>
+                      ) : (
+                        <>
+                          <div style={{ fontSize:14, fontWeight:700, marginBottom: poll.session_time ? 2 : 7 }}>
+                            Coming {dateLabel}?
+                          </div>
+                          {poll.session_time && (
+                            <div style={{ fontSize:12, color:'var(--text2)', marginBottom: poll.notes ? 2 : 7 }}>{poll.session_time}</div>
+                          )}
+                          {poll.notes && (
+                            <div style={{ fontSize:11, color:'var(--text3)', marginBottom:7 }}>{poll.notes}</div>
+                          )}
+                        </>
                       )}
                       <div style={{ display:'flex', gap:5, flexWrap:'wrap' }}>
                         <span style={{ padding:'2px 9px', borderRadius:99, fontSize:11, fontWeight:700, background:'rgba(42,140,85,0.1)', color:'#2a8c55' }}>{yes} Yes</span>
@@ -1678,6 +1724,44 @@ export default function ModeratorDashboard() {
               {creatingPoll ? 'Creating…' : 'Send Poll to Members'}
             </button>
             <button className="btn btn-ghost" onClick={() => setShowPollModal(false)}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {showCustomPollModal && (
+        <div style={{
+          position:'fixed', inset:0, background:'rgba(0,0,0,0.6)',
+          zIndex:200, display:'flex', alignItems:'flex-end', justifyContent:'center',
+        }} onClick={() => setShowCustomPollModal(false)}>
+          <div style={{
+            background:'var(--bg)', borderRadius:'20px 20px 0 0',
+            padding:'24px 20px 40px', width:'100%', maxWidth:430,
+          }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize:18, fontWeight:700, marginBottom:6, fontFamily:"'Plus Jakarta Sans',sans-serif" }}>
+              Custom Poll
+            </div>
+            <div style={{ fontSize:13, color:'var(--text3)', marginBottom:20 }}>
+              Ask the group any question — members respond Yes, No, or Maybe.
+            </div>
+
+            <div className="input-wrap">
+              <label className="input-label">Poll question</label>
+              <input className="input" placeholder="e.g. Which day works best?" value={customPollQ}
+                onChange={e => setCustomPollQ(e.target.value)} />
+            </div>
+
+            <div className="input-wrap">
+              <label className="input-label">Details (optional)</label>
+              <input className="input" placeholder="e.g. Tuesday 7pm at court 3" value={customPollNotes}
+                onChange={e => setCustomPollNotes(e.target.value)} />
+            </div>
+
+            <button className="btn btn-primary" style={{ marginBottom:10 }}
+              disabled={!customPollQ.trim() || creatingCustomPoll}
+              onClick={createCustomPoll}>
+              {creatingCustomPoll ? 'Sending…' : 'Send Poll to Members'}
+            </button>
+            <button className="btn btn-ghost" onClick={() => setShowCustomPollModal(false)}>Cancel</button>
           </div>
         </div>
       )}

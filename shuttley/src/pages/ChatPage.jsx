@@ -475,10 +475,7 @@ export default function ChatPage() {
             </div>
           </div>
         ) : (
-          <div style={{ flex:1, minWidth:0, paddingLeft:4 }}>
-            <div style={{ fontSize:15, fontWeight:700, color:'var(--text)' }}>{club?.name}</div>
-            <div style={{ fontSize:11, color:'var(--text3)' }}>Club Chat</div>
-          </div>
+          <div style={{ flex:1, minWidth:0, paddingLeft:4 }} />
         )}
       </div>
 
@@ -500,12 +497,12 @@ export default function ChatPage() {
               flex:1, padding:'8px', borderRadius:'var(--radius-sm)',
               border:'none', background:'var(--accent-dim)', color:'var(--accent)',
               fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:"'Inter',sans-serif",
-            }}>💬 New Chat</button>
+            }}>New Chat</button>
             <button onClick={() => { setGroupName(''); setGroupSel([]); setShowNewGroup(true) }} style={{
               flex:1, padding:'8px', borderRadius:'var(--radius-sm)',
               border:'0.5px solid var(--border)', background:'var(--bg3)', color:'var(--text2)',
               fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:"'Inter',sans-serif",
-            }}>👥 New Group</button>
+            }}>New Group</button>
           </div>
 
           {/* All Members group chat — always first */}

@@ -198,16 +198,21 @@ export default function RecordMatch() {
             {['singles','doubles'].map(t => (
               <div key={t} onClick={() => setType(t)}
                 style={{
-                  padding:'20px', borderRadius:'var(--radius)',
+                  padding:'16px 20px', borderRadius:'var(--radius)',
                   border:`1.5px solid ${type===t ? 'var(--accent)' : 'var(--border2)'}`,
                   background: type===t ? 'var(--accent-dim)' : 'var(--bg2)',
-                  cursor:'pointer', transition:'all 0.15s'
+                  cursor:'pointer', transition:'all 0.15s',
+                  display:'flex', alignItems:'center', gap:12,
                 }}>
-                <div style={{ fontSize:32, marginBottom:8 }}>{t==='singles'?'🏸':'🏸🏸'}</div>
-                <div style={{ fontWeight:500, fontSize:16, color: type===t ? 'var(--accent)' : 'var(--text)', textTransform:'capitalize' }}>{t}</div>
-                <div style={{ fontSize:13, color:'var(--text2)', marginTop:2 }}>
-                  {t==='singles' ? '1 player vs 1 player' : '2 players vs 2 players'}
+                <div style={{ flex:1 }}>
+                  <div style={{ fontWeight:600, fontSize:16, color: type===t ? 'var(--accent)' : 'var(--text)', textTransform:'capitalize' }}>{t}</div>
+                  <div style={{ fontSize:13, color:'var(--text2)', marginTop:2 }}>
+                    {t==='singles' ? '1 vs 1' : '2 vs 2'}
+                  </div>
                 </div>
+                {type===t && <div style={{ width:20, height:20, borderRadius:'50%', background:'var(--accent)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                  <span style={{ color:'#fff', fontSize:12, fontWeight:700 }}>✓</span>
+                </div>}
               </div>
             ))}
           </div>
@@ -314,21 +319,21 @@ export default function RecordMatch() {
             <div style={{ display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:8, marginBottom:20 }}>
               {sortedMembers.map(m => {
                 const taken = selectedIds.includes(m.id)
+                if (taken) return null
                 return (
                   <button key={m.id}
-                    onClick={() => !taken && handlePlayerTap(m.id)}
-                    disabled={taken}
+                    onClick={() => handlePlayerTap(m.id)}
                     style={{
-                      padding:'12px 6px', borderRadius:'var(--radius-sm)',
-                      border:'1.5px solid transparent', background:'transparent',
+                      padding:'11px 6px', borderRadius:'var(--radius-sm)',
+                      border:'1.5px solid var(--border2)',
+                      background:'var(--bg2)',
                       color:'var(--text)', fontSize:13, fontWeight:500,
-                      cursor: taken ? 'default' : 'pointer',
+                      cursor:'pointer',
                       textAlign:'center', lineHeight:1.3,
                       fontFamily:"'Inter',sans-serif", transition:'all 0.15s',
-                      visibility: taken ? 'hidden' : 'visible',
                     }}>
                     {m.full_name?.split(' ')[0]}
-                    {m.id === user.id && <span style={{ display:'block', fontSize:10, opacity:0.6, marginTop:2 }}>you</span>}
+                    {m.id === user.id && <span style={{ display:'block', fontSize:10, color:'var(--text3)', marginTop:2 }}>you</span>}
                   </button>
                 )
               })}

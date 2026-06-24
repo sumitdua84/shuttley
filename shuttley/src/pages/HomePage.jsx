@@ -120,7 +120,6 @@ export default function HomePage() {
   const firstName = profile?.full_name?.split(' ')[0] || user?.email?.split('@')[0] || 'there'
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
-  const todayLabel = new Date().toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long' })
   const modMemberships = memberships.filter(m => m.role === 'moderator')
 
   return (
@@ -128,9 +127,8 @@ export default function HomePage() {
       <div className="topnav">
         <div>
           <div style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontSize: 20, fontWeight: 600, color: 'var(--text)' }}>
-            {greeting}, {firstName} 👋
+            {greeting}, {firstName}
           </div>
-          <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>{todayLabel}</div>
         </div>
       </div>
 
