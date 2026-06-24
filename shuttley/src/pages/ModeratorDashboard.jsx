@@ -20,7 +20,7 @@ export default function ModeratorDashboard() {
   const [disputedMatches, setDisputedMatches] = useState([])
   const [pendingMatches, setPendingMatches] = useState([])
   const [activeSession, setActiveSession] = useState(null)
-  const [tab, setTab] = useState(searchParams.get('tab') || 'home')
+  const [tab, setTab] = useState(searchParams.get('tab') || 'session')
   const [toast, setToast] = useState('')
   const [confirmDialog, confirmModal] = useConfirm()
   const [loading, setLoading] = useState(true)
@@ -72,12 +72,18 @@ export default function ModeratorDashboard() {
   }
 
   useEffect(() => {
-    const t = location.state?.tab || searchParams.get('tab') || 'home'
+    const t = location.state?.tab || searchParams.get('tab') || 'session'
     setTab(t)
     setSearchParams({ tab: t }, { replace: true })
     window.history.replaceState({}, '')
     fetchData()
   }, [clubId])
+
+  // Sync tab when GroupNav changes ?tab= param on the same route
+  useEffect(() => {
+    const t = searchParams.get('tab')
+    if (t) setTab(t)
+  }, [searchParams])
 
   useEffect(() => {
     if (loading) return
@@ -593,22 +599,127 @@ export default function ModeratorDashboard() {
     <div className="page">
       {/* Top nav */}
       <div className="topnav">
-        <button onClick={() => navigate('/groups')} style={{
-          background:'none', border:'none', color:'var(--accent)',
-          fontSize:13, fontWeight:600, cursor:'pointer',
-          display:'flex', alignItems:'center', gap:4, padding:0,
-          fontFamily:"'Inter',sans-serif",
-        }}>← All Groups</button>
-        <div style={{ textAlign:'right' }}>
-          <div style={{ fontFamily:"'Plus Jakarta Sans',sans-serif", fontSize:15, fontWeight:700, color:'var(--text)' }}>{club?.name}</div>
-          <div style={{ fontSize:11, color:'var(--text3)', marginTop:1 }}>Moderator</div>
+        <div>
+          <div style={{ fontFamily:"'Plus Jakarta Sans',sans-serif", fontSize:16, fontWeight:700, color:'var(--text)' }}>{club?.name}</div>
+          <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>Moderator</div>
         </div>
       </div>
 
       {/* Tab content */}
       <div className="content">
 
-        {/* ── HOME ── */}
+        {/* ── SESSION ── */}
+        {tab === 'session' && <>
+
+          {/* Session hero card */}
+          {activeSession ? (
+            <div style={{ background:'var(--accent)', borderRadius:'var(--radius)', padding:'20px', marginBottom:16, color:'#fff' }}>
+              <div style={{ fontSize:11, fontWeight:700, opacity:0.7, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:6 }}>● Live Session</div>
+              <div style={{ fontSize:22, fontWeight:700, marginBottom:16, fontFamily:"'Plus Jakarta Sans',sans-serif" }}>{activeSession.name}</div>
+              <div style={{ display:'flex', gap:8 }}>
+                <button
+                  onClick={() => navigate(`/club/${clubId}/session/${activeSession.id}/rotation`)}
+                  style={{ flex:1, background:'#fff', color:'var(--accent)', border:'none', borderRadius:'var(--radius-sm)', padding:'10px', fontWeight:700, fontSize:13, cursor:'pointer', fontFamily:"'Inter',sans-serif" }}>
+                  View Schedule
+                </button>
+                <button
+                  onClick={endSession}
+                  style={{ background:'rgba(255,255,255,0.15)', color:'#fff', border:'1px solid rgba(255,255,255,0.35)', borderRadius:'var(--radius-sm)', padding:'10px 16px', fontWeight:600, fontSize:13, cursor:'pointer', fontFamily:"'Inter',sans-serif" }}>
+                  End
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div style={{ background:'var(--accent)', borderRadius:'var(--radius)', padding:'20px', marginBottom:16, color:'#fff' }}>
+              <div style={{ fontSize:11, fontWeight:600, opacity:0.65, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:6 }}>Ready to play?</div>
+              <div style={{ fontSize:22, fontWeight:700, marginBottom:6, fontFamily:"'Plus Jakarta Sans',sans-serif" }}>Start a Session</div>
+              <div style={{ fontSize:13, opacity:0.75, marginBottom:16, lineHeight:1.5 }}>Track live matches, scores and court rotations</div>
+              <button
+                onClick={() => { setSelectedPlayerIds([]); setSessionMode('free'); setModalStep(1); setShowStartModal(true) }}
+                style={{ width:'100%', background:'#fff', color:'var(--accent)', border:'none', borderRadius:'var(--radius-sm)', padding:'11px', fontWeight:700, fontSize:14, cursor:'pointer', fontFamily:"'Inter',sans-serif" }}>
+                ▶  Start Session
+              </button>
+            </div>
+          )}
+
+          {/* Pending members alert */}
+          {pending.length > 0 && (
+            <div onClick={() => changeTab('members')} style={{
+              display:'flex', alignItems:'center', gap:12,
+              background:'rgba(255,200,50,0.07)', border:'1px solid rgba(255,200,50,0.3)',
+              borderRadius:'var(--radius)', padding:'14px 16px', marginBottom:12, cursor:'pointer',
+            }}>
+              <div style={{ flex:1 }}>
+                <div style={{ fontSize:14, fontWeight:600, color:'#ffc832' }}>
+                  {pending.length} member{pending.length !== 1 ? 's' : ''} awaiting approval
+                </div>
+                <div style={{ fontSize:12, color:'var(--text3)', marginTop:2 }}>Tap to review in Members</div>
+              </div>
+              <span style={{ color:'var(--text3)', fontSize:18 }}>›</span>
+            </div>
+          )}
+
+          {/* Disputes alert */}
+          {alertCount > 0 && (
+            <div onClick={() => changeTab('sessions')} style={{
+              display:'flex', alignItems:'center', gap:12,
+              background:'rgba(224,85,85,0.06)', border:'1px solid rgba(224,85,85,0.2)',
+              borderRadius:'var(--radius)', padding:'14px 16px', marginBottom:12, cursor:'pointer',
+            }}>
+              <div style={{ flex:1 }}>
+                <div style={{ fontSize:14, fontWeight:600, color:'var(--danger)' }}>
+                  {alertCount} match{alertCount !== 1 ? 'es' : ''} need attention
+                </div>
+                <div style={{ fontSize:12, color:'var(--text3)', marginTop:2 }}>
+                  {[
+                    disputedMatches.length > 0 && `${disputedMatches.length} disputed`,
+                    pendingMatches.length > 0 && `${pendingMatches.length} pending confirmation`,
+                  ].filter(Boolean).join(' · ')}
+                </div>
+              </div>
+              <span style={{ color:'var(--text3)', fontSize:18 }}>›</span>
+            </div>
+          )}
+
+          {/* Past sessions */}
+          {sessions.filter(s => s.status === 'ended').length > 0 && (
+            <div>
+              <div className="section-label">Past sessions</div>
+              {sessions.filter(s => s.status === 'ended').slice(0, 8).map(s => (
+                <div key={s.id} onClick={() => navigate(`/club/${clubId}/session/${s.id}`)}
+                  style={{ display:'flex', alignItems:'center', gap:12, padding:'11px 0', borderBottom:'0.5px solid var(--border)', cursor:'pointer' }}>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:14, fontWeight:500, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{s.name || 'Session'}</div>
+                    <div style={{ fontSize:12, color:'var(--text3)', marginTop:2 }}>
+                      {s.rotation_player_ids?.length > 0 ? `${s.rotation_player_ids.length} players` : s.match_type || '—'}
+                      {s.matches?.[0]?.count > 0 && ` · ${s.matches[0].count} match${s.matches[0].count !== 1 ? 'es' : ''}`}
+                    </div>
+                  </div>
+                  <div style={{ fontSize:12, color:'var(--text3)', flexShrink:0 }}>
+                    {s.ended_at ? new Date(s.ended_at).toLocaleDateString('en-AU', { day:'numeric', month:'short' }) : '—'}
+                  </div>
+                  <span style={{ fontSize:16, color:'var(--text3)', flexShrink:0 }}>›</span>
+                </div>
+              ))}
+              {sessions.filter(s => s.status === 'ended').length > 8 && (
+                <div onClick={() => changeTab('sessions')}
+                  style={{ fontSize:13, color:'var(--accent)', fontWeight:600, textAlign:'center', padding:'14px 0', cursor:'pointer' }}>
+                  View all in Moderator Tools →
+                </div>
+              )}
+            </div>
+          )}
+
+          {sessions.filter(s => s.status === 'ended').length === 0 && !activeSession && (
+            <div className="empty">
+              <div className="empty-icon">🏸</div>
+              <p>No past sessions yet. Start one above!</p>
+            </div>
+          )}
+
+        </>}
+
+        {/* ── HOME (legacy tile dashboard) ── */}
         {tab === 'home' && <>
 
           {/* Session hero card */}
@@ -1340,8 +1451,9 @@ export default function ModeratorDashboard() {
 
       {/* Tab bar */}
       <GroupNav clubId={clubId} isMod={true} activeTab={
-        tab === 'polls' ? 'polls'
+        tab === 'polls'                                                              ? 'polls'
         : tab === 'more' || tab === 'members' || tab === 'sessions' || tab === 'settings' ? 'more'
+        : tab === 'session' || tab === 'home'                                       ? 'session'
         : 'session'
       } />
 

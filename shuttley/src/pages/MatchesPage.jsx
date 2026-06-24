@@ -398,16 +398,10 @@ export default function MatchesPage() {
   return (
     <div className="page">
       <div className="topnav">
-        <button onClick={() => navigate('/groups')} style={{
-          background:'none', border:'none', color:'var(--accent)',
-          fontSize:13, fontWeight:600, cursor:'pointer',
-          display:'flex', alignItems:'center', gap:4, padding:0,
-          fontFamily:"'Inter',sans-serif",
-        }}>← All Groups</button>
-        <div style={{ textAlign:'right' }}>
-          <div style={{ fontFamily:"'Plus Jakarta Sans',sans-serif", fontSize:15, fontWeight:700, color:'var(--text)' }}>{club?.name}</div>
-          <div style={{ fontSize:11, color:'var(--text3)', fontWeight:500 }}>
-            {{ history:'History', leaderboard:'Leaders', stats:'Stats', sessions:'Sessions' }[tab]}
+        <div>
+          <div style={{ fontFamily:"'Plus Jakarta Sans',sans-serif", fontSize:16, fontWeight:700, color:'var(--text)' }}>{club?.name}</div>
+          <div style={{ fontSize:11, color:'var(--text3)', fontWeight:500, marginTop:2 }}>
+            {{ history:'Match History', leaderboard:'Leaderboard', stats:'Player Stats', sessions:'Sessions' }[tab] || 'Stats'}
           </div>
         </div>
       </div>

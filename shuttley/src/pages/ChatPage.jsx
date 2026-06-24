@@ -451,14 +451,13 @@ export default function ChatPage() {
             cursor:'pointer', padding:'0 16px', flexShrink:0 }}>←</button>
         )}
 
-        {/* Back to All Groups (hidden on mobile when in chat panel) */}
-        <button onClick={() => navigate('/groups')} style={{
-          background:'none', border:'none', fontSize:13, fontWeight:600, color:'var(--accent)',
-          cursor:'pointer', padding:'0 16px', flexShrink:0,
-          display: panel === 'chat' ? 'none' : 'flex', alignItems:'center', gap:4,
-          fontFamily:"'Inter',sans-serif" }}>
-          ← All Groups
-        </button>
+        {/* Group name header (hidden on mobile when in chat panel) */}
+        <div style={{
+          display: panel === 'chat' ? 'none' : 'flex', flexDirection:'column',
+          padding:'0 16px', flexShrink:0 }}>
+          <div style={{ fontSize:14, fontWeight:700, color:'var(--text)', fontFamily:"'Plus Jakarta Sans',sans-serif" }}>{club?.name}</div>
+          <div style={{ fontSize:10, color:'var(--text3)' }}>Chat</div>
+        </div>
 
         {/* Center: active conv name (mobile chat) or club name */}
         {panel === 'chat' && activeConv ? (

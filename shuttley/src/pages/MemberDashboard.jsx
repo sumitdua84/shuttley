@@ -23,7 +23,8 @@ export default function MemberDashboard() {
   const [loading, setLoading] = useState(true)
   const [toast, setToast] = useState('')
   const [confirmDialog, confirmModal] = useConfirm()
-  const [tab, setTab] = useState(searchParams.get('tab') || 'home')
+  const [tab, setTab] = useState(searchParams.get('tab') || 'session')
+  const [sessions, setSessions] = useState([])
   const [membersExpanded, setMembersExpanded] = useState(true)
   const [guestsExpanded, setGuestsExpanded] = useState(false)
   const [showStartModal, setShowStartModal] = useState(false)
@@ -65,12 +66,18 @@ export default function MemberDashboard() {
   }
 
   useEffect(() => {
-    const t = location.state?.tab || searchParams.get('tab') || 'home'
+    const t = location.state?.tab || searchParams.get('tab') || 'session'
     setTab(t)
     setSearchParams({ tab: t }, { replace: true })
     window.history.replaceState({}, '')
     fetchData()
   }, [clubId, user])
+
+  // Sync tab when GroupNav changes ?tab= param on the same route
+  useEffect(() => {
+    const t = searchParams.get('tab')
+    if (t) setTab(t)
+  }, [searchParams])
 
   useEffect(() => {
     if (loading) return  // eslint-disable-line
@@ -178,7 +185,7 @@ export default function MemberDashboard() {
       supabase.from('sessions').select('*').eq('club_id', clubId).eq('status', 'active').maybeSingle(),
       supabase.from('matches').select('winner_side, team1_score, team2_score, played_at, match_players(user_id, side, profiles(full_name))').eq('club_id', clubId).eq('status', 'confirmed'),
       supabase.from('sessions').select('*', { count: 'exact', head: true }).eq('club_id', clubId),
-      supabase.from('sessions').select('started_at, rotation_player_ids').eq('club_id', clubId).order('started_at', { ascending: false }),
+      supabase.from('sessions').select('id, name, status, started_at, ended_at, rotation_player_ids').eq('club_id', clubId).order('started_at', { ascending: false }),
       supabase.from('session_polls').select('*, poll_responses(*)').eq('club_id', clubId).eq('status', 'open').gte('session_date', today).order('session_date', { ascending: true }),
       supabase.from('club_features').select('*').eq('club_id', clubId),
     ])
@@ -195,6 +202,7 @@ export default function MemberDashboard() {
     }
 
     setActiveSession(session || null)
+    setSessions((sessDetail || []).filter(s => s.status === 'ended'))
 
     const wm = winMatches || []
     setMatchCount(wm.length)
@@ -564,21 +572,134 @@ export default function MemberDashboard() {
     <div className="page">
       {/* Top nav */}
       <div className="topnav">
-        <button onClick={() => navigate('/groups')} style={{
-          background:'none', border:'none', color:'var(--accent)',
-          fontSize:13, fontWeight:600, cursor:'pointer',
-          display:'flex', alignItems:'center', gap:4, padding:0,
-          fontFamily:"'Inter',sans-serif",
-        }}>← All Groups</button>
-        <div style={{ textAlign:'right' }}>
-          <div style={{ fontFamily:"'Plus Jakarta Sans',sans-serif", fontSize:15, fontWeight:700, color:'var(--text)' }}>{club?.name}</div>
-          <div style={{ fontSize:11, color:'var(--text3)', marginTop:1 }}>Member</div>
+        <div>
+          <div style={{ fontFamily:"'Plus Jakarta Sans',sans-serif", fontSize:16, fontWeight:700, color:'var(--text)' }}>{club?.name}</div>
+          <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>Member</div>
         </div>
       </div>
 
       <div className="content">
 
-        {/* ── HOME ── */}
+        {/* ── SESSION ── */}
+        {tab === 'session' && <>
+
+          {membership?.status === 'pending' && (
+            <div style={{ textAlign:'center', padding:'60px 0' }}>
+              <div style={{ fontSize:48, marginBottom:20 }}>⏳</div>
+              <h2 style={{ fontSize:24, marginBottom:10 }}>Pending approval</h2>
+              <p style={{ color:'var(--text2)', fontSize:14, lineHeight:1.6 }}>
+                Your request to join <strong>{club?.name}</strong> is waiting for the moderator to approve you.
+              </p>
+            </div>
+          )}
+
+          {membership?.status === 'rejected' && (
+            <div style={{ textAlign:'center', padding:'60px 0' }}>
+              <div style={{ fontSize:48, marginBottom:20 }}>❌</div>
+              <h2 style={{ fontSize:24, marginBottom:10 }}>Request declined</h2>
+              <p style={{ color:'var(--text2)', fontSize:14 }}>Your request to join was not approved.</p>
+              <button className="btn btn-ghost" style={{ marginTop:24 }} onClick={() => navigate('/')}>Go back home</button>
+            </div>
+          )}
+
+          {membership?.status === 'approved' && <>
+
+            {/* Pending match confirmations */}
+            {pendingMatches.length > 0 && (
+              <div style={{
+                background:'rgba(255,200,50,0.07)', border:'1px solid rgba(255,200,50,0.3)',
+                borderRadius:'var(--radius)', padding:'14px 16px', marginBottom:16,
+              }}>
+                <div style={{ fontSize:11, color:'#ffc832', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:10 }}>
+                  ⏳ {pendingMatches.length} match{pendingMatches.length !== 1 ? 'es' : ''} awaiting your confirmation
+                </div>
+                {pendingMatches.slice(0, 1).map(match => {
+                  const team1Won = match.winner_side === 'team1'
+                  return (
+                    <div key={match.id}>
+                      <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10 }}>
+                        <div style={{ flex:1, fontSize:13, fontWeight: team1Won ? 600 : 400 }}>{getTeamNames(match, 'team1')}</div>
+                        <div style={{ fontFamily:'monospace', fontSize:18, fontWeight:700, color:'var(--text)' }}>{match.team1_score}–{match.team2_score}</div>
+                        <div style={{ flex:1, textAlign:'right', fontSize:13, fontWeight: !team1Won ? 600 : 400 }}>{getTeamNames(match, 'team2')}</div>
+                      </div>
+                      <div style={{ display:'flex', gap:8 }}>
+                        <button className="btn btn-primary btn-sm" style={{ flex:1 }} onClick={() => confirmMatch(match.id)}>✔ Confirm</button>
+                        <button className="btn btn-danger btn-sm" style={{ flex:1 }} onClick={() => disputeMatch(match.id)}>✕ Dispute</button>
+                      </div>
+                    </div>
+                  )
+                })}
+                {pendingMatches.length > 1 && (
+                  <div style={{ fontSize:12, color:'var(--text3)', marginTop:8, textAlign:'center' }}>
+                    +{pendingMatches.length - 1} more pending
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Session hero */}
+            {activeSession ? (
+              <div style={{ background:'var(--accent)', borderRadius:'var(--radius)', padding:'20px', marginBottom:16, color:'#fff' }}>
+                <div style={{ fontSize:11, fontWeight:700, opacity:0.7, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:6 }}>● Live Session</div>
+                <div style={{ fontSize:22, fontWeight:700, marginBottom:16, fontFamily:"'Plus Jakarta Sans',sans-serif" }}>{activeSession.name}</div>
+                <button
+                  onClick={() => navigate(`/club/${clubId}/session/${activeSession.id}/rotation`)}
+                  style={{ width:'100%', background:'#fff', color:'var(--accent)', border:'none', borderRadius:'var(--radius-sm)', padding:'11px', fontWeight:700, fontSize:14, cursor:'pointer', fontFamily:"'Inter',sans-serif" }}>
+                  View Schedule →
+                </button>
+              </div>
+            ) : (
+              <div style={{ background:'var(--accent)', borderRadius:'var(--radius)', padding:'20px', marginBottom:16, color:'#fff' }}>
+                <div style={{ fontSize:11, fontWeight:600, opacity:0.65, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:6 }}>Ready to play?</div>
+                <div style={{ fontSize:22, fontWeight:700, marginBottom:6, fontFamily:"'Plus Jakarta Sans',sans-serif" }}>Start a Session</div>
+                <div style={{ fontSize:13, opacity:0.75, marginBottom:16, lineHeight:1.5 }}>Track live matches, scores and court rotations</div>
+                <button
+                  onClick={() => { setSelectedPlayerIds([]); setSessionMode('free'); setModalStep(1); setShowStartModal(true) }}
+                  style={{ width:'100%', background:'#fff', color:'var(--accent)', border:'none', borderRadius:'var(--radius-sm)', padding:'11px', fontWeight:700, fontSize:14, cursor:'pointer', fontFamily:"'Inter',sans-serif" }}>
+                  ▶  Start Session
+                </button>
+              </div>
+            )}
+
+            {/* Past sessions */}
+            {sessions.length > 0 && (
+              <div>
+                <div className="section-label">Past sessions</div>
+                {sessions.slice(0, 8).map(s => (
+                  <div key={s.id} onClick={() => navigate(`/club/${clubId}/session/${s.id}`)}
+                    style={{ display:'flex', alignItems:'center', gap:12, padding:'11px 0', borderBottom:'0.5px solid var(--border)', cursor:'pointer' }}>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontSize:14, fontWeight:500, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{s.name || 'Session'}</div>
+                      <div style={{ fontSize:12, color:'var(--text3)', marginTop:2 }}>
+                        {s.rotation_player_ids?.length > 0 ? `${s.rotation_player_ids.length} players` : '—'}
+                      </div>
+                    </div>
+                    <div style={{ fontSize:12, color:'var(--text3)', flexShrink:0 }}>
+                      {s.ended_at ? new Date(s.ended_at).toLocaleDateString('en-AU', { day:'numeric', month:'short' }) : '—'}
+                    </div>
+                    <span style={{ fontSize:16, color:'var(--text3)', flexShrink:0 }}>›</span>
+                  </div>
+                ))}
+                {sessions.length > 8 && (
+                  <div onClick={() => navigate(`/club/${clubId}/matches?tab=sessions`)}
+                    style={{ fontSize:13, color:'var(--accent)', fontWeight:600, textAlign:'center', padding:'14px 0', cursor:'pointer' }}>
+                    View all {sessions.length} sessions →
+                  </div>
+                )}
+              </div>
+            )}
+
+            {sessions.length === 0 && !activeSession && (
+              <div className="empty">
+                <div className="empty-icon">🏸</div>
+                <p>No past sessions yet.</p>
+              </div>
+            )}
+
+          </>}
+        </>}
+
+        {/* ── HOME (legacy — tiles dashboard) ── */}
         {tab === 'home' && <>
 
           {membership?.status === 'pending' && (
@@ -1063,8 +1184,9 @@ export default function MemberDashboard() {
       </div>
 
       <GroupNav clubId={clubId} isMod={false} activeTab={
-        tab === 'polls' ? 'polls'
-        : tab === 'more' || tab === 'members' ? 'more'
+        tab === 'polls'                          ? 'polls'
+        : tab === 'more' || tab === 'members'    ? 'more'
+        : tab === 'session' || tab === 'home'    ? 'session'
         : 'session'
       } />
 
