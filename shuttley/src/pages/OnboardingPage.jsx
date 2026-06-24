@@ -572,7 +572,7 @@ export default function OnboardingPage() {
 
       {toast && <div className="toast">{toast}</div>}
 
-      <BottomNav clubId={null} activeTab="clubs" />
+      <BottomNav clubId={null} activeTab="groups" />
 
       {fabOpen && (
         <div onClick={() => setFabOpen(false)} style={{

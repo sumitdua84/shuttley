@@ -8,7 +8,9 @@ import './index.css'
 
 const LoginPage = lazy(() => import('./pages/LoginPage'))
 const AuthCallback = lazy(() => import('./pages/AuthCallback'))
+const HomePage = lazy(() => import('./pages/HomePage'))
 const OnboardingPage = lazy(() => import('./pages/OnboardingPage'))
+const SessionPage = lazy(() => import('./pages/SessionPage'))
 const MemberDashboard = lazy(() => import('./pages/MemberDashboard'))
 const ModeratorDashboard = lazy(() => import('./pages/ModeratorDashboard'))
 const ClubPage = lazy(() => import('./pages/ClubPage'))
@@ -80,7 +82,9 @@ function AppRoutes() {
             <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/login" element={!user ? <LoginPage /> : <Navigate to="/" />} />
             <Route path="/join/:inviteCode" element={<JoinClub />} />
-            <Route path="/" element={user ? <OnboardingPage /> : <Navigate to="/login" />} />
+            <Route path="/" element={user ? <HomePage /> : <Navigate to="/login" />} />
+            <Route path="/groups" element={user ? <OnboardingPage /> : <Navigate to="/login" />} />
+            <Route path="/session" element={user ? <SessionPage /> : <Navigate to="/login" />} />
             <Route path="/club/:clubId" element={user ? <ClubPage /> : <Navigate to="/login" />} />
             <Route path="/club/:clubId/member" element={user ? <MemberDashboard /> : <Navigate to="/login" />} />
             <Route path="/club/:clubId/mod" element={user ? <ModeratorDashboard /> : <Navigate to="/login" />} />
