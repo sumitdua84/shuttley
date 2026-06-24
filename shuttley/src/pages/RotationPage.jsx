@@ -378,12 +378,61 @@ export default function RotationPage() {
         {/* Match list — paginated rounds */}
         {rotationMatches.length === 0 ? (
           <div>
-            {/* Header + Record button */}
-            <div style={{ padding:'8px 0 20px' }}>
+            {/* Free Play header + players */}
+            <div style={{ padding:'8px 0 16px' }}>
               <div style={{ fontSize:16, fontWeight:700, marginBottom:4, color:'var(--text)' }}>Free Play</div>
-              <div style={{ fontSize:13, color:'var(--text2)', marginBottom:20 }}>
+              <div style={{ fontSize:13, color:'var(--text2)', marginBottom:16 }}>
                 Record matches as you play them.
               </div>
+
+              {/* Available players */}
+              {currentPlayers.length > 0 && (
+                <div style={{ marginBottom:12 }}>
+                  <div style={{ fontSize:11, fontWeight:700, textTransform:'uppercase', color:'#2a8c55', letterSpacing:'0.06em', marginBottom:8 }}>
+                    Available · {currentPlayers.length}
+                  </div>
+                  <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+                    {currentPlayers.map(id => (
+                      <div key={id} style={{
+                        display:'flex', alignItems:'center', gap:5,
+                        background:'rgba(42,140,85,0.08)', border:'1px solid rgba(42,140,85,0.25)',
+                        borderRadius:99, padding:'5px 10px', fontSize:13, color:'var(--text)',
+                      }}>
+                        <span>{shortName(id)}</span>
+                        {isModerator && isActive && (
+                          <button onClick={() => toggleSessionPlayer(id)} style={{
+                            background:'none', border:'none', color:'#2a8c55',
+                            cursor:'pointer', fontSize:11, padding:0, lineHeight:1, marginTop:1
+                          }}>✕</button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Not Available players */}
+              {isModerator && isActive && availableToAdd.length > 0 && (
+                <div style={{ marginBottom:16 }}>
+                  <div style={{ fontSize:11, fontWeight:700, textTransform:'uppercase', color:'var(--text3)', letterSpacing:'0.06em', marginBottom:8 }}>
+                    Not Available · {availableToAdd.length}
+                  </div>
+                  <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+                    {availableToAdd.map(p => (
+                      <button key={p.id} onClick={() => toggleSessionPlayer(p.id)} style={{
+                        display:'flex', alignItems:'center', gap:4,
+                        background:'var(--bg3)', border:'1px dashed var(--border2)',
+                        borderRadius:99, padding:'5px 10px', fontSize:13, color:'var(--text2)',
+                        cursor:'pointer', fontFamily:"'Inter',sans-serif",
+                      }}>
+                        <span style={{ fontSize:10, color:'var(--accent)', fontWeight:700 }}>+</span>
+                        <span>{p.full_name?.split(' ')[0]}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {isActive && (
                 <button className="btn btn-primary" onClick={() => navigate(`/club/${clubId}/record`, { state: { returnTo: `/club/${clubId}/session/${sessionId}/rotation`, matchType: session.match_type, isMod: isModerator } })}>
                   + Record a Match

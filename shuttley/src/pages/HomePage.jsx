@@ -12,7 +12,7 @@ export default function HomePage() {
   const [memberships, setMemberships] = useState([])
   const [activePolls, setActivePolls] = useState([])
   const [myStats, setMyStats] = useState(null)
-  const [liveSession, setLiveSession] = useState(null)
+  const [liveSessions, setLiveSessions] = useState([])
   const [pendingMemberCount, setPendingMemberCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [toast, setToast] = useState('')
@@ -40,14 +40,17 @@ export default function HomePage() {
     const now = new Date()
     const today = now.toISOString().split('T')[0]
 
-    const [{ data: pollData }, { data: liveSess }, pendingResult] = await Promise.all([
+    const [{ data: pollData }, { data: liveData }, pendingResult] = await Promise.all([
       supabase.from('session_polls')
         .select('id, club_id, session_date, session_time, notes, poll_responses(user_id)')
-        .in('club_id', clubIds).eq('status', 'open').gte('session_date', today)
-        .order('session_date', { ascending: true }),
+        .in('club_id', clubIds)
+        .eq('status', 'open')
+        .or(`session_date.gte.${today},session_date.is.null`)
+        .order('session_date', { ascending: true, nullsFirst: false }),
       supabase.from('sessions')
         .select('id, name, club_id, started_at, match_type')
-        .in('club_id', clubIds).eq('status', 'active').maybeSingle(),
+        .in('club_id', clubIds)
+        .eq('status', 'active'),
       modClubIds.length > 0
         ? supabase.from('memberships')
             .select('*', { count: 'exact', head: true })
@@ -56,30 +59,30 @@ export default function HomePage() {
     ])
 
     if (pollData) {
-      // Filter out polls where session_date is today but session_time has already passed
       const relevant = pollData.filter(p => {
+        if (!p.session_date) return true // custom polls always relevant
         if (p.session_date > today) return true
         if (!p.session_time) return true
-        // session_date === today — check if time hasn't passed yet
         const [h, m] = p.session_time.split(':').map(Number)
         const sessionMs = h * 60 + m
         const nowMs = now.getHours() * 60 + now.getMinutes()
         return nowMs < sessionMs
       })
-      // Keep only polls the user hasn't yet answered
       const unanswered = relevant.filter(p =>
         !p.poll_responses?.find(r => r.user_id === user.id)
       )
       setActivePolls(unanswered.map(p => ({ ...p, clubName: clubNameMap[p.club_id] })))
     }
 
-    if (liveSess) {
-      const mem = memList.find(m => m.club_id === liveSess.club_id)
-      setLiveSession({
-        ...liveSess,
-        clubName: clubNameMap[liveSess.club_id],
-        isMod: mem?.role === 'moderator',
-      })
+    if (liveData && liveData.length > 0) {
+      setLiveSessions(liveData.map(s => {
+        const mem = memList.find(m => m.club_id === s.club_id)
+        return {
+          ...s,
+          clubName: clubNameMap[s.club_id],
+          isMod: mem?.role === 'moderator',
+        }
+      }))
     }
 
     setPendingMemberCount(pendingResult.count || 0)
@@ -95,7 +98,8 @@ export default function HomePage() {
 
     const { data: matchRows } = await supabase
       .from('matches').select('id, winner_side, played_at')
-      .in('id', mpRows.map(r => r.match_id)).eq('status', 'confirmed')
+      .in('id', mpRows.map(r => r.match_id))
+      .in('status', ['confirmed', 'pending'])
     if (!matchRows?.length) { setMyStats({ wins: 0, losses: 0, total: 0, pct: 0, form: [] }); return }
 
     const sideMap = Object.fromEntries(mpRows.map(r => [r.match_id, r.side]))
@@ -115,6 +119,21 @@ export default function HomePage() {
     return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-AU', {
       weekday: 'short', day: 'numeric', month: 'short',
     })
+  }
+
+  function getPollTitle(poll) {
+    if (poll.session_date) {
+      return `Coming ${formatPollDate(poll.session_date)}?`
+    }
+    // Custom poll — try to parse JSON notes
+    if (poll.notes) {
+      try {
+        const parsed = JSON.parse(poll.notes)
+        if (parsed.q) return parsed.q
+      } catch {}
+      return poll.notes.split('\n')[0] || 'Poll'
+    }
+    return 'Custom Poll'
   }
 
   const firstName = profile?.full_name?.split(' ')[0] || user?.email?.split('@')[0] || 'there'
@@ -137,7 +156,46 @@ export default function HomePage() {
           <div style={{ color: 'var(--text3)', fontSize: 14, padding: '20px 0' }}>Loading…</div>
         ) : <>
 
-          {/* ── 1. My Performance ── */}
+          {/* ── 1. Session in Progress (TOP PRIORITY) ── */}
+          {liveSessions.length > 0 && (
+            <div style={{ marginBottom: 20 }}>
+              {liveSessions.map(sess => (
+                <div key={sess.id} style={{
+                  background: 'var(--accent)', borderRadius: 'var(--radius)',
+                  padding: '16px 18px', marginBottom: 8, color: '#fff',
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+                }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, opacity: 0.75, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>
+                      ● Session in Progress
+                    </div>
+                    <div style={{ fontSize: 14, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {sess.name}
+                    </div>
+                    {sess.clubName && (
+                      <div style={{ fontSize: 11, opacity: 0.75, marginTop: 2 }}>{sess.clubName}</div>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => navigate(
+                      sess.isMod
+                        ? `/club/${sess.club_id}/session/${sess.id}/rotation`
+                        : `/club/${sess.club_id}/member?tab=session`
+                    )}
+                    style={{
+                      background: '#fff', color: 'var(--accent)', border: 'none',
+                      borderRadius: 'var(--radius-sm)', padding: '8px 14px',
+                      fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: "'Inter',sans-serif",
+                      flexShrink: 0, whiteSpace: 'nowrap',
+                    }}>
+                    Open Session →
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* ── 2. My Performance ── */}
           {myStats && myStats.total > 0 && (
             <div style={{ marginBottom: 20 }}>
               <div className="section-label">My performance</div>
@@ -179,25 +237,27 @@ export default function HomePage() {
             </div>
           )}
 
-          {/* ── 2. Upcoming / Active Group Polls ── */}
+          {/* ── 3. Upcoming / Active Group Polls ── */}
           {activePolls.length > 0 && (
             <div style={{ marginBottom: 20 }}>
-              <div className="section-label">Upcoming polls</div>
+              <div className="section-label">Polls needing your response</div>
               {activePolls.map(poll => {
                 const mem = memberships.find(m => m.club_id === poll.club_id)
                 const isMod = mem?.role === 'moderator'
+                const title = getPollTitle(poll)
                 return (
                   <div key={poll.id}
                     onClick={() => navigate(isMod ? `/club/${poll.club_id}/mod?tab=polls` : `/club/${poll.club_id}/member?tab=polls`)}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 12,
                       background: 'var(--bg2)', border: '0.5px solid var(--border)',
-                      borderLeft: '4px solid #256575',
+                      borderLeft: `4px solid ${!poll.session_date ? 'var(--accent)' : '#256575'}`,
                       borderRadius: 'var(--radius)', padding: '12px 14px', marginBottom: 8, cursor: 'pointer',
                     }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>
-                        {formatPollDate(poll.session_date)}{poll.session_time ? ` · ${poll.session_time.slice(0,5)}` : ''}
+                        {title}
+                        {poll.session_date && poll.session_time ? ` · ${poll.session_time.slice(0, 5)}` : ''}
                       </div>
                       <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
                         {poll.clubName} · Tap to respond
@@ -210,70 +270,33 @@ export default function HomePage() {
             </div>
           )}
 
-          {/* ── 3. Alerts / Attention ── */}
-          {(liveSession || pendingMemberCount > 0) && (
+          {/* ── 4. Alerts ── */}
+          {pendingMemberCount > 0 && (
             <div style={{ marginBottom: 20 }}>
               <div className="section-label">Needs attention</div>
-
-              {/* Live session */}
-              {liveSession && (
-                <div style={{
-                  background: 'var(--accent)', borderRadius: 'var(--radius)',
-                  padding: '14px 16px', marginBottom: 8, color: '#fff',
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+              <div
+                onClick={() => {
+                  if (modMemberships.length === 1) navigate(`/club/${modMemberships[0].club_id}/mod?tab=more`)
+                  else navigate('/groups')
+                }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 12,
+                  background: 'rgba(255,200,50,0.07)', border: '1px solid rgba(255,200,50,0.3)',
+                  borderRadius: 'var(--radius)', padding: '12px 14px', marginBottom: 8, cursor: 'pointer',
                 }}>
-                  <div>
-                    <div style={{ fontSize: 10, fontWeight: 600, opacity: 0.75, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>
-                      ● Live Session
-                    </div>
-                    <div style={{ fontSize: 14, fontWeight: 600 }}>{liveSession.name}</div>
-                    {liveSession.clubName && (
-                      <div style={{ fontSize: 11, opacity: 0.75, marginTop: 2 }}>{liveSession.clubName}</div>
-                    )}
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#ffc832' }}>
+                    {pendingMemberCount} pending approval{pendingMemberCount !== 1 ? 's' : ''}
                   </div>
-                  <button
-                    onClick={() => navigate(
-                      liveSession.isMod
-                        ? `/club/${liveSession.club_id}/session/${liveSession.id}/rotation`
-                        : `/club/${liveSession.club_id}/member`
-                    )}
-                    style={{
-                      background: '#fff', color: 'var(--accent)', border: 'none',
-                      borderRadius: 'var(--radius-sm)', padding: '8px 16px',
-                      fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: "'Inter',sans-serif",
-                      flexShrink: 0,
-                    }}>
-                    Continue →
-                  </button>
+                  <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>Tap to review in your group</div>
                 </div>
-              )}
-
-              {/* Pending approvals */}
-              {pendingMemberCount > 0 && (
-                <div
-                  onClick={() => {
-                    if (modMemberships.length === 1) navigate(`/club/${modMemberships[0].club_id}/mod?tab=more`)
-                    else navigate('/groups')
-                  }}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 12,
-                    background: 'rgba(255,200,50,0.07)', border: '1px solid rgba(255,200,50,0.3)',
-                    borderRadius: 'var(--radius)', padding: '12px 14px', marginBottom: 8, cursor: 'pointer',
-                  }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: '#ffc832' }}>
-                      {pendingMemberCount} pending approval{pendingMemberCount !== 1 ? 's' : ''}
-                    </div>
-                    <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>Tap to review in your group</div>
-                  </div>
-                  <span style={{ fontSize: 18, color: 'var(--text3)', flexShrink: 0 }}>›</span>
-                </div>
-              )}
+                <span style={{ fontSize: 18, color: 'var(--text3)', flexShrink: 0 }}>›</span>
+              </div>
             </div>
           )}
 
-          {/* Empty state — no data yet */}
-          {(!myStats || myStats.total === 0) && activePolls.length === 0 && !liveSession && pendingMemberCount === 0 && (
+          {/* Empty state */}
+          {(!myStats || myStats.total === 0) && activePolls.length === 0 && liveSessions.length === 0 && pendingMemberCount === 0 && (
             <div className="empty">
               <div className="empty-icon">🏸</div>
               <p>Welcome! Tap <strong>Groups</strong> below to join or create a group and start playing.</p>

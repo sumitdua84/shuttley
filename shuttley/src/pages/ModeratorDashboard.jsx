@@ -46,6 +46,7 @@ export default function ModeratorDashboard() {
   const [showCustomPollModal, setShowCustomPollModal] = useState(false)
   const [customPollQ, setCustomPollQ] = useState('')
   const [customPollNotes, setCustomPollNotes] = useState('')
+  const [customPollOptions, setCustomPollOptions] = useState(['', ''])
   const [creatingCustomPoll, setCreatingCustomPoll] = useState(false)
   const [pollDate, setPollDate] = useState('')
   const [pollStartH, setPollStartH] = useState('')
@@ -406,10 +407,25 @@ export default function ModeratorDashboard() {
   async function createCustomPoll() {
     if (!customPollQ.trim()) return
     setCreatingCustomPoll(true)
+
+    const filledOpts = customPollOptions.map(o => o.trim()).filter(Boolean)
+    let notesContent
+    if (filledOpts.length >= 2) {
+      // Custom options mode — store as JSON
+      notesContent = JSON.stringify({
+        q: customPollQ.trim(),
+        opts: filledOpts,
+        ...(customPollNotes.trim() ? { note: customPollNotes.trim() } : {}),
+      })
+    } else {
+      // Legacy plain-text mode (Yes/No/Maybe)
+      notesContent = customPollQ.trim() + (customPollNotes.trim() ? '\n' + customPollNotes.trim() : '')
+    }
+
     const { error } = await supabase.from('session_polls').insert({
       club_id: clubId, created_by: user.id,
       session_date: null,
-      notes: customPollQ.trim() + (customPollNotes.trim() ? '\n' + customPollNotes.trim() : ''),
+      notes: notesContent,
     })
     if (!error) {
       const memberUserIds = members.filter(m => m.status === 'approved').map(m => m.user_id)
@@ -421,12 +437,33 @@ export default function ModeratorDashboard() {
     setShowCustomPollModal(false)
     setCustomPollQ('')
     setCustomPollNotes('')
+    setCustomPollOptions(['', ''])
     fetchData()
+  }
+
+  function startSessionFromPoll(poll) {
+    const yesVoters = poll.poll_responses
+      ?.filter(r => r.response === 'yes')
+      .map(r => r.user_id) || []
+    setSelectedPlayerIds(yesVoters)
+    setSessionMode('free')
+    setModalStep(2)
+    setShowStartModal(true)
   }
 
   function formatPollDate(dateStr) {
     const d = new Date(dateStr + 'T00:00:00')
     return d.toLocaleDateString('en-AU', { weekday:'short', day:'numeric', month:'short' })
+  }
+
+  function parseCustomPollNotes(notes) {
+    if (!notes) return { question: '', options: null, note: null }
+    try {
+      const p = JSON.parse(notes)
+      if (p.q) return { question: p.q, options: Array.isArray(p.opts) && p.opts.length >= 2 ? p.opts : null, note: p.note || null }
+    } catch {}
+    const parts = notes.split('\n')
+    return { question: parts[0], options: null, note: parts.slice(1).join('\n') || null }
   }
 
   async function updatePollResponse(pollId, response) {
@@ -981,7 +1018,7 @@ export default function ModeratorDashboard() {
               }}>
                 + Session Poll
               </button>
-              <button onClick={() => { setCustomPollQ(''); setCustomPollNotes(''); setShowCustomPollModal(true) }} style={{
+              <button onClick={() => { setCustomPollQ(''); setCustomPollNotes(''); setCustomPollOptions(['', '']); setShowCustomPollModal(true) }} style={{
                 flex:1, padding:'11px',
                 background:'transparent', border:'1.5px dashed var(--border2)',
                 borderRadius:'var(--radius)', color:'var(--accent)',
@@ -998,29 +1035,51 @@ export default function ModeratorDashboard() {
             ) : activePolls.map(poll => {
               const responseMap = {}
               poll.poll_responses?.forEach(r => { responseMap[r.user_id] = r.response })
-              const yes   = poll.poll_responses?.filter(r => r.response === 'yes').length   || 0
-              const no    = poll.poll_responses?.filter(r => r.response === 'no').length    || 0
-              const maybe = poll.poll_responses?.filter(r => r.response === 'maybe').length || 0
               const isCustom = !poll.session_date
               const dateLabel = isCustom ? null : formatPollDate(poll.session_date)
+              const parsedCustom = isCustom ? parseCustomPollNotes(poll.notes) : null
+              const hasCustomOpts = !!parsedCustom?.options
               const myResp = poll.poll_responses?.find(r => r.user_id === user.id)?.response
               const regularMembers = approved.filter(m => !m.is_guest)
               const pendingCount = regularMembers.filter(m => !responseMap[m.user_id]).length
               const isExpanded = !!expandedPolls[poll.id]
+
+              // Vote counts (standard or custom options)
+              const yes   = poll.poll_responses?.filter(r => r.response === 'yes').length   || 0
+              const no    = poll.poll_responses?.filter(r => r.response === 'no').length    || 0
+              const maybe = poll.poll_responses?.filter(r => r.response === 'maybe').length || 0
+              const optionCounts = hasCustomOpts
+                ? Object.fromEntries(parsedCustom.options.map(opt => [
+                    opt, poll.poll_responses?.filter(r => r.response === opt).length || 0
+                  ]))
+                : null
+
+              // Response options to render
+              const standardOpts = [
+                { key:'yes',   label:'Yes',   color:'#2a8c55', bg:'rgba(42,140,85,0.1)',  border:'rgba(42,140,85,0.3)'  },
+                { key:'no',    label:'No',    color:'#e05555', bg:'rgba(224,85,85,0.1)',  border:'rgba(224,85,85,0.3)'  },
+                { key:'maybe', label:'Maybe', color:'#a07800', bg:'rgba(255,200,50,0.1)', border:'rgba(220,175,20,0.3)' },
+              ]
+
               return (
                 <div key={poll.id} style={{
                   background:'var(--bg2)', border:'1px solid var(--border)',
                   borderLeft:`4px solid ${isCustom ? 'var(--accent)' : '#b04400'}`,
                   borderRadius:'var(--radius)', marginBottom:10, overflow:'hidden',
                 }}>
-                  {/* ── Collapsed header (always visible, tap to expand) ── */}
+                  {/* ── Collapsed header ── */}
                   <div onClick={() => setExpandedPolls(prev => ({ ...prev, [poll.id]: !prev[poll.id] }))}
                     style={{ padding:'13px 14px', cursor:'pointer', display:'flex', alignItems:'flex-start', gap:8 }}>
                     <div style={{ flex:1 }}>
                       {isCustom ? (
-                        <div style={{ fontSize:14, fontWeight:700, marginBottom:7 }}>
-                          {poll.notes?.split('\n')[0] || 'Custom Poll'}
-                        </div>
+                        <>
+                          <div style={{ fontSize:14, fontWeight:700, marginBottom: parsedCustom?.note ? 2 : 7 }}>
+                            {parsedCustom?.question || 'Custom Poll'}
+                          </div>
+                          {parsedCustom?.note && (
+                            <div style={{ fontSize:11, color:'var(--text3)', marginBottom:7 }}>{parsedCustom.note}</div>
+                          )}
+                        </>
                       ) : (
                         <>
                           <div style={{ fontSize:14, fontWeight:700, marginBottom: poll.session_time ? 2 : 7 }}>
@@ -1035,9 +1094,19 @@ export default function ModeratorDashboard() {
                         </>
                       )}
                       <div style={{ display:'flex', gap:5, flexWrap:'wrap' }}>
-                        <span style={{ padding:'2px 9px', borderRadius:99, fontSize:11, fontWeight:700, background:'rgba(42,140,85,0.1)', color:'#2a8c55' }}>{yes} Yes</span>
-                        <span style={{ padding:'2px 9px', borderRadius:99, fontSize:11, fontWeight:700, background:'rgba(224,85,85,0.1)', color:'#e05555' }}>{no} No</span>
-                        {maybe > 0 && <span style={{ padding:'2px 9px', borderRadius:99, fontSize:11, fontWeight:700, background:'rgba(255,200,50,0.1)', color:'#a07800' }}>{maybe} Maybe</span>}
+                        {hasCustomOpts ? (
+                          parsedCustom.options.map(opt => (
+                            <span key={opt} style={{ padding:'2px 9px', borderRadius:99, fontSize:11, fontWeight:700, background:'rgba(122,164,196,0.12)', color:'var(--accent)' }}>
+                              {optionCounts[opt]} · {opt}
+                            </span>
+                          ))
+                        ) : (
+                          <>
+                            <span style={{ padding:'2px 9px', borderRadius:99, fontSize:11, fontWeight:700, background:'rgba(42,140,85,0.1)', color:'#2a8c55' }}>{yes} Yes</span>
+                            <span style={{ padding:'2px 9px', borderRadius:99, fontSize:11, fontWeight:700, background:'rgba(224,85,85,0.1)', color:'#e05555' }}>{no} No</span>
+                            {maybe > 0 && <span style={{ padding:'2px 9px', borderRadius:99, fontSize:11, fontWeight:700, background:'rgba(255,200,50,0.1)', color:'#a07800' }}>{maybe} Maybe</span>}
+                          </>
+                        )}
                         {pendingCount > 0 && <span style={{ padding:'2px 9px', borderRadius:99, fontSize:11, fontWeight:600, background:'var(--bg3)', color:'var(--text3)' }}>{pendingCount} Pending</span>}
                       </div>
                     </div>
@@ -1047,51 +1116,65 @@ export default function ModeratorDashboard() {
                   {/* ── Expanded body ── */}
                   {isExpanded && (
                     <div style={{ padding:'12px 14px 16px', borderTop:'0.5px solid var(--border)' }}>
+
                       {/* Your response */}
                       <div style={{ fontSize:11, color:'var(--text3)', marginBottom:6, textTransform:'uppercase', fontWeight:700, letterSpacing:'0.07em' }}>
                         {myResp ? 'Update your response' : 'Your response'}
                       </div>
-                      <div style={{ display:'flex', gap:8, marginBottom:16 }}>
-                        {[
-                          { key:'yes',   label:'Yes',   color:'#2a8c55', bg:'rgba(42,140,85,0.1)',  border:'rgba(42,140,85,0.3)'  },
-                          { key:'no',    label:'No',    color:'#e05555', bg:'rgba(224,85,85,0.1)',  border:'rgba(224,85,85,0.3)'  },
-                          { key:'maybe', label:'Maybe', color:'#a07800', bg:'rgba(255,200,50,0.1)', border:'rgba(220,175,20,0.3)' },
-                        ].map(opt => (
-                          <button key={opt.key} onClick={() => updatePollResponse(poll.id, opt.key)} style={{
-                            flex:1, padding:'9px 4px', borderRadius:'var(--radius-sm)',
-                            fontSize:13, fontWeight: myResp === opt.key ? 700 : 500,
-                            cursor:'pointer', fontFamily:"'Inter',sans-serif",
-                            background: myResp === opt.key ? opt.bg : 'transparent',
-                            color: myResp === opt.key ? opt.color : 'var(--text2)',
-                            border: `1.5px solid ${myResp === opt.key ? opt.border : 'var(--border)'}`,
-                            transition:'all 0.15s ease',
-                          }}>{opt.label}</button>
-                        ))}
-                      </div>
+                      {hasCustomOpts ? (
+                        <div style={{ display:'flex', flexDirection:'column', gap:6, marginBottom:16 }}>
+                          {parsedCustom.options.map(opt => (
+                            <button key={opt} onClick={() => updatePollResponse(poll.id, opt)} style={{
+                              padding:'9px 14px', borderRadius:'var(--radius-sm)', textAlign:'left',
+                              fontSize:13, fontWeight: myResp === opt ? 700 : 500,
+                              cursor:'pointer', fontFamily:"'Inter',sans-serif",
+                              background: myResp === opt ? 'rgba(122,164,196,0.15)' : 'transparent',
+                              color: myResp === opt ? 'var(--accent)' : 'var(--text2)',
+                              border: `1.5px solid ${myResp === opt ? 'var(--accent)' : 'var(--border)'}`,
+                              transition:'all 0.15s ease',
+                              display:'flex', alignItems:'center', justifyContent:'space-between',
+                            }}>
+                              <span>{opt}</span>
+                              {myResp === opt && <span style={{ fontSize:11 }}>✓</span>}
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <div style={{ display:'flex', gap:8, marginBottom:16 }}>
+                          {standardOpts.map(opt => (
+                            <button key={opt.key} onClick={() => updatePollResponse(poll.id, opt.key)} style={{
+                              flex:1, padding:'9px 4px', borderRadius:'var(--radius-sm)',
+                              fontSize:13, fontWeight: myResp === opt.key ? 700 : 500,
+                              cursor:'pointer', fontFamily:"'Inter',sans-serif",
+                              background: myResp === opt.key ? opt.bg : 'transparent',
+                              color: myResp === opt.key ? opt.color : 'var(--text2)',
+                              border: `1.5px solid ${myResp === opt.key ? opt.border : 'var(--border)'}`,
+                              transition:'all 0.15s ease',
+                            }}>{opt.label}</button>
+                          ))}
+                        </div>
+                      )}
 
                       {/* Grouped responses */}
-                      {[
-                        { key:'yes',   label:'Yes',            color:'#2a8c55', bg:'rgba(42,140,85,0.1)'  },
-                        { key:'no',    label:'No',             color:'#e05555', bg:'rgba(224,85,85,0.1)'  },
-                        { key:'maybe', label:'Maybe',          color:'#a07800', bg:'rgba(255,200,50,0.1)' },
-                        { key:null,    label:"Didn't respond", color:'var(--text3)', bg:'var(--bg3)'       },
-                      ].map(group => {
-                        const groupMembers = regularMembers.filter(m =>
-                          group.key ? responseMap[m.user_id] === group.key : !responseMap[m.user_id]
-                        )
-                        if (groupMembers.length === 0) return null
-                        return (
-                          <div key={group.key || 'none'} style={{ marginBottom:12 }}>
-                            <div style={{
-                              display:'inline-flex', alignItems:'center',
-                              padding:'2px 10px', borderRadius:99, marginBottom:6,
-                              background:group.bg, color:group.color, fontSize:11, fontWeight:700,
-                            }}>
-                              {group.label} · {groupMembers.length}
-                            </div>
-                            {groupMembers.map(m => {
-                              const isMe = m.user_id === user.id
-                              return (
+                      {hasCustomOpts ? (
+                        // Custom option groups
+                        [...parsedCustom.options, null].map(opt => {
+                          const groupMembers = regularMembers.filter(m =>
+                            opt ? responseMap[m.user_id] === opt : !responseMap[m.user_id]
+                          )
+                          if (groupMembers.length === 0) return null
+                          return (
+                            <div key={opt || 'none'} style={{ marginBottom:12 }}>
+                              <div style={{
+                                display:'inline-flex', alignItems:'center',
+                                padding:'2px 10px', borderRadius:99, marginBottom:6,
+                                background: opt ? 'rgba(122,164,196,0.12)' : 'var(--bg3)',
+                                color: opt ? 'var(--accent)' : 'var(--text3)',
+                                fontSize:11, fontWeight:700,
+                              }}>
+                                {opt || "Didn't respond"} · {groupMembers.length}
+                              </div>
+                              {groupMembers.map(m => (
                                 <div key={m.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'6px 4px', borderBottom:'0.5px solid var(--border)' }}>
                                   <div style={{ width:26, height:26, borderRadius:'50%', flexShrink:0, background:'var(--bg3)', overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:600, color:'var(--accent)' }}>
                                     {m.profiles?.avatar_url
@@ -1100,16 +1183,64 @@ export default function ModeratorDashboard() {
                                   </div>
                                   <div style={{ flex:1, fontSize:13, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
                                     {m.profiles?.full_name}
-                                    {isMe && <span style={{ fontSize:11, color:'var(--accent)', marginLeft:4 }}>· you</span>}
+                                    {m.user_id === user.id && <span style={{ fontSize:11, color:'var(--accent)', marginLeft:4 }}>· you</span>}
                                   </div>
                                 </div>
-                              )
-                            })}
-                          </div>
-                        )
-                      })}
+                              ))}
+                            </div>
+                          )
+                        })
+                      ) : (
+                        [
+                          { key:'yes',   label:'Yes',            color:'#2a8c55', bg:'rgba(42,140,85,0.1)'  },
+                          { key:'no',    label:'No',             color:'#e05555', bg:'rgba(224,85,85,0.1)'  },
+                          { key:'maybe', label:'Maybe',          color:'#a07800', bg:'rgba(255,200,50,0.1)' },
+                          { key:null,    label:"Didn't respond", color:'var(--text3)', bg:'var(--bg3)'       },
+                        ].map(group => {
+                          const groupMembers = regularMembers.filter(m =>
+                            group.key ? responseMap[m.user_id] === group.key : !responseMap[m.user_id]
+                          )
+                          if (groupMembers.length === 0) return null
+                          return (
+                            <div key={group.key || 'none'} style={{ marginBottom:12 }}>
+                              <div style={{
+                                display:'inline-flex', alignItems:'center',
+                                padding:'2px 10px', borderRadius:99, marginBottom:6,
+                                background:group.bg, color:group.color, fontSize:11, fontWeight:700,
+                              }}>
+                                {group.label} · {groupMembers.length}
+                              </div>
+                              {groupMembers.map(m => (
+                                <div key={m.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'6px 4px', borderBottom:'0.5px solid var(--border)' }}>
+                                  <div style={{ width:26, height:26, borderRadius:'50%', flexShrink:0, background:'var(--bg3)', overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:600, color:'var(--accent)' }}>
+                                    {m.profiles?.avatar_url
+                                      ? <img src={m.profiles.avatar_url} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+                                      : (m.profiles?.full_name||'?')[0]}
+                                  </div>
+                                  <div style={{ flex:1, fontSize:13, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+                                    {m.profiles?.full_name}
+                                    {m.user_id === user.id && <span style={{ fontSize:11, color:'var(--accent)', marginLeft:4 }}>· you</span>}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )
+                        })
+                      )}
 
-                      {/* Delete poll — only visible to the creator */}
+                      {/* Start Session from this Poll (session polls only, no active session) */}
+                      {!isCustom && !activeSession && (
+                        <button onClick={() => startSessionFromPoll(poll)} style={{
+                          marginTop:4, marginBottom:8, width:'100%', padding:'9px',
+                          background:'var(--accent-dim)', border:'1.5px solid var(--accent)',
+                          borderRadius:'var(--radius-sm)', color:'var(--accent)',
+                          fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:"'Inter',sans-serif",
+                        }}>
+                          ▶ Start Session from this Poll
+                        </button>
+                      )}
+
+                      {/* Delete poll */}
                       {poll.created_by === user.id && (
                         <button onClick={() => deletePoll(poll.id)} style={{
                           marginTop:4, width:'100%', padding:'9px',
@@ -1542,17 +1673,10 @@ export default function ModeratorDashboard() {
                 </div>
               </div>
 
-              {sessionMode === 'free' ? (
-                <button className="btn btn-primary" style={{ width:'100%', marginBottom:8 }}
-                  onClick={startSessionWithRotation}>
-                  ▶ Start Free Play
-                </button>
-              ) : (
-                <button className="btn btn-primary" style={{ width:'100%', marginBottom:8 }}
-                  onClick={() => { setSelectedPlayerIds([]); setModalStep(2) }}>
-                  Next — Select Players →
-                </button>
-              )}
+              <button className="btn btn-primary" style={{ width:'100%', marginBottom:8 }}
+                onClick={() => { setModalStep(2) }}>
+                Next — Who's Available? →
+              </button>
               <button className="btn btn-ghost" style={{ width:'100%' }} onClick={() => setShowStartModal(false)}>
                 Cancel
               </button>
@@ -1561,12 +1685,20 @@ export default function ModeratorDashboard() {
             {modalStep === 2 && <>
               <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:16 }}>
                 <button onClick={() => setModalStep(1)} style={{ background:'none', border:'none', color:'var(--text2)', cursor:'pointer', fontSize:20, padding:0 }}>←</button>
-                <h3 style={{ fontSize:20, margin:0 }}>Who's Playing?</h3>
+                <h3 style={{ fontSize:20, margin:0 }}>
+                  {sessionMode === 'free' ? "Who's Available Today?" : "Who's Playing?"}
+                </h3>
               </div>
+
+              {sessionMode === 'free' && (
+                <div style={{ fontSize:13, color:'var(--text2)', marginBottom:14, lineHeight:1.5 }}>
+                  Select everyone who is present. You can add more players during the session.
+                </div>
+              )}
 
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
                 <div style={{ fontSize:11, color:'var(--text2)', fontWeight:600, textTransform:'uppercase' }}>
-                  Select players ({selectedPlayerIds.length})
+                  Available ({selectedPlayerIds.length})
                 </div>
                 <button onClick={() => {
                   const allIds = approved.map(m => m.user_id)
@@ -1576,40 +1708,76 @@ export default function ModeratorDashboard() {
                 </button>
               </div>
 
-              <div style={{ marginBottom:20 }}>
-                {approved.map(m => {
-                  const sel = selectedPlayerIds.includes(m.user_id)
-                  return (
-                    <div key={m.id} onClick={() => setSelectedPlayerIds(prev =>
-                      sel ? prev.filter(id => id !== m.user_id) : [...prev, m.user_id]
-                    )} style={{
-                      display:'flex', alignItems:'center', gap:12,
-                      padding:'10px 12px', marginBottom:4,
-                      background: sel ? 'rgba(122,164,196,0.1)' : 'var(--bg3)',
-                      border:`1px solid ${sel ? 'rgba(122,164,196,0.35)' : 'transparent'}`,
-                      borderRadius:'var(--radius-sm)', cursor:'pointer'
-                    }}>
+              {/* Available section */}
+              {selectedPlayerIds.length > 0 && (
+                <div style={{ marginBottom:8 }}>
+                  <div style={{ fontSize:11, color:'#2a8c55', fontWeight:700, textTransform:'uppercase', marginBottom:6, letterSpacing:'0.06em' }}>
+                    Available · {selectedPlayerIds.length}
+                  </div>
+                  {approved.filter(m => selectedPlayerIds.includes(m.user_id)).map(m => (
+                    <div key={m.id} onClick={() => setSelectedPlayerIds(prev => prev.filter(id => id !== m.user_id))}
+                      style={{
+                        display:'flex', alignItems:'center', gap:12,
+                        padding:'10px 12px', marginBottom:4,
+                        background:'rgba(42,140,85,0.07)', border:'1px solid rgba(42,140,85,0.25)',
+                        borderRadius:'var(--radius-sm)', cursor:'pointer'
+                      }}>
                       <div style={{
                         width:20, height:20, borderRadius:4, flexShrink:0,
-                        background: sel ? 'var(--accent)' : 'var(--bg2)',
-                        border:`1px solid ${sel ? 'var(--accent)' : 'var(--text3)'}`,
+                        background:'#2a8c55', border:'1px solid #2a8c55',
                         display:'flex', alignItems:'center', justifyContent:'center',
                         fontSize:12, color:'#fff'
-                      }}>{sel ? '✓' : ''}</div>
+                      }}>✓</div>
                       <div style={{ flex:1, fontSize:14 }}>
                         {m.profiles?.full_name}
                         {m.is_guest && <span style={{ fontStyle:'italic', color:'var(--text3)', fontSize:13 }}> (guest)</span>}
                       </div>
+                      <span style={{ fontSize:11, color:'var(--text3)' }}>tap to remove</span>
                     </div>
-                  )
-                })}
-              </div>
+                  ))}
+                </div>
+              )}
 
-              <button className="btn btn-primary" style={{ width:'100%', marginBottom:8 }}
-                disabled={selectedPlayerIds.length < (modalMatchType === 'doubles' ? 4 : 2)}
-                onClick={startSessionWithRotation}>
-                ▶ Start with Auto Schedule
-              </button>
+              {/* Not available section */}
+              {approved.filter(m => !selectedPlayerIds.includes(m.user_id)).length > 0 && (
+                <div style={{ marginBottom:20 }}>
+                  <div style={{ fontSize:11, color:'var(--text3)', fontWeight:700, textTransform:'uppercase', marginBottom:6, letterSpacing:'0.06em' }}>
+                    Not Available · {approved.filter(m => !selectedPlayerIds.includes(m.user_id)).length}
+                  </div>
+                  {approved.filter(m => !selectedPlayerIds.includes(m.user_id)).map(m => (
+                    <div key={m.id} onClick={() => setSelectedPlayerIds(prev => [...prev, m.user_id])}
+                      style={{
+                        display:'flex', alignItems:'center', gap:12,
+                        padding:'10px 12px', marginBottom:4,
+                        background:'var(--bg3)', border:'1px solid transparent',
+                        borderRadius:'var(--radius-sm)', cursor:'pointer'
+                      }}>
+                      <div style={{
+                        width:20, height:20, borderRadius:4, flexShrink:0,
+                        background:'var(--bg2)', border:'1px solid var(--text3)',
+                      }} />
+                      <div style={{ flex:1, fontSize:14, color:'var(--text2)' }}>
+                        {m.profiles?.full_name}
+                        {m.is_guest && <span style={{ fontStyle:'italic', fontSize:13 }}> (guest)</span>}
+                      </div>
+                      <span style={{ fontSize:11, color:'var(--accent)' }}>+ add</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {sessionMode === 'free' ? (
+                <button className="btn btn-primary" style={{ width:'100%', marginBottom:8 }}
+                  onClick={startSessionWithRotation}>
+                  ▶ Start Free Play {selectedPlayerIds.length > 0 ? `· ${selectedPlayerIds.length} available` : ''}
+                </button>
+              ) : (
+                <button className="btn btn-primary" style={{ width:'100%', marginBottom:8 }}
+                  disabled={selectedPlayerIds.length < (modalMatchType === 'doubles' ? 4 : 2)}
+                  onClick={startSessionWithRotation}>
+                  ▶ Start with Auto Schedule
+                </button>
+              )}
               <button className="btn btn-ghost" style={{ width:'100%' }} onClick={() => setShowStartModal(false)}>
                 Cancel
               </button>
@@ -1736,23 +1904,53 @@ export default function ModeratorDashboard() {
           <div style={{
             background:'var(--bg)', borderRadius:'20px 20px 0 0',
             padding:'24px 20px 40px', width:'100%', maxWidth:430,
+            maxHeight:'90vh', overflowY:'auto',
           }} onClick={e => e.stopPropagation()}>
             <div style={{ fontSize:18, fontWeight:700, marginBottom:6, fontFamily:"'Plus Jakarta Sans',sans-serif" }}>
               Custom Poll
             </div>
             <div style={{ fontSize:13, color:'var(--text3)', marginBottom:20 }}>
-              Ask the group any question — members respond Yes, No, or Maybe.
+              Ask the group any question with custom answer choices.
             </div>
 
             <div className="input-wrap">
               <label className="input-label">Poll question</label>
-              <input className="input" placeholder="e.g. Which day works best?" value={customPollQ}
+              <input className="input" placeholder="e.g. Which venue should we play at?" value={customPollQ}
                 onChange={e => setCustomPollQ(e.target.value)} />
             </div>
 
             <div className="input-wrap">
+              <label className="input-label">Options (add at least 2, or leave empty for Yes / No / Maybe)</label>
+              {customPollOptions.map((opt, idx) => (
+                <div key={idx} style={{ display:'flex', gap:8, marginBottom:8, alignItems:'center' }}>
+                  <input
+                    className="input"
+                    style={{ marginBottom:0, flex:1 }}
+                    placeholder={`Option ${idx + 1}`}
+                    value={opt}
+                    onChange={e => {
+                      const n = [...customPollOptions]; n[idx] = e.target.value; setCustomPollOptions(n)
+                    }}
+                  />
+                  {customPollOptions.length > 2 && (
+                    <button
+                      onClick={() => setCustomPollOptions(prev => prev.filter((_, i) => i !== idx))}
+                      style={{ background:'none', border:'none', color:'var(--text3)', cursor:'pointer', fontSize:18, padding:'0 4px', lineHeight:1 }}>
+                      ✕
+                    </button>
+                  )}
+                </div>
+              ))}
+              <button
+                onClick={() => setCustomPollOptions(prev => [...prev, ''])}
+                style={{ background:'none', border:'1px dashed var(--border2)', borderRadius:'var(--radius-sm)', color:'var(--accent)', padding:'7px 14px', fontSize:13, fontWeight:600, cursor:'pointer', marginTop:4 }}>
+                + Add option
+              </button>
+            </div>
+
+            <div className="input-wrap">
               <label className="input-label">Details (optional)</label>
-              <input className="input" placeholder="e.g. Tuesday 7pm at court 3" value={customPollNotes}
+              <input className="input" placeholder="Extra context for members" value={customPollNotes}
                 onChange={e => setCustomPollNotes(e.target.value)} />
             </div>
 

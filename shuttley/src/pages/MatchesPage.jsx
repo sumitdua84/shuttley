@@ -46,6 +46,15 @@ export default function MatchesPage() {
     fetchAll()
   }, [clubId])
 
+  // Sync tab when GroupNav navigates to same route with new ?tab= param
+  useEffect(() => {
+    const t = searchParams.get('tab')
+    if (t && t !== tab) {
+      setTab(t)
+      if (t === 'stats') setSelectedPlayer(user.id)
+    }
+  }, [searchParams])
+
   async function fetchAll() {
     const { data: clubData } = await supabase.from('clubs').select('*').eq('id', clubId).single()
     setClub(clubData)
@@ -107,8 +116,8 @@ export default function MatchesPage() {
     return null
   }
 
-  // Only confirmed matches count for leaderboard/stats
-  const confirmedMatches = matches.filter(m => m.status === 'confirmed')
+  // Confirmed + pending both count for leaderboard (pending = played but awaiting opponent confirm)
+  const confirmedMatches = matches.filter(m => m.status === 'confirmed' || m.status === 'pending')
 
   function calcStats() {
     const stats = {}
@@ -515,7 +524,14 @@ export default function MatchesPage() {
           {/* Rankings */}
           {(() => {
             const ranked = leaderboard.filter(p => p.wins + p.losses > 0)
-            if (ranked.length === 0) return <div className="empty"><p>No confirmed matches yet</p></div>
+            if (ranked.length === 0) return (
+              <div className="empty">
+                <p>No matches yet</p>
+                <p style={{ fontSize: 12, color: 'var(--text3)', marginTop: 4 }}>
+                  Record a match in a session to see stats here.
+                </p>
+              </div>
+            )
             const medals = ['🥇','🥈','🥉']
             const visible = showAllLeaders ? ranked : ranked.slice(0, 3)
             return <>
