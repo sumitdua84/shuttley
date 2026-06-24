@@ -1133,32 +1133,17 @@ export default function MemberDashboard() {
         {tab === 'more' && (
           <div>
             <div className="section-label">Group</div>
-            {[
-              { label: 'Members', onClick: () => changeTab('members') },
-              { label: 'Polls', onClick: () => changeTab('polls') },
-            ].map(item => (
-              <div key={item.label} onClick={item.onClick} style={{
-                display: 'flex', alignItems: 'center', gap: 12,
-                background: 'var(--bg2)', border: '0.5px solid var(--border)',
-                borderRadius: 'var(--radius)', padding: '14px 16px', marginBottom: 8,
-                cursor: 'pointer',
-              }}>
-                <span style={{ flex: 1, fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{item.label}</span>
-                <span style={{ fontSize: 18, color: 'var(--text3)' }}>›</span>
-              </div>
-            ))}
+            <div onClick={() => changeTab('members')} style={{
+              display: 'flex', alignItems: 'center', gap: 12,
+              background: 'var(--bg2)', border: '0.5px solid var(--border)',
+              borderRadius: 'var(--radius)', padding: '14px 16px', marginBottom: 8,
+              cursor: 'pointer',
+            }}>
+              <span style={{ flex: 1, fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>Members</span>
+              <span style={{ fontSize: 18, color: 'var(--text3)' }}>›</span>
+            </div>
 
             <div style={{ marginTop: 24 }}>
-              <button
-                onClick={() => navigate('/groups')}
-                style={{
-                  width: '100%', padding: '13px', marginBottom: 10,
-                  background: 'transparent', border: '0.5px solid var(--border)',
-                  borderRadius: 'var(--radius)', color: 'var(--accent)',
-                  fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: "'Inter',sans-serif",
-                }}>
-                ← Back to All Groups
-              </button>
               <button
                 onClick={async () => {
                   const ok = await confirmDialog('Leave this group?')

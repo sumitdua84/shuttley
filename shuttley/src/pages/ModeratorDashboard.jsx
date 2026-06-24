@@ -1391,9 +1391,7 @@ export default function ModeratorDashboard() {
             <div className="section-label">Group</div>
             {[
               { label: 'Members', badge: pending.length, onClick: () => changeTab('members') },
-              { label: 'Moderator Tools', badge: alertCount, onClick: () => changeTab('sessions') },
-              { label: 'Polls', onClick: () => changeTab('polls') },
-              { label: 'Settings', onClick: () => changeTab('settings') },
+              { label: 'Moderator Tools', badge: alertCount, onClick: () => changeTab('settings') },
             ].map(item => (
               <div key={item.label} onClick={item.onClick} style={{
                 display: 'flex', alignItems: 'center', gap: 12,
@@ -1415,16 +1413,6 @@ export default function ModeratorDashboard() {
             ))}
 
             <div style={{ marginTop: 24 }}>
-              <button
-                onClick={() => navigate('/groups')}
-                style={{
-                  width: '100%', padding: '13px', marginBottom: 10,
-                  background: 'transparent', border: '0.5px solid var(--border)',
-                  borderRadius: 'var(--radius)', color: 'var(--accent)',
-                  fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: "'Inter',sans-serif",
-                }}>
-                ← Back to All Groups
-              </button>
               <button
                 onClick={async () => {
                   const ok = await confirmDialog('Leave this group? You will lose moderator access.')

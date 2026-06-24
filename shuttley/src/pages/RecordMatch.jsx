@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
+import GroupNav from '../components/GroupNav'
 
 export default function RecordMatch() {
   const { clubId } = useParams()
@@ -10,6 +11,7 @@ export default function RecordMatch() {
   const location = useLocation()
   const returnTo = location.state?.returnTo
   const sessionMatchType = location.state?.matchType
+  const isMod = location.state?.isMod ?? false
 
   const initialStep = sessionMatchType ? 2 : 1
 
@@ -168,11 +170,10 @@ export default function RecordMatch() {
     <div className="page">
       <div className="topnav">
         <button
-          onClick={() => step > startStep ? setStep(step - 1) : navigate(`/club/${clubId}/member`)}
+          onClick={() => step > startStep ? setStep(step - 1) : (returnTo ? navigate(returnTo) : navigate(-1))}
           style={{ background:'none',border:'none',color:'var(--text2)',cursor:'pointer',fontSize:22,padding:0 }}>←</button>
         <span style={{ fontFamily:"'Plus Jakarta Sans',sans-serif", fontSize:18 }}>Record Match</span>
-        <button onClick={() => navigate(`/club/${clubId}/member`)}
-          style={{ background:'none',border:'none',color:'var(--text2)',cursor:'pointer',fontSize:13,fontWeight:500,padding:0 }}>Home</button>
+        <div style={{ width:40 }} />
       </div>
 
       {/* Step indicator */}
@@ -375,6 +376,7 @@ export default function RecordMatch() {
 
       </div>
       {toast && <div className="toast">{toast}</div>}
+      <GroupNav clubId={clubId} isMod={isMod} activeTab="session" />
     </div>
   )
 }

@@ -6,6 +6,7 @@ import { generateSchedule, generateRebalancedSchedule, generateMatchesForNewPlay
 import Toast from '../components/Toast'
 import { useConfirm } from '../hooks/useConfirm'
 import { DashboardSkeleton } from '../components/Skeleton'
+import GroupNav from '../components/GroupNav'
 
 export default function RotationPage() {
   const { clubId, sessionId } = useParams()
@@ -283,8 +284,7 @@ export default function RotationPage() {
       <div className="topnav">
         <div style={{ width: 40 }} />
         <span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontSize: 18 }}>{session.name}</span>
-        <button onClick={() => navigate(`/club/${clubId}/member`)}
-          style={{ background: 'none', border: 'none', color: 'var(--text2)', cursor: 'pointer', fontSize: 13, fontWeight: 500, padding: 0 }}>Home</button>
+        <div style={{ width: 40 }} />
       </div>
 
       <div className="content">
@@ -386,7 +386,7 @@ export default function RotationPage() {
                 Record matches as you play them.
               </div>
               {isActive && (
-                <button className="btn btn-primary" onClick={() => navigate(`/club/${clubId}/record`, { state: { returnTo: `/club/${clubId}/session/${sessionId}/rotation`, matchType: session.match_type } })}>
+                <button className="btn btn-primary" onClick={() => navigate(`/club/${clubId}/record`, { state: { returnTo: `/club/${clubId}/session/${sessionId}/rotation`, matchType: session.match_type, isMod: isModerator } })}>
                   + Record a Match
                 </button>
               )}
@@ -588,7 +588,7 @@ export default function RotationPage() {
         {isActive && (
           <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 8 }}>
             {rotationMatches.length > 0 && <>
-              <button className="btn btn-secondary" onClick={() => navigate(`/club/${clubId}/record`, { state: { returnTo: `/club/${clubId}/session/${sessionId}/rotation`, matchType: session.match_type } })}>
+              <button className="btn btn-secondary" onClick={() => navigate(`/club/${clubId}/record`, { state: { returnTo: `/club/${clubId}/session/${sessionId}/rotation`, matchType: session.match_type, isMod: isModerator } })}>
                 Custom Match
               </button>
               <button className="btn btn-ghost" onClick={newCycle}>
@@ -609,6 +609,7 @@ export default function RotationPage() {
       </div>
       <Toast message={toast} />
       {confirmModal}
+      <GroupNav clubId={clubId} isMod={isModerator} activeTab="session" />
     </div>
   )
 }

@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import Toast from '../components/Toast'
 import { useConfirm } from '../hooks/useConfirm'
 import { DashboardSkeleton } from '../components/Skeleton'
+import GroupNav from '../components/GroupNav'
 
 export default function SessionSummary() {
   const { clubId, sessionId } = useParams()
@@ -226,7 +227,7 @@ export default function SessionSummary() {
       <div className="topnav">
         <div style={{ width:40 }} />
         <span style={{ fontFamily:"'Plus Jakarta Sans',sans-serif", fontSize:18 }}>Session Summary</span>
-        <button onClick={() => navigate(`/club/${clubId}/member`)} style={{ background:'none',border:'none',color:'var(--text2)',cursor:'pointer',fontSize:13,fontWeight:500,padding:0 }}>Home</button>
+        <div style={{ width:40 }} />
       </div>
 
       <div className="content">
@@ -546,6 +547,7 @@ export default function SessionSummary() {
 
       <Toast message={toast} />
       {confirmModal}
+      <GroupNav clubId={clubId} isMod={isModerator} activeTab="session" />
     </div>
   )
 }
