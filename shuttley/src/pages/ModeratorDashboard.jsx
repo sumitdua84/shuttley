@@ -55,7 +55,10 @@ export default function ModeratorDashboard() {
   const [activePolls, setActivePolls] = useState([])
   const [expandedPolls, setExpandedPolls] = useState({})
   const { sendPush, subscribe } = usePushNotifications()
-  const [notifStatus, setNotifStatus] = useState(Notification.permission)
+  const [notifStatus, setNotifStatus] = useState(() =>
+    Notification.permission === 'granted' || localStorage.getItem('push_subscribed') === '1'
+      ? 'granted' : Notification.permission
+  )
   const [showNotifModal, setShowNotifModal] = useState(false) // 'default'|'granted'|'denied'
   const [notifTitle, setNotifTitle] = useState('')
   const [notifBody, setNotifBody] = useState('')
@@ -602,7 +605,8 @@ export default function ModeratorDashboard() {
         {/* ── In-page tab nav ── */}
         <div style={{
           display:'flex', gap:6, overflowX:'auto', marginBottom:20,
-          scrollbarWidth:'none', WebkitOverflowScrolling:'touch', padding:'0 0 2px',
+          scrollbarWidth:'none', WebkitOverflowScrolling:'touch',
+          margin:'0 -20px 20px', padding:'0 20px 4px',
         }}>
           {[
             { id:'home',     label:'Home' },
@@ -1245,7 +1249,7 @@ export default function ModeratorDashboard() {
                 disabled={notifStatus === 'granted'}
                 onClick={async () => {
                   const ok = await subscribe(user.id)
-                  setNotifStatus(Notification.permission)
+                  setNotifStatus(ok ? 'granted' : Notification.permission)
                   if (ok) showToast('🔔 Notifications enabled!')
                   else showToast('Could not enable notifications')
                 }}>

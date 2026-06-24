@@ -51,7 +51,10 @@ export default function MemberDashboard() {
   const [pollNotes, setPollNotes] = useState('')
   const [creatingPoll, setCreatingPoll] = useState(false)
   const { sendPush, subscribe } = usePushNotifications()
-  const [notifStatus, setNotifStatus] = useState(Notification.permission)
+  const [notifStatus, setNotifStatus] = useState(() =>
+    Notification.permission === 'granted' || localStorage.getItem('push_subscribed') === '1'
+      ? 'granted' : Notification.permission
+  )
   const [showNotifModal, setShowNotifModal] = useState(false)
   const [clubFeatures, setClubFeatures] = useState([])
   const [splitsItems, setSplitsItems] = useState([{ line1: 'Track expenses', line2: 'Split & settle up' }])
@@ -1149,7 +1152,7 @@ export default function MemberDashboard() {
               onClick={async () => {
                 setShowNotifModal(false)
                 const ok = await subscribe(user.id)
-                setNotifStatus(Notification.permission)
+                setNotifStatus(ok ? 'granted' : Notification.permission)
                 if (ok) showToast('🔔 Notifications enabled!')
               }}>
               Enable Notifications

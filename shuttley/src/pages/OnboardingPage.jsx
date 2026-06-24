@@ -243,21 +243,21 @@ export default function OnboardingPage() {
   return (
     <div className="page">
       <div className="topnav">
-        <div>
-          <div style={{ fontFamily:"'Plus Jakarta Sans',sans-serif", fontSize:20, fontWeight:700, color:'var(--text)' }}>
-            Hey, {name.split(' ')[0]} 👋
-          </div>
-          <div style={{ fontSize:12, color:'var(--text3)', marginTop:2 }}>{todayLabel}</div>
+        <div style={{ fontFamily:"'Plus Jakarta Sans',sans-serif", fontSize:20, fontWeight:700, color:'var(--text)' }}>
+          Hey, {name.split(' ')[0]} 👋
         </div>
-        <button className="avatar-btn" onClick={() => navigate('/profile')} title="My profile">
-          {avatar
-            ? <img src={avatar} alt="avatar" />
-            : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text2)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="8" r="4"/>
-                <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
-              </svg>
-          }
-        </button>
+        <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+          <span style={{ fontSize:12, color:'var(--text3)' }}>{todayLabel}</span>
+          <button className="avatar-btn" onClick={() => navigate('/profile')} title="My profile">
+            {avatar
+              ? <img src={avatar} alt="avatar" />
+              : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text2)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="8" r="4"/>
+                  <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+                </svg>
+            }
+          </button>
+        </div>
       </div>
 
       <div className="content">
