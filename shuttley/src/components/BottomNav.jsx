@@ -46,7 +46,7 @@ export default function BottomNav({ clubId, activeTab }) {
     { id: 'home',    label: 'Home',    Icon: IconHome,    action: () => navigate('/') },
     { id: 'groups',  label: 'Groups',  Icon: IconGroups,  action: () => navigate('/groups') },
     { id: 'session', label: 'Session', Icon: IconSession, action: () => navigate('/session') },
-    { id: 'stats',   label: 'Stats',   Icon: IconStats,   action: () => navigate(clubId ? `/club/${clubId}/matches?tab=stats` : '/groups') },
+    { id: 'stats',   label: 'Stats',   Icon: IconStats,   action: () => navigate('/stats') },
     { id: 'me',      label: 'Me',      Icon: IconMe,      action: () => navigate(clubId ? `/profile?clubId=${clubId}` : '/profile') },
   ]
 

@@ -265,7 +265,7 @@ export default function OnboardingPage() {
               cursor:'pointer', fontFamily:"'Inter',sans-serif",
               flexShrink:0,
             }}>
-              Admin
+              Moderator
             </button>
           )}
         </div>

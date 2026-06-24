@@ -421,9 +421,9 @@ export default function ModeratorDashboard() {
   }
 
   async function promoteMod(membershipId) {
-    if (!(await confirmDialog('Make this person an admin?'))) return
+    if (!(await confirmDialog('Make this person a moderator?'))) return
     await supabase.from('memberships').update({ role: 'moderator' }).eq('id', membershipId)
-    showToast('Promoted to admin')
+    showToast('Promoted to moderator')
     fetchData()
   }
 
@@ -431,12 +431,12 @@ export default function ModeratorDashboard() {
     const target = members.find(m => m.id === membershipId)
     const moderatorCount = members.filter(m => m.status === 'approved' && m.role === 'moderator').length
     if (target?.role === 'moderator' && moderatorCount <= 1) {
-      showToast('Club must have at least one admin')
+      showToast('Group must have at least one moderator')
       return
     }
-    if (!(await confirmDialog('Remove admin rights and make this person a regular member?'))) return
+    if (!(await confirmDialog('Remove moderator rights and make this person a regular member?'))) return
     await supabase.from('memberships').update({ role: 'member' }).eq('id', membershipId)
-    showToast('Admin rights removed')
+    showToast('Moderator rights removed')
     fetchData()
   }
 
@@ -444,7 +444,7 @@ export default function ModeratorDashboard() {
     const target = members.find(m => m.id === membershipId)
     const moderatorCount = members.filter(m => m.status === 'approved' && m.role === 'moderator').length
     if (target?.role === 'moderator' && moderatorCount <= 1) {
-      showToast('Club must have at least one admin')
+      showToast('Group must have at least one moderator')
       return
     }
     if (!(await confirmDialog('Remove this member from the club?'))) return
@@ -1051,8 +1051,8 @@ export default function ModeratorDashboard() {
                   {m.role === 'moderator' && <span style={{ fontStyle:'italic', fontWeight:400, color:'var(--accent)', fontSize:12 }}> (mod)</span>}
                 </div>
                 <div style={{ display:'flex', gap:6, flexShrink:0 }}>
-                  {m.role !== 'moderator' && !m.profiles?.full_name?.startsWith('deleted_') && <button className="btn btn-ghost btn-sm" onClick={() => promoteMod(m.id)} style={{ padding:'4px 10px', fontSize:11 }}>Make Admin</button>}
-                  {m.role === 'moderator' && m.user_id !== user.id && <button className="btn btn-ghost btn-sm" onClick={() => demoteMod(m.id)} style={{ padding:'4px 10px', fontSize:11 }}>Remove Admin</button>}
+                  {m.role !== 'moderator' && !m.profiles?.full_name?.startsWith('deleted_') && <button className="btn btn-ghost btn-sm" onClick={() => promoteMod(m.id)} style={{ padding:'4px 10px', fontSize:11 }}>Make Moderator</button>}
+                  {m.role === 'moderator' && m.user_id !== user.id && <button className="btn btn-ghost btn-sm" onClick={() => demoteMod(m.id)} style={{ padding:'4px 10px', fontSize:11 }}>Remove Moderator</button>}
                   {m.user_id !== user.id && <button className="btn btn-danger btn-sm" onClick={() => removeMember(m.id)} style={{ padding:'4px 10px', fontSize:11 }}>Remove</button>}
                 </div>
               </div>
