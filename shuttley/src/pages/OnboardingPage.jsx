@@ -238,15 +238,16 @@ export default function OnboardingPage() {
   // Only show polls the user hasn't responded to yet
   const unansweredPolls = polls.filter(p => !myResponses[p.id])
 
+  const todayLabel = new Date().toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' })
+
   return (
     <div className="page">
       <div className="topnav">
-        <div className="topnav-brand">
-          <img src="/logo-source.png" alt="" className="topnav-brand-icon" />
-          <div className="topnav-brand-text">
-            <div className="topnav-logo">Shuttley</div>
-            <div className="topnav-tagline">Your Game, Quantified</div>
+        <div>
+          <div style={{ fontFamily:"'Plus Jakarta Sans',sans-serif", fontSize:20, fontWeight:700, color:'var(--text)' }}>
+            Hey, {name.split(' ')[0]} 👋
           </div>
+          <div style={{ fontSize:12, color:'var(--text3)', marginTop:2 }}>{todayLabel}</div>
         </div>
         <button className="avatar-btn" onClick={() => navigate('/profile')} title="My profile">
           {avatar
@@ -261,11 +262,6 @@ export default function OnboardingPage() {
 
       <div className="content">
         {view === 'home' && <>
-          <div style={{ marginBottom: unansweredPolls.length > 0 ? 16 : 28 }}>
-            <h1 style={{ fontSize: 28, letterSpacing: '-0.5px', marginBottom: 4 }}>
-              Hey, {name.split(' ')[0]}
-            </h1>
-          </div>
 
           {/* ── Active polls (unanswered only — disappears once you respond) ── */}
           {unansweredPolls.length > 0 && (
@@ -435,21 +431,22 @@ export default function OnboardingPage() {
             )
           })()}
 
-          {/* ── My clubs ── */}
+          {/* ── My groups ── */}
           {loading ? (
             <div style={{ color: 'var(--text3)', fontSize: 14, padding: '20px 0' }}>Loading…</div>
           ) : memberships.length === 0 ? (
             <div className="empty">
               <div className="empty-icon">🏸</div>
-              <p>No clubs yet.<br />Join or create one below.</p>
+              <p>No groups yet.<br />Join or create one below.</p>
             </div>
           ) : (
             <div style={{ marginBottom: 24 }}>
-              <div className="section-label">My clubs</div>
+              <div className="section-label">My groups</div>
               {memberships.map(m => {
                 const isAdmin = m.role === 'moderator'
                 const count = memberCounts[m.club_id]
                 const clubPolls = polls.filter(p => p.club_id === m.club_id)
+                const initial = (m.clubs?.name || '?')[0].toUpperCase()
                 return (
                   <div key={m.id}
                     onClick={() => {
@@ -460,11 +457,20 @@ export default function OnboardingPage() {
                       display: 'flex', alignItems: 'center',
                       background: 'var(--bg2)', borderRadius: 'var(--radius)',
                       border: '0.5px solid var(--border)',
-                      borderLeft: `4px solid ${isAdmin ? '#256575' : '#6ea6b4'}`,
-                      marginBottom: 8, padding: '10px 16px',
+                      marginBottom: 8, padding: '10px 14px',
                       cursor: m.status === 'approved' ? 'pointer' : 'default',
                       gap: 12,
                     }}>
+                    <div style={{
+                      width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
+                      background: isAdmin ? 'var(--accent-dim)' : 'rgba(110,166,180,0.12)',
+                      border: `1.5px solid ${isAdmin ? 'rgba(37,101,117,0.25)' : 'rgba(110,166,180,0.25)'}`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 15, fontWeight: 700,
+                      color: isAdmin ? 'var(--accent)' : '#6ea6b4',
+                    }}>
+                      {initial}
+                    </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontWeight: 600, fontSize: 15 }}>{m.clubs?.name}</div>
                       {m.status === 'pending' ? (
@@ -485,7 +491,7 @@ export default function OnboardingPage() {
             </div>
           )}
 
-          {/* Join or create club — centred, content-width */}
+          {/* Join or create group — centred, content-width */}
           <div style={{ display: 'flex', justifyContent: 'center', marginTop: 8, marginBottom: 8 }}>
             <button onClick={() => setFabOpen(o => !o)} style={{
               display: 'inline-flex', alignItems: 'center', gap: 10,
@@ -497,7 +503,7 @@ export default function OnboardingPage() {
               color: 'var(--accent)', fontSize: 13, fontWeight: 600,
               transition: 'all 0.15s ease',
             }}>
-              Join or Create a Club
+              Join or Create a Group
               <span style={{ fontSize: 20, color: 'var(--text3)', lineHeight: 1 }}>›</span>
             </button>
           </div>
@@ -506,14 +512,14 @@ export default function OnboardingPage() {
         {view === 'search' && <>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
             <button className="btn btn-ghost btn-sm" onClick={() => { setView('home'); setSearchQuery(''); setSearchResults([]) }}>← Back</button>
-            <h2 style={{ fontSize: 22 }}>Find a club</h2>
+            <h2 style={{ fontSize: 22 }}>Find a group</h2>
           </div>
           <div className="input-wrap">
-            <input className="input" placeholder="Search by club name…" value={searchQuery}
+            <input className="input" placeholder="Search by group name…" value={searchQuery}
               onChange={e => searchClubs(e.target.value)} autoFocus />
           </div>
           {searchResults.length === 0 && searchQuery.length >= 2 && (
-            <div className="empty"><p>No clubs found for "{searchQuery}"</p></div>
+            <div className="empty"><p>No groups found for "{searchQuery}"</p></div>
           )}
           {searchResults.map(club => (
             <div key={club.id} className="card" style={{ marginBottom: 10 }}>
@@ -534,21 +540,21 @@ export default function OnboardingPage() {
         {view === 'create' && <>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
             <button className="btn btn-ghost btn-sm" onClick={() => setView('home')}>← Back</button>
-            <h2 style={{ fontSize: 22 }}>New club</h2>
+            <h2 style={{ fontSize: 22 }}>New group</h2>
           </div>
           <div className="input-wrap">
-            <label className="input-label">Club name</label>
+            <label className="input-label">Group name</label>
             <input className="input" placeholder="e.g. Tuesday Smashers" value={clubName}
               onChange={e => setClubName(e.target.value)} />
           </div>
           <div className="input-wrap">
             <label className="input-label">Description (optional)</label>
-            <input className="input" placeholder="What's this club about?" value={clubDesc}
+            <input className="input" placeholder="What's this group about?" value={clubDesc}
               onChange={e => setClubDesc(e.target.value)} />
           </div>
           <button className="btn btn-primary" onClick={createClub} disabled={!clubName.trim() || creating}
             style={{ marginTop: 8, opacity: (!clubName.trim() || creating) ? 0.5 : 1 }}>
-            {creating ? 'Creating…' : 'Create club'}
+            {creating ? 'Creating…' : 'Create group'}
           </button>
         </>}
       </div>
@@ -570,10 +576,10 @@ export default function OnboardingPage() {
           display: 'flex', flexDirection: 'column', gap: 10,
         }}>
           <button onClick={() => { setFabOpen(false); setView('search') }} className="btn btn-secondary">
-            Search for a club
+            Search for a group
           </button>
           <button onClick={() => { setFabOpen(false); setView('create') }} className="btn btn-secondary">
-            Create a new club
+            Create a new group
           </button>
         </div>
       )}

@@ -161,17 +161,17 @@ export default function ProfilePage() {
         {/* Moderator / Admin settings */}
         {isModerator && club && (
           <div style={{ background: 'var(--bg2)', borderRadius: 'var(--radius)', padding: '16px', marginBottom: 16 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 12 }}>Club Settings — {club.name}</div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 12 }}>Group Settings — {club.name}</div>
 
             <button
               className="btn btn-danger"
               style={{ width: '100%', marginTop: 14, fontSize: 13 }}
               onClick={async () => {
-                if (await confirmDialog('Send a request to delete this club? This action will be reviewed.')) {
+                if (await confirmDialog('Send a request to delete this group? This action will be reviewed.')) {
                   showToast('Delete request sent')
                 }
               }}>
-              🗑 Request to Delete Club
+              🗑 Request to Delete Group
             </button>
           </div>
         )}

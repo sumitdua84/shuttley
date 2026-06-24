@@ -11,7 +11,7 @@ import { DashboardSkeleton } from '../components/Skeleton'
 
 export default function ModeratorDashboard() {
   const { clubId } = useParams()
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -584,17 +584,16 @@ export default function ModeratorDashboard() {
   const pending = members.filter(m => m.status === 'pending')
   const approved = members.filter(m => m.status === 'approved' && !m.profiles?.full_name?.startsWith('deleted_'))
   const alertCount = disputedMatches.length + pendingMatches.length
+  const firstName = profile?.full_name?.split(' ')[0] || ''
 
   return (
     <div className="page">
       {/* Top nav */}
       <div className="topnav">
-        <div style={{ width:64 }} />
-        <div style={{ textAlign:'center' }}>
-          <div style={{ fontFamily:"'Plus Jakarta Sans',sans-serif", fontSize:17, fontWeight:600 }}>{club?.name}</div>
-          <div style={{ fontSize:11, color:'var(--accent)', fontWeight:600 }}>Admin</div>
+        <div>
+          <div style={{ fontFamily:"'Plus Jakarta Sans',sans-serif", fontSize:16, fontWeight:700, color:'var(--text)' }}>{club?.name}</div>
+          <div style={{ fontSize:12, color:'var(--text3)', marginTop:2 }}>{firstName}{firstName ? ' · ' : ''}Moderator</div>
         </div>
-        <div style={{ width: 40 }} />
       </div>
 
       {/* Tab content */}
@@ -828,8 +827,8 @@ export default function ModeratorDashboard() {
                       Chat
                     </div>
                     <div style={{ flex:1, textAlign:'center' }}>
-                      <div style={{ fontSize:13, fontWeight:600, color:'var(--text)', lineHeight:1.3 }}>Club chat</div>
-                      <div style={{ fontSize:11, color:'var(--text3)', marginTop:2, minHeight:15 }}>Message your club</div>
+                      <div style={{ fontSize:13, fontWeight:600, color:'var(--text)', lineHeight:1.3 }}>Group chat</div>
+                      <div style={{ fontSize:11, color:'var(--text3)', marginTop:2, minHeight:15 }}>Message your group</div>
                     </div>
                     <span style={{ fontSize:16, color:'var(--text)', marginLeft:8, flexShrink:0 }}>›</span>
                   </div>
@@ -1216,7 +1215,7 @@ export default function ModeratorDashboard() {
           <div className="section-label">Invite link</div>
           <div className="card" style={{ marginBottom:20 }}>
             <p style={{ fontSize:13,color:'var(--text2)',marginBottom:12,lineHeight:1.6 }}>
-              Share this link so people can find and request to join your club instantly.
+              Share this link so people can find and request to join your group instantly.
             </p>
             <div style={{ background:'var(--bg3)',borderRadius:'var(--radius-sm)',padding:'10px 14px',fontFamily:'var(--font-mono)',fontSize:12,color:'var(--text2)',marginBottom:12,wordBreak:'break-all' }}>
               {window.location.origin}/join/{club?.invite_code}
@@ -1262,7 +1261,7 @@ export default function ModeratorDashboard() {
             borderRadius:'var(--radius)', padding:'14px 16px', marginBottom:20,
           }}>
             <div style={{ fontSize:12, color:'var(--text3)', marginBottom:12, lineHeight:1.5 }}>
-              Send a custom push notification to all club members
+              Send a custom push notification to all group members
             </div>
             <div className="input-wrap" style={{ marginBottom:10 }}>
               <label className="input-label">Title</label>
@@ -1289,9 +1288,9 @@ export default function ModeratorDashboard() {
             </button>
           </div>
 
-          <div className="section-label">Club info</div>
+          <div className="section-label">Group info</div>
           <div className="card">
-            <div style={{ fontSize:13,color:'var(--text2)',marginBottom:4 }}>Club name</div>
+            <div style={{ fontSize:13,color:'var(--text2)',marginBottom:4 }}>Group name</div>
             <div style={{ fontSize:15,fontWeight:500 }}>{club?.name}</div>
             {club?.description && <>
               <div style={{ fontSize:13,color:'var(--text2)',marginTop:12,marginBottom:4 }}>Description</div>

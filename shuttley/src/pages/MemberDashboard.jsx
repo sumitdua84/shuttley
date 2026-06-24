@@ -11,7 +11,7 @@ import { DashboardSkeleton } from '../components/Skeleton'
 
 export default function MemberDashboard() {
   const { clubId } = useParams()
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -555,16 +555,16 @@ export default function MemberDashboard() {
 
   const approved = members.filter(m => m.status === 'approved')
 
+  const firstName = profile?.full_name?.split(' ')[0] || ''
+
   return (
     <div className="page">
       {/* Top nav */}
       <div className="topnav">
-        <div style={{ width:64 }} />
-        <div style={{ textAlign:'center' }}>
-          <div style={{ fontFamily:"'Plus Jakarta Sans',sans-serif", fontSize:17, fontWeight:600 }}>{club?.name}</div>
-          <div style={{ fontSize:11, color:'var(--text3)', fontWeight:500 }}>Member</div>
+        <div>
+          <div style={{ fontFamily:"'Plus Jakarta Sans',sans-serif", fontSize:16, fontWeight:700, color:'var(--text)' }}>{club?.name}</div>
+          <div style={{ fontSize:12, color:'var(--text3)', marginTop:2 }}>{firstName}{firstName ? ' · ' : ''}Member</div>
         </div>
-        <div style={{ width:64 }} />
       </div>
 
       <div className="content">
