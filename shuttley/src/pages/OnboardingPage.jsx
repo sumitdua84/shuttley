@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
 import { usePushNotifications } from '../hooks/usePushNotifications'
+import BottomNav from '../components/BottomNav'
 
 export default function OnboardingPage() {
   const { user, profile, signOut } = useAuth()
@@ -234,11 +235,19 @@ export default function OnboardingPage() {
   }
 
   const name = profile?.full_name || user?.email?.split('@')[0] || 'there'
-  const avatar = profile?.avatar_url
   // Only show polls the user hasn't responded to yet
   const unansweredPolls = polls.filter(p => !myResponses[p.id])
 
   const todayLabel = new Date().toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' })
+  const adminMemberships = memberships.filter(m => m.role === 'moderator' && m.status === 'approved')
+
+  function handleAdminPill() {
+    if (adminMemberships.length === 1) {
+      navigate(`/club/${adminMemberships[0].club_id}/mod`)
+    } else {
+      showToast('Choose a group to manage')
+    }
+  }
 
   return (
     <div className="page">
@@ -246,17 +255,19 @@ export default function OnboardingPage() {
         <div style={{ fontFamily:"'Plus Jakarta Sans',sans-serif", fontSize:20, fontWeight:700, color:'var(--text)' }}>
           Hey, {name.split(' ')[0]} 👋
         </div>
-        <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
           <span style={{ fontSize:12, color:'var(--text3)' }}>{todayLabel}</span>
-          <button className="avatar-btn" onClick={() => navigate('/profile')} title="My profile">
-            {avatar
-              ? <img src={avatar} alt="avatar" />
-              : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text2)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="8" r="4"/>
-                  <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
-                </svg>
-            }
-          </button>
+          {adminMemberships.length > 0 && (
+            <button onClick={handleAdminPill} style={{
+              padding:'5px 12px', borderRadius:99,
+              background:'var(--accent)', color:'#fff',
+              border:'none', fontSize:12, fontWeight:600,
+              cursor:'pointer', fontFamily:"'Inter',sans-serif",
+              flexShrink:0,
+            }}>
+              Admin
+            </button>
+          )}
         </div>
       </div>
 
@@ -561,6 +572,8 @@ export default function OnboardingPage() {
 
       {toast && <div className="toast">{toast}</div>}
 
+      <BottomNav clubId={null} activeTab="clubs" />
+
       {fabOpen && (
         <div onClick={() => setFabOpen(false)} style={{
           position: 'fixed', inset: 0, zIndex: 40,
@@ -569,7 +582,7 @@ export default function OnboardingPage() {
       )}
       {fabOpen && (
         <div style={{
-          position: 'fixed', bottom: 60, left: '50%', transform: 'translateX(-50%)',
+          position: 'fixed', bottom: 90, left: '50%', transform: 'translateX(-50%)',
           width: 'calc(100% - 40px)', maxWidth: 390, zIndex: 50,
           padding: '16px', background: '#fff', borderRadius: 16,
           border: '1px solid var(--border)', boxShadow: '0 8px 32px rgba(37,101,117,0.15)',

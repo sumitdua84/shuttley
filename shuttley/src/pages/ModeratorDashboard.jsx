@@ -602,43 +602,36 @@ export default function ModeratorDashboard() {
       {/* Tab content */}
       <div className="content">
 
-        {/* ── In-page tab nav ── */}
-        <div style={{
-          display:'flex', gap:6, overflowX:'auto', marginBottom:20,
-          scrollbarWidth:'none', WebkitOverflowScrolling:'touch',
-          margin:'0 -20px 20px', padding:'0 20px 4px',
-        }}>
-          {[
-            { id:'home',     label:'Home' },
-            { id:'members',  label:'Members' },
-            { id:'sessions', label:'Sessions', badge: alertCount },
-            { id:'polls',    label:'Polls' },
-            { id:'settings', label:'Settings' },
-          ].map(t => (
-            <button key={t.id} onClick={() => changeTab(t.id)} style={{
-              flexShrink:0, padding:'7px 16px', borderRadius:99, cursor:'pointer',
-              border: tab === t.id ? 'none' : '0.5px solid var(--border)',
-              background: tab === t.id ? 'var(--accent)' : 'var(--bg2)',
-              color: tab === t.id ? '#fff' : 'var(--text2)',
-              fontSize:13, fontWeight: tab === t.id ? 600 : 400,
-              position:'relative',
-            }}>
-              {t.label}
-              {t.badge > 0 && (
-                <span style={{
-                  position:'absolute', top:-4, right:-4,
-                  background:'#ff5c5c', color:'#fff', borderRadius:99,
-                  fontSize:9, fontWeight:700, minWidth:16, height:16,
-                  display:'flex', alignItems:'center', justifyContent:'center',
-                  padding:'0 3px', lineHeight:1,
-                }}>{t.badge}</span>
-              )}
-            </button>
-          ))}
-        </div>
-
         {/* ── HOME ── */}
         {tab === 'home' && <>
+
+          {/* ── Moderator Tools 2×2 grid ── */}
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:20 }}>
+            {[
+              { label:'Members',  badge: pending.length, onClick: () => changeTab('members')  },
+              { label:'Sessions', badge: alertCount,     onClick: () => changeTab('sessions') },
+              { label:'Polls',    badge: 0,              onClick: () => changeTab('polls')    },
+              { label:'Settings', badge: 0,              onClick: () => changeTab('settings') },
+            ].map(item => (
+              <button key={item.label} onClick={item.onClick} style={{
+                background:'var(--bg2)', border:'0.5px solid var(--border)',
+                borderRadius:'var(--radius)', padding:'14px 16px',
+                cursor:'pointer', display:'flex', alignItems:'center',
+                justifyContent:'space-between', position:'relative', textAlign:'left',
+              }}>
+                {item.badge > 0 && (
+                  <span style={{
+                    position:'absolute', top:8, right:8,
+                    background:'#ff5c5c', color:'#fff', borderRadius:99,
+                    fontSize:9, fontWeight:700, minWidth:16, height:16,
+                    display:'flex', alignItems:'center', justifyContent:'center', padding:'0 3px',
+                  }}>{item.badge}</span>
+                )}
+                <span style={{ fontSize:14, fontWeight:600, color:'var(--text)', fontFamily:"'Inter',sans-serif" }}>{item.label}</span>
+                <span style={{ fontSize:16, color:'var(--text3)' }}>›</span>
+              </button>
+            ))}
+          </div>
 
           {/* Session hero card */}
           {activeSession ? (
@@ -863,6 +856,12 @@ export default function ModeratorDashboard() {
         {/* ── POLLS ── */}
         {tab === 'polls' && (
           <div>
+            <button onClick={() => changeTab('home')} style={{
+              background:'none', border:'none', color:'var(--accent)',
+              fontSize:13, fontWeight:600, cursor:'pointer', marginBottom:16,
+              display:'flex', alignItems:'center', gap:4, padding:0,
+              fontFamily:"'Inter',sans-serif",
+            }}>← Moderator tools</button>
             <button onClick={() => { setPollDate(''); setPollStartH(''); setPollStartM('00'); setPollStartAP('PM'); setPollEndH(''); setPollEndM('00'); setPollEndAP('PM'); setPollNotes(''); setShowPollModal(true) }} style={{
               width:'100%', marginBottom:16, padding:'11px',
               background:'transparent', border:'1.5px dashed var(--border2)',
@@ -1002,6 +1001,12 @@ export default function ModeratorDashboard() {
 
         {/* ── MEMBERS ── */}
         {tab === 'members' && <>
+          <button onClick={() => changeTab('home')} style={{
+            background:'none', border:'none', color:'var(--accent)',
+            fontSize:13, fontWeight:600, cursor:'pointer', marginBottom:16,
+            display:'flex', alignItems:'center', gap:4, padding:0,
+            fontFamily:"'Inter',sans-serif",
+          }}>← Moderator tools</button>
           {pending.length > 0 && <>
             <div className="section-label" style={{ color:'#ffc832' }}>
               Pending approval ({pending.length})
@@ -1109,6 +1114,12 @@ export default function ModeratorDashboard() {
 
         {/* ── SESSION (disputes + session history) ── */}
         {tab === 'sessions' && <>
+          <button onClick={() => changeTab('home')} style={{
+            background:'none', border:'none', color:'var(--accent)',
+            fontSize:13, fontWeight:600, cursor:'pointer', marginBottom:16,
+            display:'flex', alignItems:'center', gap:4, padding:0,
+            fontFamily:"'Inter',sans-serif",
+          }}>← Moderator tools</button>
           {pendingMatches.length > 0 && <>
             <div className="section-label" style={{ color:'#ffc832' }}>
               ⏳ Pending Confirmation ({pendingMatches.length})
@@ -1216,6 +1227,12 @@ export default function ModeratorDashboard() {
 
         {/* ── SETTINGS ── */}
         {tab === 'settings' && <>
+          <button onClick={() => changeTab('home')} style={{
+            background:'none', border:'none', color:'var(--accent)',
+            fontSize:13, fontWeight:600, cursor:'pointer', marginBottom:16,
+            display:'flex', alignItems:'center', gap:4, padding:0,
+            fontFamily:"'Inter',sans-serif",
+          }}>← Moderator tools</button>
           <div className="section-label">Invite link</div>
           <div className="card" style={{ marginBottom:20 }}>
             <p style={{ fontSize:13,color:'var(--text2)',marginBottom:12,lineHeight:1.6 }}>
