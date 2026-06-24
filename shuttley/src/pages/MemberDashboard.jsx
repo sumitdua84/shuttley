@@ -4,7 +4,7 @@ import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
 import { generateSchedule } from '../utils/scheduleGenerator'
 import { usePushNotifications } from '../hooks/usePushNotifications'
-import BottomNav from '../components/BottomNav'
+import GroupNav from '../components/GroupNav'
 import Toast from '../components/Toast'
 import { useConfirm } from '../hooks/useConfirm'
 import { DashboardSkeleton } from '../components/Skeleton'
@@ -564,9 +564,15 @@ export default function MemberDashboard() {
     <div className="page">
       {/* Top nav */}
       <div className="topnav">
-        <div>
-          <div style={{ fontFamily:"'Plus Jakarta Sans',sans-serif", fontSize:16, fontWeight:700, color:'var(--text)' }}>{club?.name}</div>
-          <div style={{ fontSize:12, color:'var(--text3)', marginTop:2 }}>{firstName}{firstName ? ' · ' : ''}Member</div>
+        <button onClick={() => navigate('/groups')} style={{
+          background:'none', border:'none', color:'var(--accent)',
+          fontSize:13, fontWeight:600, cursor:'pointer',
+          display:'flex', alignItems:'center', gap:4, padding:0,
+          fontFamily:"'Inter',sans-serif",
+        }}>← All Groups</button>
+        <div style={{ textAlign:'right' }}>
+          <div style={{ fontFamily:"'Plus Jakarta Sans',sans-serif", fontSize:15, fontWeight:700, color:'var(--text)' }}>{club?.name}</div>
+          <div style={{ fontSize:11, color:'var(--text3)', marginTop:1 }}>Member</div>
         </div>
       </div>
 
@@ -1002,9 +1008,65 @@ export default function MemberDashboard() {
             </>
           })()}
 
+        {/* ── MORE ── */}
+        {tab === 'more' && (
+          <div>
+            <div className="section-label">Group</div>
+            {[
+              { label: 'Members', onClick: () => changeTab('members') },
+              { label: 'Polls', onClick: () => changeTab('polls') },
+            ].map(item => (
+              <div key={item.label} onClick={item.onClick} style={{
+                display: 'flex', alignItems: 'center', gap: 12,
+                background: 'var(--bg2)', border: '0.5px solid var(--border)',
+                borderRadius: 'var(--radius)', padding: '14px 16px', marginBottom: 8,
+                cursor: 'pointer',
+              }}>
+                <span style={{ flex: 1, fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{item.label}</span>
+                <span style={{ fontSize: 18, color: 'var(--text3)' }}>›</span>
+              </div>
+            ))}
+
+            <div style={{ marginTop: 24 }}>
+              <button
+                onClick={() => navigate('/groups')}
+                style={{
+                  width: '100%', padding: '13px', marginBottom: 10,
+                  background: 'transparent', border: '0.5px solid var(--border)',
+                  borderRadius: 'var(--radius)', color: 'var(--accent)',
+                  fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: "'Inter',sans-serif",
+                }}>
+                ← Back to All Groups
+              </button>
+              <button
+                onClick={async () => {
+                  const ok = await confirmDialog('Leave this group?')
+                  if (!ok) return
+                  const myMem = members.find(m => m.user_id === user.id)
+                  if (myMem) {
+                    await supabase.from('memberships').delete().eq('id', myMem.id)
+                  }
+                  navigate('/groups')
+                }}
+                style={{
+                  width: '100%', padding: '13px',
+                  background: 'transparent', border: '1px solid rgba(224,85,85,0.3)',
+                  borderRadius: 'var(--radius)', color: '#e05555',
+                  fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: "'Inter',sans-serif",
+                }}>
+                Leave Group
+              </button>
+            </div>
+          </div>
+        )}
+
       </div>
 
-      <BottomNav clubId={clubId} activeTab="home" />
+      <GroupNav clubId={clubId} isMod={false} activeTab={
+        tab === 'polls' ? 'polls'
+        : tab === 'more' || tab === 'members' ? 'more'
+        : 'session'
+      } />
 
       {/* Start session modal */}
       {showStartModal && (

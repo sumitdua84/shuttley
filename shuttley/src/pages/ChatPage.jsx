@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
 import { usePushNotifications } from '../hooks/usePushNotifications'
-import BottomNav from '../components/BottomNav'
+import GroupNav from '../components/GroupNav'
 import Toast from '../components/Toast'
 import { Skeleton, SkeletonRow } from '../components/Skeleton'
 
@@ -451,12 +451,13 @@ export default function ChatPage() {
             cursor:'pointer', padding:'0 16px', flexShrink:0 }}>←</button>
         )}
 
-        {/* Back to dashboard (hidden on mobile when in chat panel) */}
-        <button onClick={() => navigate(basePath)} style={{
-          background:'none', border:'none', fontSize:14, fontWeight:600, color:'var(--text2)',
+        {/* Back to All Groups (hidden on mobile when in chat panel) */}
+        <button onClick={() => navigate('/groups')} style={{
+          background:'none', border:'none', fontSize:13, fontWeight:600, color:'var(--accent)',
           cursor:'pointer', padding:'0 16px', flexShrink:0,
-          display: panel === 'chat' ? 'none' : 'flex', alignItems:'center', gap:4 }}>
-          ←
+          display: panel === 'chat' ? 'none' : 'flex', alignItems:'center', gap:4,
+          fontFamily:"'Inter',sans-serif" }}>
+          ← All Groups
         </button>
 
         {/* Center: active conv name (mobile chat) or club name */}
@@ -788,7 +789,7 @@ export default function ChatPage() {
           </div>
         </div>
       )}
-      <BottomNav clubId={clubId} activeTab="home" />
+      <GroupNav clubId={clubId} isMod={isMod} activeTab="chat" />
       <Toast message={toast} />
     </div>
     </div>

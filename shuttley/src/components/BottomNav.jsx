@@ -17,21 +17,6 @@ const IconGroups = ({ active }) => (
   </svg>
 )
 
-const IconSession = ({ active }) => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={active ? 'var(--accent)' : 'var(--text2)'} strokeWidth={active ? 2.5 : 1.8} strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="12" r="9"/>
-    <path d="M10 8l6 4-6 4V8z" strokeLinejoin="round"/>
-  </svg>
-)
-
-const IconStats = ({ active }) => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={active ? 'var(--accent)' : 'var(--text2)'} strokeWidth={active ? 2.5 : 1.8} strokeLinecap="round" strokeLinejoin="round">
-    <rect x="3" y="12" width="4" height="9" rx="1"/>
-    <rect x="10" y="7" width="4" height="14" rx="1"/>
-    <rect x="17" y="3" width="4" height="18" rx="1"/>
-  </svg>
-)
-
 const IconMe = ({ active }) => (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={active ? 'var(--accent)' : 'var(--text2)'} strokeWidth={active ? 2.5 : 1.8} strokeLinecap="round" strokeLinejoin="round">
     <circle cx="12" cy="8" r="4"/>
@@ -39,15 +24,13 @@ const IconMe = ({ active }) => (
   </svg>
 )
 
-export default function BottomNav({ clubId, activeTab }) {
+export default function BottomNav({ activeTab }) {
   const navigate = useNavigate()
 
   const tabs = [
-    { id: 'home',    label: 'Home',    Icon: IconHome,    action: () => navigate('/') },
-    { id: 'groups',  label: 'Groups',  Icon: IconGroups,  action: () => navigate('/groups') },
-    { id: 'session', label: 'Session', Icon: IconSession, action: () => navigate('/session') },
-    { id: 'stats',   label: 'Stats',   Icon: IconStats,   action: () => navigate('/stats') },
-    { id: 'me',      label: 'Me',      Icon: IconMe,      action: () => navigate(clubId ? `/profile?clubId=${clubId}` : '/profile') },
+    { id: 'home',   label: 'Home',   Icon: IconHome,   action: () => navigate('/') },
+    { id: 'groups', label: 'Groups', Icon: IconGroups, action: () => navigate('/groups') },
+    { id: 'me',     label: 'Me',     Icon: IconMe,     action: () => navigate('/profile') },
   ]
 
   return (

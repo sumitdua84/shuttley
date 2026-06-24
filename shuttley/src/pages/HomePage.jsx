@@ -10,7 +10,7 @@ export default function HomePage() {
   const navigate = useNavigate()
 
   const [memberships, setMemberships] = useState([])
-  const [unansweredPolls, setUnansweredPolls] = useState([])
+  const [activePolls, setActivePolls] = useState([])
   const [myStats, setMyStats] = useState(null)
   const [liveSession, setLiveSession] = useState(null)
   const [pendingMemberCount, setPendingMemberCount] = useState(0)
@@ -37,7 +37,8 @@ export default function HomePage() {
 
     if (clubIds.length === 0) { setLoading(false); return }
 
-    const today = new Date().toISOString().split('T')[0]
+    const now = new Date()
+    const today = now.toISOString().split('T')[0]
 
     const [{ data: pollData }, { data: liveSess }, pendingResult] = await Promise.all([
       supabase.from('session_polls')
@@ -55,10 +56,21 @@ export default function HomePage() {
     ])
 
     if (pollData) {
-      const unanswered = pollData.filter(p =>
+      // Filter out polls where session_date is today but session_time has already passed
+      const relevant = pollData.filter(p => {
+        if (p.session_date > today) return true
+        if (!p.session_time) return true
+        // session_date === today — check if time hasn't passed yet
+        const [h, m] = p.session_time.split(':').map(Number)
+        const sessionMs = h * 60 + m
+        const nowMs = now.getHours() * 60 + now.getMinutes()
+        return nowMs < sessionMs
+      })
+      // Keep only polls the user hasn't yet answered
+      const unanswered = relevant.filter(p =>
         !p.poll_responses?.find(r => r.user_id === user.id)
       )
-      setUnansweredPolls(unanswered.map(p => ({ ...p, clubName: clubNameMap[p.club_id] })))
+      setActivePolls(unanswered.map(p => ({ ...p, clubName: clubNameMap[p.club_id] })))
     }
 
     if (liveSess) {
@@ -115,7 +127,7 @@ export default function HomePage() {
     <div className="page">
       <div className="topnav">
         <div>
-          <div style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontSize: 20, fontWeight: 700, color: 'var(--text)' }}>
+          <div style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontSize: 20, fontWeight: 600, color: 'var(--text)' }}>
             {greeting}, {firstName} 👋
           </div>
           <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>{todayLabel}</div>
@@ -127,87 +139,7 @@ export default function HomePage() {
           <div style={{ color: 'var(--text3)', fontSize: 14, padding: '20px 0' }}>Loading…</div>
         ) : <>
 
-          {/* ── Live session hero ── */}
-          {liveSession && (
-            <div style={{
-              background: 'var(--accent)', borderRadius: 'var(--radius)',
-              padding: '18px 20px', marginBottom: 16, color: '#fff',
-            }}>
-              <div style={{ fontSize: 10, fontWeight: 700, opacity: 0.7, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 6 }}>
-                ● Live Session
-              </div>
-              <div style={{ fontSize: 18, fontWeight: 700, marginBottom: liveSession.clubName ? 2 : 14, fontFamily: "'Plus Jakarta Sans',sans-serif" }}>
-                {liveSession.name}
-              </div>
-              {liveSession.clubName && (
-                <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 14 }}>{liveSession.clubName}</div>
-              )}
-              <button
-                onClick={() => navigate(
-                  liveSession.isMod
-                    ? `/club/${liveSession.club_id}/session/${liveSession.id}/rotation`
-                    : `/club/${liveSession.club_id}/member`
-                )}
-                style={{
-                  background: '#fff', color: 'var(--accent)', border: 'none',
-                  borderRadius: 'var(--radius-sm)', padding: '9px 20px',
-                  fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: "'Inter',sans-serif",
-                }}>
-                Continue →
-              </button>
-            </div>
-          )}
-
-          {/* ── Alerts ── */}
-          {(unansweredPolls.length > 0 || pendingMemberCount > 0) && (
-            <div style={{ marginBottom: 20 }}>
-              <div className="section-label">Needs attention</div>
-
-              {unansweredPolls.map(poll => (
-                <div key={poll.id}
-                  onClick={() => navigate('/groups')}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 12,
-                    background: 'var(--bg2)', border: '0.5px solid var(--border)',
-                    borderLeft: '4px solid #256575',
-                    borderRadius: 'var(--radius)', padding: '12px 14px', marginBottom: 8, cursor: 'pointer',
-                  }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>
-                      Coming {formatPollDate(poll.session_date)}?
-                    </div>
-                    <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
-                      {poll.clubName} · Tap to respond
-                    </div>
-                  </div>
-                  <span style={{ fontSize: 18, color: 'var(--text3)', flexShrink: 0 }}>›</span>
-                </div>
-              ))}
-
-              {pendingMemberCount > 0 && (
-                <div
-                  onClick={() => {
-                    if (modMemberships.length === 1) navigate(`/club/${modMemberships[0].club_id}/mod?tab=members`)
-                    else navigate('/groups')
-                  }}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 12,
-                    background: 'rgba(255,200,50,0.07)', border: '1px solid rgba(255,200,50,0.3)',
-                    borderRadius: 'var(--radius)', padding: '12px 14px', marginBottom: 8, cursor: 'pointer',
-                  }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: '#ffc832' }}>
-                      {pendingMemberCount} pending approval{pendingMemberCount !== 1 ? 's' : ''}
-                    </div>
-                    <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>Tap to review</div>
-                  </div>
-                  <span style={{ fontSize: 18, color: 'var(--text3)', flexShrink: 0 }}>›</span>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ── My Performance ── */}
+          {/* ── 1. My Performance ── */}
           {myStats && myStats.total > 0 && (
             <div style={{ marginBottom: 20 }}>
               <div className="section-label">My performance</div>
@@ -230,7 +162,7 @@ export default function HomePage() {
                   </div>
                 </div>
                 {myStats.form?.length > 0 && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 8 }}>
                     <span style={{ fontSize: 11, color: 'var(--text3)', marginRight: 2 }}>Recent</span>
                     {myStats.form.map((r, i) => (
                       <span key={i} style={{
@@ -242,76 +174,111 @@ export default function HomePage() {
                     ))}
                   </div>
                 )}
-                <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 8 }}>
-                  {myStats.total} matches all time
+                <div style={{ fontSize: 11, color: 'var(--text3)' }}>
+                  {myStats.total} matches · all groups
                 </div>
               </div>
             </div>
           )}
 
-          {/* ── My Groups preview ── */}
-          {memberships.length > 0 ? (
+          {/* ── 2. Upcoming / Active Group Polls ── */}
+          {activePolls.length > 0 && (
             <div style={{ marginBottom: 20 }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                <div className="section-label" style={{ marginBottom: 0 }}>My groups</div>
-                <button onClick={() => navigate('/groups')} style={{
-                  background: 'none', border: 'none', color: 'var(--accent)',
-                  fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: 0,
-                  fontFamily: "'Inter',sans-serif",
-                }}>View all →</button>
-              </div>
-
-              {memberships.slice(0, 3).map(m => {
-                const isAdmin = m.role === 'moderator'
-                const initial = (m.clubs?.name || '?')[0].toUpperCase()
+              <div className="section-label">Upcoming polls</div>
+              {activePolls.map(poll => {
+                const mem = memberships.find(m => m.club_id === poll.club_id)
+                const isMod = mem?.role === 'moderator'
                 return (
-                  <div key={m.club_id}
-                    onClick={() => navigate(isAdmin ? `/club/${m.club_id}/mod` : `/club/${m.club_id}/member`)}
+                  <div key={poll.id}
+                    onClick={() => navigate(isMod ? `/club/${poll.club_id}/mod?tab=polls` : `/club/${poll.club_id}/member?tab=polls`)}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 12,
-                      background: 'var(--bg2)', borderRadius: 'var(--radius)',
-                      border: '0.5px solid var(--border)',
-                      marginBottom: 8, padding: '10px 14px', cursor: 'pointer',
+                      background: 'var(--bg2)', border: '0.5px solid var(--border)',
+                      borderLeft: '4px solid #256575',
+                      borderRadius: 'var(--radius)', padding: '12px 14px', marginBottom: 8, cursor: 'pointer',
                     }}>
-                    <div style={{
-                      width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
-                      background: isAdmin ? 'var(--accent-dim)' : 'rgba(110,166,180,0.12)',
-                      border: `1.5px solid ${isAdmin ? 'rgba(37,101,117,0.25)' : 'rgba(110,166,180,0.25)'}`,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 15, fontWeight: 700,
-                      color: isAdmin ? 'var(--accent)' : '#6ea6b4',
-                    }}>{initial}</div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 600, fontSize: 15, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {m.clubs?.name}
+                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>
+                        {formatPollDate(poll.session_date)}{poll.session_time ? ` · ${poll.session_time.slice(0,5)}` : ''}
                       </div>
-                      <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>
-                        {isAdmin ? 'Moderator' : 'Member'}
+                      <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
+                        {poll.clubName} · Tap to respond
                       </div>
                     </div>
-                    <span style={{ fontSize: 20, color: 'var(--text3)', flexShrink: 0 }}>›</span>
+                    <span style={{ fontSize: 18, color: 'var(--text3)', flexShrink: 0 }}>›</span>
                   </div>
                 )
               })}
+            </div>
+          )}
 
-              {memberships.length > 3 && (
-                <button onClick={() => navigate('/groups')} style={{
-                  width: '100%', padding: '10px', borderRadius: 'var(--radius)',
-                  background: 'transparent', border: '0.5px solid var(--border)',
-                  color: 'var(--accent)', fontSize: 13, fontWeight: 600, cursor: 'pointer',
-                  fontFamily: "'Inter',sans-serif",
+          {/* ── 3. Alerts / Attention ── */}
+          {(liveSession || pendingMemberCount > 0) && (
+            <div style={{ marginBottom: 20 }}>
+              <div className="section-label">Needs attention</div>
+
+              {/* Live session */}
+              {liveSession && (
+                <div style={{
+                  background: 'var(--accent)', borderRadius: 'var(--radius)',
+                  padding: '14px 16px', marginBottom: 8, color: '#fff',
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
                 }}>
-                  +{memberships.length - 3} more groups
-                </button>
+                  <div>
+                    <div style={{ fontSize: 10, fontWeight: 600, opacity: 0.75, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>
+                      ● Live Session
+                    </div>
+                    <div style={{ fontSize: 14, fontWeight: 600 }}>{liveSession.name}</div>
+                    {liveSession.clubName && (
+                      <div style={{ fontSize: 11, opacity: 0.75, marginTop: 2 }}>{liveSession.clubName}</div>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => navigate(
+                      liveSession.isMod
+                        ? `/club/${liveSession.club_id}/session/${liveSession.id}/rotation`
+                        : `/club/${liveSession.club_id}/member`
+                    )}
+                    style={{
+                      background: '#fff', color: 'var(--accent)', border: 'none',
+                      borderRadius: 'var(--radius-sm)', padding: '8px 16px',
+                      fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: "'Inter',sans-serif",
+                      flexShrink: 0,
+                    }}>
+                    Continue →
+                  </button>
+                </div>
+              )}
+
+              {/* Pending approvals */}
+              {pendingMemberCount > 0 && (
+                <div
+                  onClick={() => {
+                    if (modMemberships.length === 1) navigate(`/club/${modMemberships[0].club_id}/mod?tab=more`)
+                    else navigate('/groups')
+                  }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 12,
+                    background: 'rgba(255,200,50,0.07)', border: '1px solid rgba(255,200,50,0.3)',
+                    borderRadius: 'var(--radius)', padding: '12px 14px', marginBottom: 8, cursor: 'pointer',
+                  }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: '#ffc832' }}>
+                      {pendingMemberCount} pending approval{pendingMemberCount !== 1 ? 's' : ''}
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>Tap to review in your group</div>
+                  </div>
+                  <span style={{ fontSize: 18, color: 'var(--text3)', flexShrink: 0 }}>›</span>
+                </div>
               )}
             </div>
-          ) : (
+          )}
+
+          {/* Empty state — no data yet */}
+          {(!myStats || myStats.total === 0) && activePolls.length === 0 && !liveSession && pendingMemberCount === 0 && (
             <div className="empty">
               <div className="empty-icon">🏸</div>
-              <p>No groups yet.<br />Join or create one to get started.</p>
-              <button onClick={() => navigate('/groups')} className="btn btn-primary" style={{ marginTop: 16 }}>
-                Browse Groups
-              </button>
+              <p>Welcome! Tap <strong>Groups</strong> below to join or create a group and start playing.</p>
             </div>
           )}
 

@@ -4,7 +4,7 @@ import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
 import { generateSchedule } from '../utils/scheduleGenerator'
 import { usePushNotifications } from '../hooks/usePushNotifications'
-import BottomNav from '../components/BottomNav'
+import GroupNav from '../components/GroupNav'
 import Toast from '../components/Toast'
 import { useConfirm } from '../hooks/useConfirm'
 import { DashboardSkeleton } from '../components/Skeleton'
@@ -593,9 +593,15 @@ export default function ModeratorDashboard() {
     <div className="page">
       {/* Top nav */}
       <div className="topnav">
-        <div>
-          <div style={{ fontFamily:"'Plus Jakarta Sans',sans-serif", fontSize:16, fontWeight:700, color:'var(--text)' }}>{club?.name}</div>
-          <div style={{ fontSize:12, color:'var(--text3)', marginTop:2 }}>{firstName}{firstName ? ' · ' : ''}Moderator</div>
+        <button onClick={() => navigate('/groups')} style={{
+          background:'none', border:'none', color:'var(--accent)',
+          fontSize:13, fontWeight:600, cursor:'pointer',
+          display:'flex', alignItems:'center', gap:4, padding:0,
+          fontFamily:"'Inter',sans-serif",
+        }}>← All Groups</button>
+        <div style={{ textAlign:'right' }}>
+          <div style={{ fontFamily:"'Plus Jakarta Sans',sans-serif", fontSize:15, fontWeight:700, color:'var(--text)' }}>{club?.name}</div>
+          <div style={{ fontSize:11, color:'var(--text3)', marginTop:1 }}>Moderator</div>
         </div>
       </div>
 
@@ -604,34 +610,6 @@ export default function ModeratorDashboard() {
 
         {/* ── HOME ── */}
         {tab === 'home' && <>
-
-          {/* ── Moderator Tools 2×2 grid ── */}
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:20 }}>
-            {[
-              { label:'Members',  badge: pending.length, onClick: () => changeTab('members')  },
-              { label:'Sessions', badge: alertCount,     onClick: () => changeTab('sessions') },
-              { label:'Polls',    badge: 0,              onClick: () => changeTab('polls')    },
-              { label:'Settings', badge: 0,              onClick: () => changeTab('settings') },
-            ].map(item => (
-              <button key={item.label} onClick={item.onClick} style={{
-                background:'var(--bg2)', border:'0.5px solid var(--border)',
-                borderRadius:'var(--radius)', padding:'14px 16px',
-                cursor:'pointer', display:'flex', alignItems:'center',
-                justifyContent:'space-between', position:'relative', textAlign:'left',
-              }}>
-                {item.badge > 0 && (
-                  <span style={{
-                    position:'absolute', top:8, right:8,
-                    background:'#ff5c5c', color:'#fff', borderRadius:99,
-                    fontSize:9, fontWeight:700, minWidth:16, height:16,
-                    display:'flex', alignItems:'center', justifyContent:'center', padding:'0 3px',
-                  }}>{item.badge}</span>
-                )}
-                <span style={{ fontSize:14, fontWeight:600, color:'var(--text)', fontFamily:"'Inter',sans-serif" }}>{item.label}</span>
-                <span style={{ fontSize:16, color:'var(--text3)' }}>›</span>
-              </button>
-            ))}
-          </div>
 
           {/* Session hero card */}
           {activeSession ? (
@@ -856,12 +834,6 @@ export default function ModeratorDashboard() {
         {/* ── POLLS ── */}
         {tab === 'polls' && (
           <div>
-            <button onClick={() => changeTab('home')} style={{
-              background:'none', border:'none', color:'var(--accent)',
-              fontSize:13, fontWeight:600, cursor:'pointer', marginBottom:16,
-              display:'flex', alignItems:'center', gap:4, padding:0,
-              fontFamily:"'Inter',sans-serif",
-            }}>← Moderator tools</button>
             <button onClick={() => { setPollDate(''); setPollStartH(''); setPollStartM('00'); setPollStartAP('PM'); setPollEndH(''); setPollEndM('00'); setPollEndAP('PM'); setPollNotes(''); setShowPollModal(true) }} style={{
               width:'100%', marginBottom:16, padding:'11px',
               background:'transparent', border:'1.5px dashed var(--border2)',
@@ -1001,12 +973,6 @@ export default function ModeratorDashboard() {
 
         {/* ── MEMBERS ── */}
         {tab === 'members' && <>
-          <button onClick={() => changeTab('home')} style={{
-            background:'none', border:'none', color:'var(--accent)',
-            fontSize:13, fontWeight:600, cursor:'pointer', marginBottom:16,
-            display:'flex', alignItems:'center', gap:4, padding:0,
-            fontFamily:"'Inter',sans-serif",
-          }}>← Moderator tools</button>
           {pending.length > 0 && <>
             <div className="section-label" style={{ color:'#ffc832' }}>
               Pending approval ({pending.length})
@@ -1114,12 +1080,6 @@ export default function ModeratorDashboard() {
 
         {/* ── SESSION (disputes + session history) ── */}
         {tab === 'sessions' && <>
-          <button onClick={() => changeTab('home')} style={{
-            background:'none', border:'none', color:'var(--accent)',
-            fontSize:13, fontWeight:600, cursor:'pointer', marginBottom:16,
-            display:'flex', alignItems:'center', gap:4, padding:0,
-            fontFamily:"'Inter',sans-serif",
-          }}>← Moderator tools</button>
           {pendingMatches.length > 0 && <>
             <div className="section-label" style={{ color:'#ffc832' }}>
               ⏳ Pending Confirmation ({pendingMatches.length})
@@ -1227,12 +1187,6 @@ export default function ModeratorDashboard() {
 
         {/* ── SETTINGS ── */}
         {tab === 'settings' && <>
-          <button onClick={() => changeTab('home')} style={{
-            background:'none', border:'none', color:'var(--accent)',
-            fontSize:13, fontWeight:600, cursor:'pointer', marginBottom:16,
-            display:'flex', alignItems:'center', gap:4, padding:0,
-            fontFamily:"'Inter',sans-serif",
-          }}>← Moderator tools</button>
           <div className="section-label">Invite link</div>
           <div className="card" style={{ marginBottom:20 }}>
             <p style={{ fontSize:13,color:'var(--text2)',marginBottom:12,lineHeight:1.6 }}>
@@ -1320,10 +1274,76 @@ export default function ModeratorDashboard() {
           </div>
         </>}
 
+        {/* ── MORE ── */}
+        {tab === 'more' && (
+          <div>
+            <div className="section-label">Group</div>
+            {[
+              { label: 'Members', badge: pending.length, onClick: () => changeTab('members') },
+              { label: 'Moderator Tools', badge: alertCount, onClick: () => changeTab('sessions') },
+              { label: 'Polls', onClick: () => changeTab('polls') },
+              { label: 'Settings', onClick: () => changeTab('settings') },
+            ].map(item => (
+              <div key={item.label} onClick={item.onClick} style={{
+                display: 'flex', alignItems: 'center', gap: 12,
+                background: 'var(--bg2)', border: '0.5px solid var(--border)',
+                borderRadius: 'var(--radius)', padding: '14px 16px', marginBottom: 8,
+                cursor: 'pointer', position: 'relative',
+              }}>
+                {item.badge > 0 && (
+                  <span style={{
+                    position: 'absolute', top: 8, right: 36,
+                    background: '#ff5c5c', color: '#fff', borderRadius: 99,
+                    fontSize: 9, fontWeight: 700, minWidth: 16, height: 16,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px',
+                  }}>{item.badge}</span>
+                )}
+                <span style={{ flex: 1, fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{item.label}</span>
+                <span style={{ fontSize: 18, color: 'var(--text3)' }}>›</span>
+              </div>
+            ))}
+
+            <div style={{ marginTop: 24 }}>
+              <button
+                onClick={() => navigate('/groups')}
+                style={{
+                  width: '100%', padding: '13px', marginBottom: 10,
+                  background: 'transparent', border: '0.5px solid var(--border)',
+                  borderRadius: 'var(--radius)', color: 'var(--accent)',
+                  fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: "'Inter',sans-serif",
+                }}>
+                ← Back to All Groups
+              </button>
+              <button
+                onClick={async () => {
+                  const ok = await confirmDialog('Leave this group? You will lose moderator access.')
+                  if (!ok) return
+                  const myMem = members.find(m => m.user_id === user.id)
+                  if (myMem) {
+                    await supabase.from('memberships').delete().eq('id', myMem.id)
+                  }
+                  navigate('/groups')
+                }}
+                style={{
+                  width: '100%', padding: '13px',
+                  background: 'transparent', border: '1px solid rgba(224,85,85,0.3)',
+                  borderRadius: 'var(--radius)', color: '#e05555',
+                  fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: "'Inter',sans-serif",
+                }}>
+                Leave Group
+              </button>
+            </div>
+          </div>
+        )}
+
       </div>
 
       {/* Tab bar */}
-      <BottomNav clubId={clubId} activeTab="home" />
+      <GroupNav clubId={clubId} isMod={true} activeTab={
+        tab === 'polls' ? 'polls'
+        : tab === 'more' || tab === 'members' || tab === 'sessions' || tab === 'settings' ? 'more'
+        : 'session'
+      } />
 
       {/* Start session modal */}
       {showStartModal && (

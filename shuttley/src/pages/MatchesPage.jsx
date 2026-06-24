@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
-import BottomNav from '../components/BottomNav'
+import GroupNav from '../components/GroupNav'
 import Toast from '../components/Toast'
 import { useConfirm } from '../hooks/useConfirm'
 
@@ -398,14 +398,18 @@ export default function MatchesPage() {
   return (
     <div className="page">
       <div className="topnav">
-        <div style={{ width:40 }} />
-        <div style={{ textAlign:'center' }}>
-          <div style={{ fontFamily:"'Plus Jakarta Sans',sans-serif", fontSize:17, fontWeight:600 }}>
+        <button onClick={() => navigate('/groups')} style={{
+          background:'none', border:'none', color:'var(--accent)',
+          fontSize:13, fontWeight:600, cursor:'pointer',
+          display:'flex', alignItems:'center', gap:4, padding:0,
+          fontFamily:"'Inter',sans-serif",
+        }}>← All Groups</button>
+        <div style={{ textAlign:'right' }}>
+          <div style={{ fontFamily:"'Plus Jakarta Sans',sans-serif", fontSize:15, fontWeight:700, color:'var(--text)' }}>{club?.name}</div>
+          <div style={{ fontSize:11, color:'var(--text3)', fontWeight:500 }}>
             {{ history:'History', leaderboard:'Leaders', stats:'Stats', sessions:'Sessions' }[tab]}
           </div>
-          <div style={{ fontSize:11, color:'var(--text3)', fontWeight:500 }}>{club?.name}</div>
         </div>
-        <div style={{ width:40 }} />
       </div>
 
       <div className="content" style={{ paddingTop:12, paddingBottom:90 }}>
@@ -1129,7 +1133,7 @@ export default function MatchesPage() {
 
       </div>
 
-      <BottomNav clubId={clubId} activeTab="stats" />
+      <GroupNav clubId={clubId} isMod={isModerator} activeTab="stats" />
 
       <Toast message={toast} />
       {confirmModal}

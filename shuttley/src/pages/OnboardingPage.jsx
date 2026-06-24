@@ -252,195 +252,13 @@ export default function OnboardingPage() {
   return (
     <div className="page">
       <div className="topnav">
-        <div style={{ fontFamily:"'Plus Jakarta Sans',sans-serif", fontSize:20, fontWeight:700, color:'var(--text)' }}>
-          Hey, {name.split(' ')[0]} 👋
-        </div>
-        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-          <span style={{ fontSize:12, color:'var(--text3)' }}>{todayLabel}</span>
-          {adminMemberships.length > 0 && (
-            <button onClick={handleAdminPill} style={{
-              padding:'5px 12px', borderRadius:99,
-              background:'var(--accent)', color:'#fff',
-              border:'none', fontSize:12, fontWeight:600,
-              cursor:'pointer', fontFamily:"'Inter',sans-serif",
-              flexShrink:0,
-            }}>
-              Moderator
-            </button>
-          )}
-        </div>
+        <span style={{ fontFamily:"'Plus Jakarta Sans',sans-serif", fontSize:20, fontWeight:600, color:'var(--text)' }}>
+          Groups
+        </span>
       </div>
 
       <div className="content">
         {view === 'home' && <>
-
-          {/* ── Active polls (unanswered only — disappears once you respond) ── */}
-          {unansweredPolls.length > 0 && (
-            <div style={{ marginBottom: 24 }}>
-              <div className="section-label">Session polls</div>
-              {unansweredPolls.map(poll => {
-                const clubName = memberships.find(m => m.club_id === poll.club_id)?.clubs?.name || 'Club'
-                const counts = pollCounts(poll)
-                const mine = myResponses[poll.id]
-                return (
-                  <div key={poll.id} style={{
-                    background: 'var(--bg2)', border: '1px solid var(--border)',
-                    borderLeft: '4px solid #256575',
-                    borderRadius: 'var(--radius)', padding: '14px 16px', marginBottom: 10,
-                  }}>
-                    {/* Header */}
-                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4 }}>
-                      {clubName}
-                    </div>
-                    <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 2 }}>
-                      Coming on {formatPollDate(poll.session_date)}?
-                    </div>
-                    {poll.session_time && (
-                      <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 8 }}>{poll.session_time}</div>
-                    )}
-                    {poll.notes && (
-                      <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 8 }}>{poll.notes}</div>
-                    )}
-
-                    {/* Response buttons */}
-                    <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
-                      {[
-                        { key: 'yes',   label: 'Yes',   color: '#2a8c55', bg: 'rgba(42,140,85,0.1)',  border: 'rgba(42,140,85,0.3)'  },
-                        { key: 'no',    label: 'No',    color: '#e05555', bg: 'rgba(224,85,85,0.1)',  border: 'rgba(224,85,85,0.3)'  },
-                        { key: 'maybe', label: 'Maybe', color: '#a07800', bg: 'rgba(255,200,50,0.1)', border: 'rgba(220,175,20,0.3)' },
-                      ].map(opt => (
-                        <button key={opt.key} onClick={() => respondToPoll(poll, opt.key)} style={{
-                          flex: 1, padding: '9px 4px', borderRadius: 'var(--radius-sm)',
-                          fontSize: 13, fontWeight: mine === opt.key ? 700 : 500,
-                          cursor: 'pointer', fontFamily: "'Inter',sans-serif",
-                          background: mine === opt.key ? opt.bg : 'transparent',
-                          color: mine === opt.key ? opt.color : 'var(--text2)',
-                          border: `1.5px solid ${mine === opt.key ? opt.border : 'var(--border)'}`,
-                          transition: 'all 0.15s ease',
-                        }}>
-                          {opt.label}
-                        </button>
-                      ))}
-                    </div>
-
-                    {/* Live counts */}
-                    <div style={{ display: 'flex', gap: 12, fontSize: 12, color: 'var(--text3)' }}>
-                      <span style={{ color: '#2a8c55', fontWeight: 600 }}>{counts.yes} ✓</span>
-                      <span style={{ color: '#e05555', fontWeight: 600 }}>{counts.no} ✗</span>
-                      {counts.maybe > 0 && <span style={{ color: '#a07800', fontWeight: 600 }}>{counts.maybe} maybe</span>}
-                      {counts.total < (memberCounts[poll.club_id] || 0) && (
-                        <span>{(memberCounts[poll.club_id] || 0) - counts.total} pending</span>
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-
-          {/* ── My Performance ── */}
-          {(() => {
-            const Bar = () => null
-
-            return (
-              <div style={{ marginBottom: 24 }}>
-                {/* Header */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                  <div className="section-label" style={{ marginBottom: 0 }}>My performance</div>
-                  <div style={{ display: 'flex', gap: 3 }}>
-                    {[['15d','15d'],['30d','30d'],['60d','60d'],['All','all']].map(([lbl, key]) => (
-                      <button key={key} onClick={() => setStatPeriod(key)} style={{
-                        padding: '2px 7px', borderRadius: 20, fontSize: 10, fontWeight: 600,
-                        background: statPeriod === key ? '#256575' : 'transparent',
-                        color: statPeriod === key ? 'white' : 'var(--text3)',
-                        border: `1px solid ${statPeriod === key ? '#256575' : 'var(--border)'}`,
-                        cursor: 'pointer', fontFamily: "'Inter',sans-serif", transition: 'all 0.15s',
-                      }}>{lbl}</button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Loading skeleton */}
-                {!myStats ? (
-                  <div style={{ background: 'var(--bg2)', border: '0.5px solid var(--border)', borderRadius: 'var(--radius)', padding: '10px 16px', display: 'flex', justifyContent: 'space-around' }}>
-                    {[0,1,2].map(i => (
-                      <div key={i} style={{ textAlign: 'center' }}>
-                        <div style={{ width: 32, height: 18, background: 'var(--border)', borderRadius: 4, margin: '0 auto 4px' }}/>
-                        <div style={{ width: 28, height: 8, background: 'var(--border)', borderRadius: 3, margin: '0 auto' }}/>
-                      </div>
-                    ))}
-                  </div>
-                ) : myStats[statPeriod].overall.total === 0 ? (
-                  <div style={{ background: 'var(--bg2)', border: '0.5px solid var(--border)', borderRadius: 'var(--radius)', padding: '10px 16px', textAlign: 'center' }}>
-                    <div style={{ fontSize: 12, color: 'var(--text3)' }}>No matches in this period</div>
-                  </div>
-                ) : (() => {
-                  const s = myStats[statPeriod].overall
-                  const clubEntries = Object.entries(myStats[statPeriod].clubs).filter(([, cs]) => cs.total > 0)
-                  const hasMultiple = clubEntries.length > 1
-
-                  return (
-                    <>
-                      {/* Overall tile */}
-                      <div
-                        onClick={hasMultiple ? () => setPerfExpanded(e => !e) : undefined}
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: 8,
-                          background: 'var(--bg2)', border: '0.5px solid var(--border)',
-                          borderLeft: '4px solid #256575', borderRadius: 'var(--radius)',
-                          padding: '10px 16px', cursor: hasMultiple ? 'pointer' : 'default',
-                        }}
-                      >
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontWeight: 600, fontSize: 15 }}>Overall</div>
-                          <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>
-                            <span style={{ color: '#2a8c55', fontWeight: 600 }}>{s.wins}W</span>
-                            {' · '}
-                            <span style={{ color: '#e05555', fontWeight: 600 }}>{s.losses}L</span>
-                            {' · '}
-                            <span style={{ color: s.pct >= 50 ? '#256575' : '#e05555', fontWeight: 600 }}>{s.pct}%</span>
-                            {' · '}{s.total} played
-                          </div>
-                        </div>
-                        {hasMultiple && (
-                          <span style={{
-                            fontSize: 20, color: 'var(--text3)', flexShrink: 0,
-                            display: 'inline-block', lineHeight: 1,
-                            transform: perfExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
-                            transition: 'transform 0.2s ease',
-                          }}>›</span>
-                        )}
-                      </div>
-
-                      {/* Per-club tiles (expanded) */}
-                      {perfExpanded && clubEntries.map(([cid, cs]) => {
-                        const mem = memberships.find(m => m.club_id === cid)
-                        const cName = mem?.clubs?.name || 'Club'
-                        const isAdmin = mem?.role === 'moderator'
-                        return (
-                          <div key={cid} style={{
-                            background: 'var(--bg2)', border: '0.5px solid var(--border)',
-                            borderLeft: `4px solid ${isAdmin ? '#256575' : '#6ea6b4'}`, borderRadius: 'var(--radius)',
-                            padding: '9px 16px', marginTop: 4,
-                          }}>
-                            <div style={{ fontWeight: 600, fontSize: 15 }}>{cName}</div>
-                            <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>
-                              <span style={{ color: '#2a8c55', fontWeight: 600 }}>{cs.wins}W</span>
-                              {' · '}
-                              <span style={{ color: '#e05555', fontWeight: 600 }}>{cs.losses}L</span>
-                              {' · '}
-                              <span style={{ color: cs.pct >= 50 ? '#256575' : '#e05555', fontWeight: 600 }}>{cs.pct}%</span>
-                              {' · '}{cs.total} played
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </>
-                  )
-                })()}
-              </div>
-            )
-          })()}
 
           {/* ── My groups ── */}
           {loading ? (
@@ -487,10 +305,25 @@ export default function OnboardingPage() {
                       {m.status === 'pending' ? (
                         <div style={{ fontSize: 12, color: '#ffc832', marginTop: 2 }}>Pending approval</div>
                       ) : (
-                        <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>
-                          {count ? `${count} member${count !== 1 ? 's' : ''}` : ''}
-                          {clubPolls.length > 0 && <span style={{ color: '#256575', marginLeft: 6 }}>· {clubPolls.length} poll{clubPolls.length !== 1 ? 's' : ''}</span>}
-                        </div>
+                        <>
+                          <div style={{ fontSize: 12, color: isAdmin ? 'var(--accent)' : 'var(--text2)', marginTop: 2, fontWeight: 500 }}>
+                            {isAdmin ? 'Moderator' : 'Member'}
+                            {count ? <span style={{ color: 'var(--text3)', fontWeight: 400 }}> · {count} member{count !== 1 ? 's' : ''}</span> : null}
+                          </div>
+                          {(() => {
+                            const cs = myStats?.all?.clubs?.[m.club_id]
+                            if (!cs || cs.total === 0) return null
+                            return (
+                              <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
+                                <span style={{ color: '#2a8c55', fontWeight: 600 }}>{cs.wins}W</span>
+                                {' · '}
+                                <span style={{ color: '#e05555', fontWeight: 600 }}>{cs.losses}L</span>
+                                {' · '}
+                                <span style={{ color: cs.pct >= 50 ? '#256575' : '#e05555', fontWeight: 600 }}>{cs.pct}%</span>
+                              </div>
+                            )
+                          })()}
+                        </>
                       )}
                     </div>
                     {m.status === 'approved' && (
@@ -572,7 +405,7 @@ export default function OnboardingPage() {
 
       {toast && <div className="toast">{toast}</div>}
 
-      <BottomNav clubId={null} activeTab="groups" />
+      <BottomNav activeTab="groups" />
 
       {fabOpen && (
         <div onClick={() => setFabOpen(false)} style={{
