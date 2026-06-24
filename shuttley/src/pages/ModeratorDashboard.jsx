@@ -588,6 +588,40 @@ export default function ModeratorDashboard() {
       {/* Tab content */}
       <div className="content">
 
+        {/* ── In-page tab nav ── */}
+        <div style={{
+          display:'flex', gap:6, overflowX:'auto', marginBottom:20,
+          scrollbarWidth:'none', WebkitOverflowScrolling:'touch', padding:'0 0 2px',
+        }}>
+          {[
+            { id:'home',     label:'Home' },
+            { id:'members',  label:'Members' },
+            { id:'sessions', label:'Sessions', badge: alertCount },
+            { id:'polls',    label:'Polls' },
+            { id:'settings', label:'Settings' },
+          ].map(t => (
+            <button key={t.id} onClick={() => changeTab(t.id)} style={{
+              flexShrink:0, padding:'7px 16px', borderRadius:99, cursor:'pointer',
+              border: tab === t.id ? 'none' : '0.5px solid var(--border)',
+              background: tab === t.id ? 'var(--accent)' : 'var(--bg2)',
+              color: tab === t.id ? '#fff' : 'var(--text2)',
+              fontSize:13, fontWeight: tab === t.id ? 600 : 400,
+              position:'relative',
+            }}>
+              {t.label}
+              {t.badge > 0 && (
+                <span style={{
+                  position:'absolute', top:-4, right:-4,
+                  background:'#ff5c5c', color:'#fff', borderRadius:99,
+                  fontSize:9, fontWeight:700, minWidth:16, height:16,
+                  display:'flex', alignItems:'center', justifyContent:'center',
+                  padding:'0 3px', lineHeight:1,
+                }}>{t.badge}</span>
+              )}
+            </button>
+          ))}
+        </div>
+
         {/* ── HOME ── */}
         {tab === 'home' && <>
 
