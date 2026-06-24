@@ -218,9 +218,9 @@ export default function HomePage() {
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                   <div>
-                    <span style={{ fontSize: 22, fontWeight: 800, color: '#2a8c55' }}>{myStats.wins}W</span>
+                    <span style={{ fontSize: 22, fontWeight: 700, color: '#2a8c55' }}>{myStats.wins}W</span>
                     <span style={{ fontSize: 16, color: 'var(--text3)', margin: '0 6px' }}>·</span>
-                    <span style={{ fontSize: 22, fontWeight: 800, color: '#e05555' }}>{myStats.losses}L</span>
+                    <span style={{ fontSize: 22, fontWeight: 700, color: '#e05555' }}>{myStats.losses}L</span>
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <div style={{ fontSize: 20, fontWeight: 700, color: myStats.pct >= 50 ? '#256575' : '#e05555' }}>

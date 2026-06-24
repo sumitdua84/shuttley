@@ -57,7 +57,7 @@ export default function BottomNav({ clubId, activeTab }) {
         return (
           <button key={t.id} className={`tab ${active ? 'active' : ''}`} onClick={t.action}>
             <t.Icon active={active} />
-            <span style={{ fontWeight: active ? 700 : 400, fontSize: 11, marginTop: 2 }}>{t.label}</span>
+            <span style={{ fontWeight: active ? 600 : 400, fontSize: 11, marginTop: 2 }}>{t.label}</span>
           </button>
         )
       })}

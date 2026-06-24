@@ -123,9 +123,9 @@ export default function StatsPage() {
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                     <div>
-                      <span style={{ fontSize: 28, fontWeight: 800, color: '#2a8c55' }}>{s.overall.wins}W</span>
+                      <span style={{ fontSize: 28, fontWeight: 700, color: '#2a8c55' }}>{s.overall.wins}W</span>
                       <span style={{ fontSize: 18, color: 'var(--text3)', margin: '0 8px' }}>·</span>
-                      <span style={{ fontSize: 28, fontWeight: 800, color: '#e05555' }}>{s.overall.losses}L</span>
+                      <span style={{ fontSize: 28, fontWeight: 700, color: '#e05555' }}>{s.overall.losses}L</span>
                     </div>
                     <div style={{ textAlign: 'right' }}>
                       <div style={{ fontSize: 26, fontWeight: 700, color: s.overall.pct >= 50 ? '#256575' : '#e05555' }}>
