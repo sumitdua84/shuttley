@@ -90,6 +90,16 @@ export default function ModeratorDashboard() {
     if (t) setTab(t)
   }, [searchParams])
 
+  // Auto-expand a specific poll when navigated here from Home with openPollId
+  useEffect(() => {
+    const pollId = location.state?.openPollId
+    if (pollId && activePolls.length > 0) {
+      setExpandedPolls(prev => ({ ...prev, [pollId]: true }))
+      setTab('polls')
+      setSearchParams({ tab: 'polls' }, { replace: true })
+    }
+  }, [activePolls.length])
+
   useEffect(() => {
     if (loading) return
     const schedule = (key, count) => {
@@ -1228,16 +1238,27 @@ export default function ModeratorDashboard() {
                         })
                       )}
 
-                      {/* Start Session from this Poll (session polls only, no active session) */}
-                      {!isCustom && !activeSession && (
-                        <button onClick={() => startSessionFromPoll(poll)} style={{
-                          marginTop:4, marginBottom:8, width:'100%', padding:'9px',
-                          background:'var(--accent-dim)', border:'1.5px solid var(--accent)',
-                          borderRadius:'var(--radius-sm)', color:'var(--accent)',
-                          fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:"'Inter',sans-serif",
-                        }}>
-                          ▶ Start Session from this Poll
-                        </button>
+                      {/* Start Session / Open Session — session polls only */}
+                      {!isCustom && (
+                        activeSession ? (
+                          <button onClick={() => navigate(`/club/${clubId}/session/${activeSession.id}/rotation`)} style={{
+                            marginTop:4, marginBottom:8, width:'100%', padding:'9px',
+                            background:'var(--accent)', border:'none',
+                            borderRadius:'var(--radius-sm)', color:'#fff',
+                            fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:"'Inter',sans-serif",
+                          }}>
+                            Open Current Session →
+                          </button>
+                        ) : (
+                          <button onClick={() => startSessionFromPoll(poll)} style={{
+                            marginTop:4, marginBottom:8, width:'100%', padding:'9px',
+                            background:'var(--accent-dim)', border:'1.5px solid var(--accent)',
+                            borderRadius:'var(--radius-sm)', color:'var(--accent)',
+                            fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:"'Inter',sans-serif",
+                          }}>
+                            ▶ Start Session from this Poll
+                          </button>
+                        )
                       )}
 
                       {/* Delete poll */}

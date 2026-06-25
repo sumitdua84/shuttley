@@ -10,7 +10,8 @@ export default function HomePage() {
   const navigate = useNavigate()
 
   const [memberships, setMemberships] = useState([])
-  const [activePolls, setActivePolls] = useState([])
+  const [activePolls, setActivePolls] = useState([])    // unanswered
+  const [upcomingPolls, setUpcomingPolls] = useState([]) // answered yes
   const [myStats, setMyStats] = useState(null)
   const [liveSessions, setLiveSessions] = useState([])
   const [pendingMemberCount, setPendingMemberCount] = useState(0)
@@ -42,7 +43,7 @@ export default function HomePage() {
 
     const [{ data: pollData }, { data: liveData }, pendingResult] = await Promise.all([
       supabase.from('session_polls')
-        .select('id, club_id, session_date, session_time, notes, poll_responses(user_id)')
+        .select('id, club_id, session_date, session_time, notes, poll_responses(user_id, response)')
         .in('club_id', clubIds)
         .eq('status', 'open')
         .or(`session_date.gte.${today},session_date.is.null`)
@@ -68,9 +69,16 @@ export default function HomePage() {
         const nowMs = now.getHours() * 60 + now.getMinutes()
         return nowMs < sessionMs
       })
-      const unanswered = relevant.filter(p =>
-        !p.poll_responses?.find(r => r.user_id === user.id)
-      )
+
+      const myResp = (p) => p.poll_responses?.find(r => r.user_id === user.id)?.response
+
+      // Session polls where I said yes → Upcoming Sessions
+      const yesPolls = relevant.filter(p => p.session_date && myResp(p) === 'yes')
+      // All polls I haven't answered yet (session + custom)
+      const unanswered = relevant.filter(p => !myResp(p))
+      // no/maybe → not shown on home (already responded, no action needed)
+
+      setUpcomingPolls(yesPolls.map(p => ({ ...p, clubName: clubNameMap[p.club_id] })))
       setActivePolls(unanswered.map(p => ({ ...p, clubName: clubNameMap[p.club_id] })))
     }
 
@@ -114,6 +122,28 @@ export default function HomePage() {
   }
 
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(''), 2500) }
+
+  async function updatePollResponse(pollId, response, pollClubId) {
+    await supabase.from('poll_responses').upsert(
+      { poll_id: pollId, user_id: user.id, response },
+      { onConflict: 'poll_id,user_id' }
+    )
+    // Update local state immediately — no full refetch
+    if (response === 'yes') {
+      // Move from activePolls → upcomingPolls (only session polls have session_date)
+      const poll = activePolls.find(p => p.id === pollId)
+      if (poll?.session_date) {
+        setActivePolls(prev => prev.filter(p => p.id !== pollId))
+        setUpcomingPolls(prev => [...prev, poll])
+      } else {
+        // Custom poll answered yes — just remove from needing response
+        setActivePolls(prev => prev.filter(p => p.id !== pollId))
+      }
+    } else {
+      // no/maybe — remove from home (poll is answered, no longer needs response)
+      setActivePolls(prev => prev.filter(p => p.id !== pollId))
+    }
+  }
 
   function formatPollDate(dateStr) {
     return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-AU', {
@@ -237,40 +267,142 @@ export default function HomePage() {
             </div>
           )}
 
-          {/* ── 3. Upcoming / Active Group Polls ── */}
-          {activePolls.length > 0 && (
+          {/* ── 3. Upcoming Sessions (answered yes) ── */}
+          {upcomingPolls.length > 0 && (
             <div style={{ marginBottom: 20 }}>
-              <div className="section-label">Polls needing your response</div>
-              {activePolls.map(poll => {
+              <div className="section-label">Upcoming sessions</div>
+              {upcomingPolls.map(poll => {
                 const mem = memberships.find(m => m.club_id === poll.club_id)
                 const isMod = mem?.role === 'moderator'
-                const title = getPollTitle(poll)
+                const liveSession = liveSessions.find(s => s.club_id === poll.club_id)
                 return (
-                  <div key={poll.id}
-                    onClick={() => navigate(isMod ? `/club/${poll.club_id}/mod?tab=polls` : `/club/${poll.club_id}/member?tab=polls`)}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 12,
-                      background: 'var(--bg2)', border: '0.5px solid var(--border)',
-                      borderLeft: `4px solid ${!poll.session_date ? 'var(--accent)' : '#256575'}`,
-                      borderRadius: 'var(--radius)', padding: '12px 14px', marginBottom: 8, cursor: 'pointer',
-                    }}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>
-                        {title}
-                        {poll.session_date && poll.session_time ? ` · ${poll.session_time.slice(0, 5)}` : ''}
-                      </div>
-                      <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
-                        {poll.clubName} · Tap to respond
+                  <div key={poll.id} style={{
+                    background: 'var(--bg2)', border: '0.5px solid var(--border)',
+                    borderLeft: '4px solid #2a8c55',
+                    borderRadius: 'var(--radius)', padding: '13px 14px', marginBottom: 8,
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: liveSession || isMod ? 10 : 0 }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>
+                          {formatPollDate(poll.session_date)}
+                          {poll.session_time ? ` · ${poll.session_time.slice(0, 5)}` : ''}
+                        </div>
+                        <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
+                          {poll.clubName}
+                          <span style={{ marginLeft: 6, color: '#2a8c55', fontWeight: 600 }}>· You're in ✓</span>
+                        </div>
                       </div>
                     </div>
-                    <span style={{ fontSize: 18, color: 'var(--text3)', flexShrink: 0 }}>›</span>
+
+                    {liveSession ? (
+                      // Session already started → Open Current Session
+                      <button
+                        onClick={() => navigate(
+                          isMod
+                            ? `/club/${poll.club_id}/session/${liveSession.id}/rotation`
+                            : `/club/${poll.club_id}/member?tab=session`
+                        )}
+                        style={{
+                          width: '100%', padding: '9px', background: 'var(--accent)', color: '#fff',
+                          border: 'none', borderRadius: 'var(--radius-sm)', fontWeight: 700,
+                          fontSize: 13, cursor: 'pointer', fontFamily: "'Inter',sans-serif",
+                        }}>
+                        Open Current Session →
+                      </button>
+                    ) : isMod ? (
+                      // No session yet, user is mod → Start Session from this Poll
+                      <button
+                        onClick={() => navigate(`/club/${poll.club_id}/mod?tab=polls`, { state: { openPollId: poll.id } })}
+                        style={{
+                          width: '100%', padding: '9px', background: 'var(--accent-dim)',
+                          color: 'var(--accent)', border: '1.5px solid var(--accent)',
+                          borderRadius: 'var(--radius-sm)', fontWeight: 700,
+                          fontSize: 13, cursor: 'pointer', fontFamily: "'Inter',sans-serif",
+                        }}>
+                        ▶ Start Session from this Poll
+                      </button>
+                    ) : (
+                      // Member, no session yet → View Poll
+                      <button
+                        onClick={() => navigate(`/club/${poll.club_id}/member?tab=polls`)}
+                        style={{
+                          width: '100%', padding: '9px', background: 'transparent',
+                          color: 'var(--text2)', border: '1px solid var(--border)',
+                          borderRadius: 'var(--radius-sm)', fontWeight: 600,
+                          fontSize: 13, cursor: 'pointer', fontFamily: "'Inter',sans-serif",
+                        }}>
+                        View Poll →
+                      </button>
+                    )}
                   </div>
                 )
               })}
             </div>
           )}
 
-          {/* ── 4. Alerts ── */}
+          {/* ── 4. Polls needing response (unanswered — session + custom) ── */}
+          {activePolls.length > 0 && (
+            <div style={{ marginBottom: 20 }}>
+              <div className="section-label">Polls needing your response</div>
+              {activePolls.map(poll => {
+                const title = getPollTitle(poll)
+                // Parse custom options for custom polls
+                let customOpts = null
+                if (!poll.session_date && poll.notes) {
+                  try {
+                    const p = JSON.parse(poll.notes)
+                    if (p.q && Array.isArray(p.opts) && p.opts.length >= 2) customOpts = p.opts
+                  } catch {}
+                }
+                return (
+                  <div key={poll.id} style={{
+                    background: 'var(--bg2)', border: '0.5px solid var(--border)',
+                    borderLeft: `4px solid ${!poll.session_date ? 'var(--accent)' : '#256575'}`,
+                    borderRadius: 'var(--radius)', padding: '13px 14px', marginBottom: 8,
+                  }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 2 }}>
+                      {title}
+                      {poll.session_date && poll.session_time ? ` · ${poll.session_time.slice(0, 5)}` : ''}
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 10 }}>
+                      {poll.clubName}
+                    </div>
+                    {customOpts ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        {customOpts.map(opt => (
+                          <button key={opt} onClick={() => updatePollResponse(poll.id, opt, poll.club_id)} style={{
+                            padding: '8px 12px', borderRadius: 'var(--radius-sm)', textAlign: 'left',
+                            fontSize: 13, fontWeight: 500, cursor: 'pointer',
+                            fontFamily: "'Inter',sans-serif",
+                            background: 'transparent', color: 'var(--text2)',
+                            border: '1.5px solid var(--border)',
+                          }}>{opt}</button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        {[
+                          { key: 'yes',   label: 'Yes',   color: '#2a8c55', bg: 'rgba(42,140,85,0.1)',  border: 'rgba(42,140,85,0.3)'  },
+                          { key: 'no',    label: 'No',    color: '#e05555', bg: 'rgba(224,85,85,0.1)',  border: 'rgba(224,85,85,0.3)'  },
+                          { key: 'maybe', label: 'Maybe', color: '#a07800', bg: 'rgba(255,200,50,0.1)', border: 'rgba(220,175,20,0.3)' },
+                        ].map(opt => (
+                          <button key={opt.key} onClick={() => updatePollResponse(poll.id, opt.key, poll.club_id)} style={{
+                            flex: 1, padding: '9px 4px', borderRadius: 'var(--radius-sm)',
+                            fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                            fontFamily: "'Inter',sans-serif",
+                            background: 'transparent', color: opt.color,
+                            border: `1.5px solid ${opt.border}`,
+                          }}>{opt.label}</button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          {/* ── 5. Alerts ── */}
           {pendingMemberCount > 0 && (
             <div style={{ marginBottom: 20 }}>
               <div className="section-label">Needs attention</div>
@@ -296,7 +428,7 @@ export default function HomePage() {
           )}
 
           {/* Empty state */}
-          {(!myStats || myStats.total === 0) && activePolls.length === 0 && liveSessions.length === 0 && pendingMemberCount === 0 && (
+          {(!myStats || myStats.total === 0) && activePolls.length === 0 && upcomingPolls.length === 0 && liveSessions.length === 0 && pendingMemberCount === 0 && (
             <div className="empty">
               <div className="empty-icon">🏸</div>
               <p>Welcome! Tap <strong>Groups</strong> below to join or create a group and start playing.</p>
