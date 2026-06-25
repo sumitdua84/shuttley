@@ -13,12 +13,45 @@ export default function HomePage() {
   const [activePolls, setActivePolls] = useState([])    // unanswered
   const [upcomingPolls, setUpcomingPolls] = useState([]) // answered yes
   const [myStats, setMyStats] = useState(null)
+  const [rawMatchData, setRawMatchData] = useState(null) // for period filtering
+  const [perfPeriod, setPerfPeriod] = useState('15d')
+  const [perfExpanded, setPerfExpanded] = useState(false)
   const [liveSessions, setLiveSessions] = useState([])
   const [pendingMemberCount, setPendingMemberCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [toast, setToast] = useState('')
 
   useEffect(() => { fetchAll() }, [user])
+
+  // Recompute performance stats when period or raw data changes
+  useEffect(() => {
+    if (!rawMatchData) return
+    const { mpRows, matchRows, clubNameMap } = rawMatchData
+    let cutoff = null
+    if (perfPeriod !== 'all') {
+      cutoff = new Date()
+      cutoff.setDate(cutoff.getDate() - parseInt(perfPeriod))
+    }
+    const filtered = cutoff
+      ? matchRows.filter(m => m.played_at && new Date(m.played_at) >= cutoff)
+      : matchRows
+    const sideMap = Object.fromEntries(mpRows.map(r => [r.match_id, r.side]))
+    let wins = 0, losses = 0
+    const groupMap = {}
+    filtered.forEach(m => {
+      const won = m.winner_side === sideMap[m.id]
+      if (won) wins++; else losses++
+      if (m.club_id) {
+        if (!groupMap[m.club_id]) groupMap[m.club_id] = { wins: 0, losses: 0 }
+        if (won) groupMap[m.club_id].wins++; else groupMap[m.club_id].losses++
+      }
+    })
+    const total = wins + losses
+    const byGroup = Object.entries(groupMap)
+      .map(([clubId, s]) => ({ clubId, clubName: clubNameMap[clubId] || 'Group', ...s }))
+      .sort((a, b) => (b.wins + b.losses) - (a.wins + a.losses))
+    setMyStats(total > 0 ? { wins, losses, total, pct: Math.round(wins / total * 100), byGroup } : null)
+  }, [perfPeriod, rawMatchData])
 
   async function fetchAll() {
     if (!user) return
@@ -100,53 +133,19 @@ export default function HomePage() {
   }
 
   async function fetchMyStats(memList) {
-    const empty = { wins: 0, losses: 0, total: 0, pct: 0, form: [], byGroup: [], byDay: [] }
+    const clubNameMap = Object.fromEntries((memList || []).map(m => [m.club_id, m.clubs?.name]))
     const { data: mpRows } = await supabase
       .from('match_players').select('match_id, side').eq('user_id', user.id)
-    if (!mpRows?.length) { setMyStats(empty); return }
+    if (!mpRows?.length) { setRawMatchData(null); setMyStats(null); return }
 
     const { data: matchRows } = await supabase
       .from('matches').select('id, winner_side, played_at, club_id')
       .in('id', mpRows.map(r => r.match_id))
       .in('status', ['confirmed', 'pending'])
-    if (!matchRows?.length) { setMyStats(empty); return }
+    if (!matchRows?.length) { setRawMatchData(null); setMyStats(null); return }
 
-    const clubNameMap = Object.fromEntries((memList || []).map(m => [m.club_id, m.clubs?.name]))
-    const sideMap = Object.fromEntries(mpRows.map(r => [r.match_id, r.side]))
-
-    let wins = 0, losses = 0
-    const groupMap = {}   // clubId → {wins, losses}
-    const dayMap = {}     // 'Wednesday' → {wins, losses}
-
-    matchRows.forEach(m => {
-      const won = m.winner_side === sideMap[m.id]
-      if (won) wins++; else losses++
-
-      if (m.club_id) {
-        if (!groupMap[m.club_id]) groupMap[m.club_id] = { wins: 0, losses: 0 }
-        if (won) groupMap[m.club_id].wins++; else groupMap[m.club_id].losses++
-      }
-
-      if (m.played_at) {
-        const day = new Date(m.played_at).toLocaleDateString('en-AU', { weekday: 'long' })
-        if (!dayMap[day]) dayMap[day] = { wins: 0, losses: 0 }
-        if (won) dayMap[day].wins++; else dayMap[day].losses++
-      }
-    })
-
-    const total = wins + losses
-    const recent = [...matchRows].sort((a, b) => new Date(b.played_at) - new Date(a.played_at)).slice(0, 5)
-    const form = recent.map(m => m.winner_side === sideMap[m.id] ? 'W' : 'L')
-
-    const byGroup = Object.entries(groupMap)
-      .map(([clubId, s]) => ({ clubId, clubName: clubNameMap[clubId] || 'Group', ...s }))
-      .sort((a, b) => (b.wins + b.losses) - (a.wins + a.losses))
-
-    const byDay = Object.entries(dayMap)
-      .map(([day, s]) => ({ day, ...s }))
-      .sort((a, b) => (b.wins + b.losses) - (a.wins + a.losses))
-
-    setMyStats({ wins, losses, total, pct: total > 0 ? Math.round(wins / total * 100) : 0, form, byGroup, byDay })
+    // Store raw data — the useEffect([perfPeriod, rawMatchData]) computes filtered stats
+    setRawMatchData({ mpRows, matchRows, clubNameMap })
   }
 
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(''), 2500) }
@@ -254,93 +253,80 @@ export default function HomePage() {
           )}
 
           {/* ── 2. My Performance ── */}
-          {myStats && myStats.total > 0 && (
+          {rawMatchData && (
             <div style={{ marginBottom: 20 }}>
-              <div className="section-label">My performance</div>
-              <div style={{
-                background: 'var(--bg2)', border: '0.5px solid var(--border)',
-                borderLeft: '4px solid #256575', borderRadius: 'var(--radius)',
-                padding: '14px 16px',
-              }}>
-                {/* Overall */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                  <div>
-                    <span style={{ fontSize: 22, fontWeight: 700, color: '#2a8c55' }}>{myStats.wins}W</span>
-                    <span style={{ fontSize: 16, color: 'var(--text3)', margin: '0 6px' }}>·</span>
-                    <span style={{ fontSize: 22, fontWeight: 700, color: '#e05555' }}>{myStats.losses}L</span>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: 20, fontWeight: 700, color: myStats.pct >= 50 ? '#256575' : '#e05555' }}>
-                      {myStats.pct}%
-                    </div>
-                    <div style={{ fontSize: 11, color: 'var(--text3)' }}>win rate</div>
-                  </div>
+              {/* Header row: label + period pills */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                <div className="section-label" style={{ margin: 0 }}>My performance</div>
+                <div style={{ display: 'flex', gap: 4 }}>
+                  {[['15d', '15d'], ['30d', '30d'], ['60d', '60d'], ['all', 'All']].map(([val, label]) => (
+                    <button key={val} onClick={() => setPerfPeriod(val)} style={{
+                      padding: '3px 9px', borderRadius: 20, fontSize: 11, fontWeight: 700,
+                      cursor: 'pointer', fontFamily: "'Inter',sans-serif", border: 'none',
+                      background: perfPeriod === val ? '#256575' : 'var(--bg3)',
+                      color: perfPeriod === val ? '#fff' : 'var(--text3)',
+                      transition: 'background 0.15s',
+                    }}>{label}</button>
+                  ))}
                 </div>
-                {myStats.form?.length > 0 && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 12 }}>
-                    <span style={{ fontSize: 11, color: 'var(--text3)', marginRight: 2 }}>Recent</span>
-                    {myStats.form.map((r, i) => (
-                      <span key={i} style={{
-                        width: 22, height: 22, borderRadius: 4, fontSize: 10, fontWeight: 700,
-                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                        background: r === 'W' ? 'rgba(42,140,85,0.12)' : 'rgba(224,85,85,0.12)',
-                        color: r === 'W' ? '#2a8c55' : '#e05555',
-                      }}>{r}</span>
-                    ))}
-                  </div>
-                )}
-                <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: myStats.byGroup?.length > 0 ? 12 : 0 }}>
-                  {myStats.total} matches · all groups
-                </div>
-
-                {/* By Group */}
-                {myStats.byGroup?.length > 0 && (
-                  <>
-                    <div style={{ height: '0.5px', background: 'var(--border)', marginBottom: 10 }} />
-                    <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text3)', letterSpacing: '0.06em', marginBottom: 7 }}>By group</div>
-                    {myStats.byGroup.map(g => {
-                      const gTotal = g.wins + g.losses
-                      const gPct = gTotal > 0 ? Math.round(g.wins / gTotal * 100) : 0
-                      return (
-                        <div key={g.clubId} style={{ display: 'flex', alignItems: 'center', marginBottom: 6 }}>
-                          <div style={{ fontSize: 12, color: 'var(--text)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {g.clubName}
-                          </div>
-                          <div style={{ fontSize: 12, fontWeight: 600, flexShrink: 0, marginLeft: 10 }}>
-                            <span style={{ color: '#2a8c55' }}>{g.wins}W</span>
-                            <span style={{ color: 'var(--text3)', margin: '0 3px' }}>·</span>
-                            <span style={{ color: '#e05555' }}>{g.losses}L</span>
-                            <span style={{ color: 'var(--text3)', marginLeft: 5, fontSize: 11 }}>{gPct}%</span>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </>
-                )}
-
-                {/* By Day */}
-                {myStats.byDay?.length > 0 && (
-                  <>
-                    <div style={{ height: '0.5px', background: 'var(--border)', margin: '10px 0' }} />
-                    <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text3)', letterSpacing: '0.06em', marginBottom: 7 }}>By day</div>
-                    {myStats.byDay.map(d => {
-                      const dTotal = d.wins + d.losses
-                      const dPct = dTotal > 0 ? Math.round(d.wins / dTotal * 100) : 0
-                      return (
-                        <div key={d.day} style={{ display: 'flex', alignItems: 'center', marginBottom: 6 }}>
-                          <div style={{ fontSize: 12, color: 'var(--text)', flex: 1 }}>{d.day}</div>
-                          <div style={{ fontSize: 12, fontWeight: 600, flexShrink: 0, marginLeft: 10 }}>
-                            <span style={{ color: '#2a8c55' }}>{d.wins}W</span>
-                            <span style={{ color: 'var(--text3)', margin: '0 3px' }}>·</span>
-                            <span style={{ color: '#e05555' }}>{d.losses}L</span>
-                            <span style={{ color: 'var(--text3)', marginLeft: 5, fontSize: 11 }}>{dPct}%</span>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </>
-                )}
               </div>
+
+              {!myStats ? (
+                <div style={{ fontSize: 13, color: 'var(--text3)', padding: '6px 0' }}>No matches in this period.</div>
+              ) : (
+                <>
+                  {/* Overall card — tap to expand/collapse */}
+                  <div onClick={() => setPerfExpanded(e => !e)} style={{
+                    background: 'var(--bg2)', border: '0.5px solid var(--border)',
+                    borderLeft: '4px solid #256575',
+                    borderRadius: 'var(--radius)', padding: '13px 14px', marginBottom: 4,
+                    cursor: 'pointer', display: 'flex', alignItems: 'center',
+                  }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>Overall</div>
+                      <div style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
+                        <span style={{ fontWeight: 700, color: '#2a8c55' }}>{myStats.wins}W</span>
+                        <span style={{ color: 'var(--text3)' }}>·</span>
+                        <span style={{ fontWeight: 700, color: '#e05555' }}>{myStats.losses}L</span>
+                        <span style={{ color: 'var(--text3)' }}>·</span>
+                        <span style={{ fontWeight: 700, color: '#256575' }}>{myStats.pct}%</span>
+                        <span style={{ color: 'var(--text3)' }}>·</span>
+                        <span style={{ color: 'var(--text3)' }}>{myStats.total} played</span>
+                      </div>
+                    </div>
+                    <span style={{
+                      fontSize: 18, color: 'var(--text3)', flexShrink: 0, marginLeft: 8,
+                      display: 'inline-block',
+                      transform: perfExpanded ? 'rotate(90deg)' : 'none',
+                      transition: 'transform 0.18s ease',
+                    }}>›</span>
+                  </div>
+
+                  {/* Expanded: per-group cards */}
+                  {perfExpanded && myStats.byGroup?.map(g => {
+                    const gTotal = g.wins + g.losses
+                    const gPct = gTotal > 0 ? Math.round(g.wins / gTotal * 100) : 0
+                    return (
+                      <div key={g.clubId} style={{
+                        background: 'var(--bg2)', border: '0.5px solid var(--border)',
+                        borderLeft: '4px solid #256575',
+                        borderRadius: 'var(--radius)', padding: '13px 14px', marginBottom: 4,
+                      }}>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>{g.clubName}</div>
+                        <div style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
+                          <span style={{ fontWeight: 700, color: '#2a8c55' }}>{g.wins}W</span>
+                          <span style={{ color: 'var(--text3)' }}>·</span>
+                          <span style={{ fontWeight: 700, color: '#e05555' }}>{g.losses}L</span>
+                          <span style={{ color: 'var(--text3)' }}>·</span>
+                          <span style={{ fontWeight: 700, color: '#256575' }}>{gPct}%</span>
+                          <span style={{ color: 'var(--text3)' }}>·</span>
+                          <span style={{ color: 'var(--text3)' }}>{gTotal} played</span>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </>
+              )}
             </div>
           )}
 
@@ -505,7 +491,7 @@ export default function HomePage() {
           )}
 
           {/* Empty state */}
-          {(!myStats || myStats.total === 0) && activePolls.length === 0 && upcomingPolls.length === 0 && liveSessions.length === 0 && pendingMemberCount === 0 && (
+          {!rawMatchData && activePolls.length === 0 && upcomingPolls.length === 0 && liveSessions.length === 0 && pendingMemberCount === 0 && (
             <div className="empty">
               <div className="empty-icon">🏸</div>
               <p>Welcome! Tap <strong>Groups</strong> below to join or create a group and start playing.</p>

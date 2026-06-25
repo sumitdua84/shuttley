@@ -547,18 +547,58 @@ export default function ModeratorDashboard() {
     if (!guestName.trim()) return
     setAddingGuest(true)
     const guestId = crypto.randomUUID()
-    const { error } = await supabase.rpc('create_guest_profile', {
+    const name = guestName.trim()
+
+    // Try RPC first (SECURITY DEFINER needed to insert guest profile)
+    const { error: rpcError } = await supabase.rpc('create_guest_profile', {
       guest_id: guestId,
-      guest_name: guestName.trim(),
-      p_club_id: clubId
+      guest_name: name,
+      p_club_id: clubId,
     })
-    if (!error) {
-      showToast(`Guest "${guestName.trim()}" added!`)
+
+    if (!rpcError) {
+      showToast(`Guest "${name}" added!`)
       setGuestName('')
       setShowGuestForm(false)
       fetchData()
     } else {
-      showToast('Error adding guest')
+      console.error('create_guest_profile RPC error:', rpcError)
+      // RPC missing or misconfigured — try direct insert as fallback
+      // (profiles insert will fail RLS if no SECURITY DEFINER fn available)
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .insert({ id: guestId, full_name: name })
+
+      if (!profileError) {
+        const { error: memError } = await supabase
+          .from('memberships')
+          .insert({ user_id: guestId, club_id: clubId, role: 'member', status: 'approved', is_guest: true })
+
+        if (!memError) {
+          showToast(`Guest "${name}" added!`)
+          setGuestName('')
+          setShowGuestForm(false)
+          fetchData()
+        } else {
+          console.error('Guest membership insert error:', memError)
+          showToast(`Cannot add guest: ${memError.message || 'membership error'}`)
+        }
+      } else {
+        console.error('Guest profile insert error:', profileError)
+        // Most likely cause: create_guest_profile RPC does not exist in this DB.
+        // Required fix: run the following SQL in Supabase Dashboard → SQL Editor:
+        //
+        // CREATE OR REPLACE FUNCTION create_guest_profile(
+        //   guest_id uuid, guest_name text, p_club_id uuid
+        // ) RETURNS void LANGUAGE plpgsql SECURITY DEFINER AS $$
+        // BEGIN
+        //   INSERT INTO public.profiles (id, full_name)
+        //   VALUES (guest_id, guest_name) ON CONFLICT (id) DO NOTHING;
+        //   INSERT INTO public.memberships (user_id, club_id, role, status, is_guest)
+        //   VALUES (guest_id, p_club_id, 'member', 'approved', true) ON CONFLICT DO NOTHING;
+        // END; $$;
+        showToast(`Cannot add guest: ${rpcError.message || 'backend function missing'}`)
+      }
     }
     setAddingGuest(false)
   }
