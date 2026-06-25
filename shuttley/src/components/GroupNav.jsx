@@ -1,14 +1,11 @@
 import { useNavigate } from 'react-router-dom'
 
-const IconGroups = ({ active }) => (
+const IconHome = ({ active }) => (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
     stroke={active ? 'var(--accent)' : 'var(--text2)'}
     strokeWidth={active ? 2.5 : 1.8} strokeLinecap="round" strokeLinejoin="round">
-    <path d="M8 21h8M12 17v4"/>
-    <path d="M5 4h14v7a7 7 0 0 1-14 0V4z"/>
-    <path d="M5 7H2a3 3 0 0 0 3 3"/>
-    <path d="M19 7h3a3 3 0 0 1-3 3"/>
-    <line x1="8" y1="21" x2="16" y2="21"/>
+    <path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z"/>
+    <path d="M9 21V12h6v9"/>
   </svg>
 )
 
@@ -61,8 +58,8 @@ export default function GroupNav({ clubId, isMod, activeTab }) {
   const dashPath = isMod ? `/club/${clubId}/mod` : `/club/${clubId}/member`
 
   const tabs = [
-    { id: 'groups',  label: 'Groups',  Icon: IconGroups,  action: () => navigate('/groups') },
-    { id: 'stats',   label: 'Stats',   Icon: IconStats,   action: () => navigate(`/club/${clubId}/matches?tab=leaderboard`) },
+    { id: 'home',    label: 'Home',    Icon: IconHome,    action: () => navigate('/') },
+    { id: 'stats',   label: 'Stats',   Icon: IconStats,   action: () => navigate(`/club/${clubId}/matches?tab=stats`) },
     { id: 'session', label: 'Session', Icon: IconSession, action: () => navigate(`${dashPath}?tab=session`) },
     { id: 'polls',   label: 'Polls',   Icon: IconPolls,   action: () => navigate(`${dashPath}?tab=polls`) },
     { id: 'chat',    label: 'Chat',    Icon: IconChat,    action: () => navigate(`/club/${clubId}/chat`) },

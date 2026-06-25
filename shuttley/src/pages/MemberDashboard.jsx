@@ -770,7 +770,7 @@ export default function MemberDashboard() {
                   <button
                     onClick={() => navigate(`/club/${clubId}/session/${activeSession.id}/rotation`)}
                     style={{ flex:1, background:'#fff', color:'var(--accent)', border:'none', borderRadius:'var(--radius-sm)', padding:'10px', fontWeight:700, fontSize:13, cursor:'pointer', fontFamily:"'Inter',sans-serif" }}>
-                    View Schedule
+                    Open Current Session →
                   </button>
                   <button
                     onClick={endSession}
@@ -871,7 +871,7 @@ export default function MemberDashboard() {
                       const tally = [yes && `${yes} Yes`, no && `${no} No`, maybe && `${maybe} Maybe`].filter(Boolean).join(' · ')
                       return (
                         <div style={{ flex:1, opacity: tileOpacity.polls, transition: `opacity ${tileTransMs.current.polls}ms ease`, textAlign:'center' }}>
-                          <div style={{ fontSize:13, fontWeight:600, color:'var(--text)', lineHeight:1.3 }}>{formatPollDate(poll.session_date)}</div>
+                          <div style={{ fontSize:13, fontWeight:600, color:'var(--text)', lineHeight:1.3 }}>{poll.session_date ? formatPollDate(poll.session_date) : 'Custom poll'}</div>
                           <div style={{ fontSize:11, color:'var(--text3)', marginTop:2, minHeight:15 }}>{tally}</div>
                         </div>
                       )
@@ -904,8 +904,8 @@ export default function MemberDashboard() {
                       style={{ ...tileStyle, animationDelay:'410ms' }}>
                       <div style={{ fontSize:12, fontWeight:700, letterSpacing:'0.06em', textTransform:'uppercase', color:'var(--text)', width:76, flexShrink:0 }}>Chat</div>
                       <div style={{ flex:1, textAlign:'center' }}>
-                        <div style={{ fontSize:13, fontWeight:600, color:'var(--text)', lineHeight:1.3 }}>Club chat</div>
-                        <div style={{ fontSize:11, color:'var(--text3)', marginTop:2, minHeight:15 }}>Message your club</div>
+                        <div style={{ fontSize:13, fontWeight:600, color:'var(--text)', lineHeight:1.3 }}>Group chat</div>
+                        <div style={{ fontSize:11, color:'var(--text3)', marginTop:2, minHeight:15 }}>Message your group</div>
                       </div>
                       <span style={{ fontSize:16, color:'var(--text)', marginLeft:8, flexShrink:0 }}>›</span>
                     </div>

@@ -3,8 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
 import { usePushNotifications } from '../hooks/usePushNotifications'
-import BottomNav from '../components/BottomNav'
-
 export default function OnboardingPage() {
   const { user, profile, signOut } = useAuth()
   const navigate = useNavigate()
@@ -64,8 +62,8 @@ export default function OnboardingPage() {
         .select('*, poll_responses(*)')
         .in('club_id', approvedClubIds)
         .eq('status', 'open')
-        .gte('session_date', today)
-        .order('session_date', { ascending: true })
+        .or(`session_date.gte.${today},session_date.is.null`)
+        .order('session_date', { ascending: true, nullsFirst: false })
       if (pollData) {
         setPolls(pollData)
         const resp = {}
@@ -101,7 +99,7 @@ export default function OnboardingPage() {
       .from('matches')
       .select('id, winner_side, played_at, status, club_id')
       .in('id', matchIds)
-      .eq('status', 'confirmed')
+      .in('status', ['confirmed', 'pending'])
 
     if (!matchRows || matchRows.length === 0) {
       const blankPeriod = { overall: empty, clubs: {} }
@@ -252,9 +250,21 @@ export default function OnboardingPage() {
   return (
     <div className="page">
       <div className="topnav">
+        <button onClick={() => navigate('/')} style={{
+          background: 'none', border: 'none', cursor: 'pointer',
+          display: 'flex', alignItems: 'center', gap: 4,
+          color: 'var(--accent)', fontSize: 14, fontWeight: 600,
+          fontFamily: "'Inter',sans-serif", padding: 0,
+        }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M15 18l-6-6 6-6"/>
+          </svg>
+          Home
+        </button>
         <span style={{ fontFamily:"'Plus Jakarta Sans',sans-serif", fontSize:20, fontWeight:600, color:'var(--text)' }}>
-          Groups
+          All Groups
         </span>
+        <div style={{ width: 60 }} />
       </div>
 
       <div className="content">
@@ -393,8 +403,6 @@ export default function OnboardingPage() {
       </div>
 
       {toast && <div className="toast">{toast}</div>}
-
-      <BottomNav activeTab="groups" />
 
       {fabOpen && (
         <div onClick={() => setFabOpen(false)} style={{

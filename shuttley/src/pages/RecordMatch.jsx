@@ -11,7 +11,7 @@ export default function RecordMatch() {
   const location = useLocation()
   const returnTo = location.state?.returnTo
   const sessionMatchType = location.state?.matchType
-  const isMod = location.state?.isMod ?? false
+  const [isMod, setIsMod] = useState(location.state?.isMod ?? false)
 
   const initialStep = sessionMatchType ? 2 : 1
 
@@ -54,6 +54,10 @@ export default function RecordMatch() {
       .select('user_id, role, profiles(id, full_name, avatar_url)')
       .eq('club_id', clubId)
       .eq('status', 'approved')
+    if (!location.state?.isMod) {
+      const myMem = (data || []).find(m => m.user_id === user?.id)
+      if (myMem?.role === 'moderator') setIsMod(true)
+    }
     setMembers((data || []).map(m => m.profiles).filter(Boolean))
 
     const { data: session } = await supabase

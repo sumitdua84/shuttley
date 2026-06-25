@@ -468,8 +468,7 @@ export default function ModeratorDashboard() {
       ?.filter(r => r.response === 'yes')
       .map(r => r.user_id) || []
     setSelectedPlayerIds(yesVoters)
-    setSessionMode('free')
-    setModalStep(2)
+    setModalStep(1)
     setShowStartModal(true)
   }
 
@@ -1001,7 +1000,9 @@ export default function ModeratorDashboard() {
                     return (
                       <div style={{ flex:1, opacity: tileOpacity.polls, transition: `opacity ${tileTransMs.current.polls}ms ease`, textAlign:'center' }}>
                         <div style={{ fontSize:13, fontWeight:600, color:'var(--text)', lineHeight:1.3 }}>
-                          {new Date(poll.session_date + 'T00:00:00').toLocaleDateString('en-AU', { weekday:'short', day:'numeric', month:'short' })}
+                          {poll.session_date
+                            ? new Date(poll.session_date + 'T00:00:00').toLocaleDateString('en-AU', { weekday:'short', day:'numeric', month:'short' })
+                            : 'Custom poll'}
                         </div>
                         <div style={{ fontSize:11, color:'var(--text3)', marginTop:2, minHeight:15 }}>{tally}</div>
                       </div>
