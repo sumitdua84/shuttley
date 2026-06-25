@@ -59,6 +59,10 @@ export default function ModeratorDashboard() {
   const [creatingPoll, setCreatingPoll] = useState(false)
   const [activePolls, setActivePolls] = useState([])
   const [expandedPolls, setExpandedPolls] = useState({})
+  // Capture location state immediately — window.history.replaceState clears it before polls load
+  const startFromPollIdRef = useRef(location.state?.startFromPollId)
+  const openPollIdRef = useRef(location.state?.openPollId)
+
   const { sendPush, subscribe } = usePushNotifications()
   const [notifStatus, setNotifStatus] = useState(() =>
     Notification.permission === 'granted' || localStorage.getItem('push_subscribed') === '1'
@@ -90,10 +94,18 @@ export default function ModeratorDashboard() {
     if (t) setTab(t)
   }, [searchParams])
 
-  // Auto-expand a specific poll when navigated here from Home with openPollId
+  // Handle navigation from Home: either expand a poll or directly start a session from it
   useEffect(() => {
-    const pollId = location.state?.openPollId
-    if (pollId && activePolls.length > 0) {
+    if (activePolls.length === 0) return
+
+    if (startFromPollIdRef.current) {
+      const pollId = startFromPollIdRef.current
+      startFromPollIdRef.current = null // fire once
+      const poll = activePolls.find(p => p.id === pollId)
+      if (poll) startSessionFromPoll(poll)
+    } else if (openPollIdRef.current) {
+      const pollId = openPollIdRef.current
+      openPollIdRef.current = null // fire once
       setExpandedPolls(prev => ({ ...prev, [pollId]: true }))
       setTab('polls')
       setSearchParams({ tab: 'polls' }, { replace: true })

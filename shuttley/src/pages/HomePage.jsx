@@ -96,29 +96,57 @@ export default function HomePage() {
     setPendingMemberCount(pendingResult.count || 0)
     setLoading(false)
 
-    fetchMyStats()
+    fetchMyStats(memList)
   }
 
-  async function fetchMyStats() {
+  async function fetchMyStats(memList) {
+    const empty = { wins: 0, losses: 0, total: 0, pct: 0, form: [], byGroup: [], byDay: [] }
     const { data: mpRows } = await supabase
       .from('match_players').select('match_id, side').eq('user_id', user.id)
-    if (!mpRows?.length) { setMyStats({ wins: 0, losses: 0, total: 0, pct: 0, form: [] }); return }
+    if (!mpRows?.length) { setMyStats(empty); return }
 
     const { data: matchRows } = await supabase
-      .from('matches').select('id, winner_side, played_at')
+      .from('matches').select('id, winner_side, played_at, club_id')
       .in('id', mpRows.map(r => r.match_id))
       .in('status', ['confirmed', 'pending'])
-    if (!matchRows?.length) { setMyStats({ wins: 0, losses: 0, total: 0, pct: 0, form: [] }); return }
+    if (!matchRows?.length) { setMyStats(empty); return }
 
+    const clubNameMap = Object.fromEntries((memList || []).map(m => [m.club_id, m.clubs?.name]))
     const sideMap = Object.fromEntries(mpRows.map(r => [r.match_id, r.side]))
+
     let wins = 0, losses = 0
-    matchRows.forEach(m => { if (m.winner_side === sideMap[m.id]) wins++; else losses++ })
+    const groupMap = {}   // clubId → {wins, losses}
+    const dayMap = {}     // 'Wednesday' → {wins, losses}
+
+    matchRows.forEach(m => {
+      const won = m.winner_side === sideMap[m.id]
+      if (won) wins++; else losses++
+
+      if (m.club_id) {
+        if (!groupMap[m.club_id]) groupMap[m.club_id] = { wins: 0, losses: 0 }
+        if (won) groupMap[m.club_id].wins++; else groupMap[m.club_id].losses++
+      }
+
+      if (m.played_at) {
+        const day = new Date(m.played_at).toLocaleDateString('en-AU', { weekday: 'long' })
+        if (!dayMap[day]) dayMap[day] = { wins: 0, losses: 0 }
+        if (won) dayMap[day].wins++; else dayMap[day].losses++
+      }
+    })
+
     const total = wins + losses
-    const recent = [...matchRows]
-      .sort((a, b) => new Date(b.played_at) - new Date(a.played_at))
-      .slice(0, 5)
+    const recent = [...matchRows].sort((a, b) => new Date(b.played_at) - new Date(a.played_at)).slice(0, 5)
     const form = recent.map(m => m.winner_side === sideMap[m.id] ? 'W' : 'L')
-    setMyStats({ wins, losses, total, pct: total > 0 ? Math.round(wins / total * 100) : 0, form })
+
+    const byGroup = Object.entries(groupMap)
+      .map(([clubId, s]) => ({ clubId, clubName: clubNameMap[clubId] || 'Group', ...s }))
+      .sort((a, b) => (b.wins + b.losses) - (a.wins + a.losses))
+
+    const byDay = Object.entries(dayMap)
+      .map(([day, s]) => ({ day, ...s }))
+      .sort((a, b) => (b.wins + b.losses) - (a.wins + a.losses))
+
+    setMyStats({ wins, losses, total, pct: total > 0 ? Math.round(wins / total * 100) : 0, form, byGroup, byDay })
   }
 
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(''), 2500) }
@@ -234,6 +262,7 @@ export default function HomePage() {
                 borderLeft: '4px solid #256575', borderRadius: 'var(--radius)',
                 padding: '14px 16px',
               }}>
+                {/* Overall */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                   <div>
                     <span style={{ fontSize: 22, fontWeight: 700, color: '#2a8c55' }}>{myStats.wins}W</span>
@@ -248,7 +277,7 @@ export default function HomePage() {
                   </div>
                 </div>
                 {myStats.form?.length > 0 && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 12 }}>
                     <span style={{ fontSize: 11, color: 'var(--text3)', marginRight: 2 }}>Recent</span>
                     {myStats.form.map((r, i) => (
                       <span key={i} style={{
@@ -260,9 +289,57 @@ export default function HomePage() {
                     ))}
                   </div>
                 )}
-                <div style={{ fontSize: 11, color: 'var(--text3)' }}>
+                <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: myStats.byGroup?.length > 0 ? 12 : 0 }}>
                   {myStats.total} matches · all groups
                 </div>
+
+                {/* By Group */}
+                {myStats.byGroup?.length > 0 && (
+                  <>
+                    <div style={{ height: '0.5px', background: 'var(--border)', marginBottom: 10 }} />
+                    <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text3)', letterSpacing: '0.06em', marginBottom: 7 }}>By group</div>
+                    {myStats.byGroup.map(g => {
+                      const gTotal = g.wins + g.losses
+                      const gPct = gTotal > 0 ? Math.round(g.wins / gTotal * 100) : 0
+                      return (
+                        <div key={g.clubId} style={{ display: 'flex', alignItems: 'center', marginBottom: 6 }}>
+                          <div style={{ fontSize: 12, color: 'var(--text)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {g.clubName}
+                          </div>
+                          <div style={{ fontSize: 12, fontWeight: 600, flexShrink: 0, marginLeft: 10 }}>
+                            <span style={{ color: '#2a8c55' }}>{g.wins}W</span>
+                            <span style={{ color: 'var(--text3)', margin: '0 3px' }}>·</span>
+                            <span style={{ color: '#e05555' }}>{g.losses}L</span>
+                            <span style={{ color: 'var(--text3)', marginLeft: 5, fontSize: 11 }}>{gPct}%</span>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </>
+                )}
+
+                {/* By Day */}
+                {myStats.byDay?.length > 0 && (
+                  <>
+                    <div style={{ height: '0.5px', background: 'var(--border)', margin: '10px 0' }} />
+                    <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text3)', letterSpacing: '0.06em', marginBottom: 7 }}>By day</div>
+                    {myStats.byDay.map(d => {
+                      const dTotal = d.wins + d.losses
+                      const dPct = dTotal > 0 ? Math.round(d.wins / dTotal * 100) : 0
+                      return (
+                        <div key={d.day} style={{ display: 'flex', alignItems: 'center', marginBottom: 6 }}>
+                          <div style={{ fontSize: 12, color: 'var(--text)', flex: 1 }}>{d.day}</div>
+                          <div style={{ fontSize: 12, fontWeight: 600, flexShrink: 0, marginLeft: 10 }}>
+                            <span style={{ color: '#2a8c55' }}>{d.wins}W</span>
+                            <span style={{ color: 'var(--text3)', margin: '0 3px' }}>·</span>
+                            <span style={{ color: '#e05555' }}>{d.losses}L</span>
+                            <span style={{ color: 'var(--text3)', marginLeft: 5, fontSize: 11 }}>{dPct}%</span>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </>
+                )}
               </div>
             </div>
           )}
@@ -310,9 +387,9 @@ export default function HomePage() {
                         Open Current Session →
                       </button>
                     ) : isMod ? (
-                      // No session yet, user is mod → Start Session from this Poll
+                      // No session yet, user is mod → directly open player selection
                       <button
-                        onClick={() => navigate(`/club/${poll.club_id}/mod?tab=polls`, { state: { openPollId: poll.id } })}
+                        onClick={() => navigate(`/club/${poll.club_id}/mod`, { state: { startFromPollId: poll.id } })}
                         style={{
                           width: '100%', padding: '9px', background: 'var(--accent-dim)',
                           color: 'var(--accent)', border: '1.5px solid var(--accent)',
