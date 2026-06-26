@@ -1,7 +1,133 @@
 # Shuttley — V1 App Feel Closeout Handover
 
-> Last updated: 2026-06-25
+> Last updated: 2026-06-26
 > Session: V1 app-feel upgrade session (multi-day, closed out)
+
+---
+
+## HOME DASHBOARD — DONE (2026-06-26 closeout)
+
+**Home dashboard is now done for this V1 app-feel session.**
+
+### Commit info
+
+| Field | Value |
+|---|---|
+| **Branch** | `feature/shuttley-app-feel-upgrade` |
+| **Home commit** | `da4b6dc` — `style: finalise Home dashboard` |
+| **Build** | ✅ Clean — 111 modules, 0 errors, 0 warnings |
+| **Push** | ✅ Pushed to `origin/feature/shuttley-app-feel-upgrade` |
+
+### Home screen final layout / order
+
+```
+Good morning/afternoon/evening, {firstName}   [profile icon top-right]
+
+── Action Needed (if any) ──────────────────────────────────
+  Polls card: unanswered polls, grouped, group name prominent (accent, centred)
+    Yes/No/Maybe inline for session polls
+    Equal-width custom option buttons for custom polls
+  Alerts card (amber): match-needs-attention + pending member approvals
+
+── Sessions (if any) ───────────────────────────────────────
+  Single card grouping ALL clubs alphabetically
+  Per club:
+    Active session first → teal block with group name inside (not floating above)
+    Then that club's upcoming poll rows sorted date → time
+  Group name shown in teal block (active) or first upcoming row (no active)
+  "Open Current Session →" for active sessions
+  "▶ Start Session from this Poll" for mods with no active session
+  "View Poll →" for members — deep-links to specific poll (openPollId state)
+
+── My Performance ──────────────────────────────────────────
+  Period filter inside card (15d / 30d / 60d / All)
+  Click stats row to expand per-group breakdown — rows inside same card
+  No separate cards for groups
+
+── My Groups ───────────────────────────────────────────────
+  Up to 5 groups, tap → group world at ?tab=session
+  Badge: "N open polls" (open session + custom polls user is engaged with)
+  No "View all →" link on Home
+```
+
+### Action Needed behaviour
+
+- Shown only when there are active polls OR alerts
+- Polls card above alerts card (polls need user action before match alerts)
+- Each poll shows group name prominently (centred, accent, 700 weight) above poll title
+- Custom polls show equal-width grid buttons (not cramped)
+- Alerts card is amber-styled, separate visual from polls card
+
+### Sessions card behaviour
+
+- Groups ALL clubs alphabetically into one shared card
+- Active session (teal block) shown first within each club group
+- Group name lives inside teal block — not floating above it
+- Upcoming poll rows follow the active session for the same club
+- When no active session: group name shown on first upcoming row only
+- Sorted: club name A→Z → session date asc → session time asc
+
+### Poll / custom poll behaviour
+
+- `View Poll →` deep-links to specific poll via `location.state.openPollId`
+  - ModeratorDashboard: already supported this pattern
+  - MemberDashboard: `openPollIdRef` + useEffect added to match mod pattern
+- Custom poll buttons use equal-width grid layout (fills card width)
+- My Groups badge wording: "N open poll(s)" not "N polls"
+
+### My Performance status
+
+- Period filter inside the card (not beside the section label)
+- Expanded per-group rows inside the same card (not separate cards)
+- Click stats row toggles expand / collapse
+- Filter pill clicks do not accidentally toggle expand
+
+### My Groups status
+
+- Up to 5 groups shown on Home
+- Tapping group card enters group world at Session tab
+- Poll badge counts unanswered + yes-answered open polls per club
+- Badge wording: "1 open poll" / "3 open polls"
+
+### Production / safety status
+
+```
+Branch:       feature/shuttley-app-feel-upgrade
+Merged:       NOT merged to main
+Deployed:     NOT deployed
+Production:   UNTOUCHED
+Supabase:     UNTOUCHED (schema, RLS, functions, policies unchanged)
+V2:           NOT started
+iOS/native:   UNTOUCHED
+Push backend: UNTOUCHED
+Auth:         UNTOUCHED
+develop:      UNTOUCHED
+main:         UNTOUCHED
+```
+
+### Files changed in this Home dashboard session (since `8523d67`)
+
+```
+src/pages/HomePage.jsx        — All Home layout, grouping, ordering, badge wording,
+                                Action Needed section, Sessions grouping, Performance card,
+                                View Poll deep-link, group name placement
+src/pages/MemberDashboard.jsx — openPollIdRef + useEffect for View Poll deep-link
+```
+
+### Remaining next-session items
+
+1. **Group-world screen polish** — Session screen, Polls screen, poll result deep-link QA
+2. **Stats detailed screen** — QA and polish inside group world
+3. **Record Match / Free Play** — screen polish
+4. **Chat** — screen polish
+5. **`match.type` vs `match.match_type`** — verify Stats doubles/singles breakdown (read `MatchesPage.jsx:209`)
+6. **Add Guest** — RPC verification when ready; no production SQL without approval
+7. **Full V1 manual QA** — required before any merge/deploy
+8. **Merge decision** — merge `feature/shuttley-app-feel-upgrade` → `develop` only after QA passes
+
+**V2 not started. Do not start V2 until V1 app-feel is merged or cleanly parked.**
+
+---
 
 ---
 
@@ -44,41 +170,30 @@
 
 ---
 
-## 3. Main Dashboard Section Order (Final)
+## 3. Main Dashboard Section Order (Final — as implemented 2026-06-26)
 
 ```
 Good morning/afternoon/evening, {firstName}   [profile icon top-right]
 
+── Action Needed (if any) ──────────────────────────────────
+  Polls card: unanswered polls with inline response buttons
+  Alerts card: match-needs-attention + pending member approvals (mod only)
+
+── Sessions (if any) ───────────────────────────────────────
+  Single grouped card — all clubs alphabetically
+  Active session first per club, then upcoming poll rows
+
 ── My Performance ──────────────────────────────────────────
-Period filter: 15d | 30d | 60d | All
-Overall W/L/% (expandable → per-group breakdown)
+  Period filter inside card: 15d | 30d | 60d | All
+  Overall W/L/% (expandable → per-group breakdown inside same card)
 
 ── My Groups ───────────────────────────────────────────────
-Up to 5 groups, tap → group world at ?tab=session
-Open poll count badge per group
-"View all →" → /groups
-
-── Session in Progress (if any) ────────────────────────────
-Accent card per active session
-"Open Current Session →" button
-
-── Upcoming Sessions (if any) ──────────────────────────────
-Session polls where user answered Yes AND club has no active session
-Mod: "▶ Start Session from this Poll" → opens Start Session modal at step 1
-Member: "View Poll →"
-
-── Polls Needing Your Response (if any) ─────────────────────
-Unanswered session polls (where club has no active session)
-Unanswered custom polls
-Yes/No/Maybe inline buttons for session polls
-Compact flex-wrap buttons for custom poll options
-
-── Alerts Needing Attention (if any) ────────────────────────
-Match-needs-attention (pending confirmation, not recorded by me) — per group
-Pending membership approvals (mod only)
+  Up to 5 groups, tap → group world at ?tab=session
+  "N open polls" badge per group
+  No "View all →" link on Home
 ```
 
-**Key rule:** If a club has an active session, ALL session polls for that club are suppressed from both Upcoming Sessions and Polls sections. They show only under Session in Progress.
+**Key rule:** If a club has an active session, ALL session polls for that club are suppressed from both Sessions upcoming rows and Action Needed sections. They show only under the teal Session in Progress block.
 
 ---
 
