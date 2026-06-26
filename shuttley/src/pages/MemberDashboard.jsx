@@ -38,6 +38,8 @@ export default function MemberDashboard() {
   const [tileOpacity, setTileOpacity] = useState({ history:1, leaders:1, stats:1, polls:1, splits:1 })
   const tileTimers   = useRef({})
   const tileTransMs  = useRef({ history:2000, leaders:2000, stats:2000, polls:2000, splits:2000 })
+  // Capture before window.history.replaceState clears location state
+  const openPollIdRef = useRef(location.state?.openPollId)
   const [activePolls, setActivePolls] = useState([])
   const [myPollResponses, setMyPollResponses] = useState({})
   const [expandedPolls, setExpandedPolls] = useState({})
@@ -78,6 +80,18 @@ export default function MemberDashboard() {
     const t = searchParams.get('tab')
     if (t) setTab(t)
   }, [searchParams])
+
+  // Handle navigation from Home: expand a specific poll
+  useEffect(() => {
+    if (activePolls.length === 0) return
+    if (openPollIdRef.current) {
+      const pollId = openPollIdRef.current
+      openPollIdRef.current = null // fire once
+      setExpandedPolls(prev => ({ ...prev, [pollId]: true }))
+      setTab('polls')
+      setSearchParams({ tab: 'polls' }, { replace: true })
+    }
+  }, [activePolls.length])
 
   useEffect(() => {
     if (loading) return  // eslint-disable-line
