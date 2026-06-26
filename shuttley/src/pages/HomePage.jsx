@@ -80,7 +80,8 @@ export default function HomePage() {
         .in('club_id', clubIds)
         .eq('status', 'open')
         .or(`session_date.gte.${today},session_date.is.null`)
-        .order('session_date', { ascending: true, nullsFirst: false }),
+        .order('session_date', { ascending: true, nullsFirst: false })
+        .order('session_time', { ascending: true, nullsFirst: true }),
       supabase.from('sessions')
         .select('id, name, club_id, started_at, match_type')
         .in('club_id', clubIds)
@@ -101,30 +102,18 @@ export default function HomePage() {
     })
     setLiveSessions(liveList)
 
-    // Club IDs with an active session today — suppress same-day session polls
-    const liveClubSet = new Set(liveList.map(s => s.club_id))
-
     if (pollData) {
-      const relevant = pollData.filter(p => {
-        if (!p.session_date) return true // custom polls always relevant
-        if (p.session_date > today) return true
-        if (!p.session_time) return true
-        const [h, m] = p.session_time.split(':').map(Number)
-        const sessionMs = h * 60 + m
-        const nowMs = now.getHours() * 60 + now.getMinutes()
-        return nowMs < sessionMs
-      })
+      // Supabase query already gates to session_date >= today and open status.
+      // Do not further filter by session_time — polls for today's already-started
+      // sessions are still unanswered and should appear on Home.
+      const relevant = pollData
 
       const myResp = (p) => p.poll_responses?.find(r => r.user_id === user.id)?.response
 
-      // Suppress ALL session polls for clubs that have any active session running
-      // (regardless of poll date — if a session is in progress, show it in Session in Progress card only)
-      const notLive = (p) => !p.session_date || !liveClubSet.has(p.club_id)
-
-      // Session polls where I said yes → Upcoming Sessions (only if no live session for that club today)
-      const yesPolls = relevant.filter(p => p.session_date && myResp(p) === 'yes' && notLive(p))
-      // Unanswered polls (session + custom) — also exclude live session clubs' same-day polls
-      const unanswered = relevant.filter(p => !myResp(p) && notLive(p))
+      // Session polls where I said yes → Upcoming Sessions
+      const yesPolls = relevant.filter(p => p.session_date && myResp(p) === 'yes')
+      // Unanswered polls (session + custom) — show all polls the user hasn't responded to
+      const unanswered = relevant.filter(p => !myResp(p))
 
       setUpcomingPolls(yesPolls.map(p => ({ ...p, clubName: clubNameMap[p.club_id] })))
       setActivePolls(unanswered.map(p => ({ ...p, clubName: clubNameMap[p.club_id] })))
@@ -231,6 +220,7 @@ export default function HomePage() {
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
   const today = `${_now.getFullYear()}-${String(_now.getMonth()+1).padStart(2,'0')}-${String(_now.getDate()).padStart(2,'0')}`
   const modMemberships = memberships.filter(m => m.role === 'moderator')
+  const liveClubIds = new Set(liveSessions.map(s => s.club_id))
 
   return (
     <div className="page" style={{ paddingBottom: 'calc(20px + env(safe-area-inset-bottom, 0px))' }}>
@@ -442,7 +432,7 @@ export default function HomePage() {
                         </div>
                       </div>
                     </div>
-                    {isMod ? (
+                    {isMod && !liveClubIds.has(poll.club_id) ? (
                       <button
                         onClick={() => navigate(`/club/${poll.club_id}/mod`, { state: { startFromPollId: poll.id } })}
                         style={{
@@ -455,7 +445,7 @@ export default function HomePage() {
                       </button>
                     ) : (
                       <button
-                        onClick={() => navigate(`/club/${poll.club_id}/member?tab=polls`)}
+                        onClick={() => navigate(`/club/${poll.club_id}/${isMod ? 'mod' : 'member'}?tab=polls`)}
                         style={{
                           width: '100%', padding: '9px', background: 'transparent',
                           color: 'var(--text2)', border: '1px solid var(--border)',
