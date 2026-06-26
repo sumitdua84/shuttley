@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import { generateSchedule } from '../utils/scheduleGenerator'
 import { usePushNotifications } from '../hooks/usePushNotifications'
 import GroupNav from '../components/GroupNav'
+import GroupWorldHeader from '../components/GroupWorldHeader'
 import Toast from '../components/Toast'
 import { useConfirm } from '../hooks/useConfirm'
 import { DashboardSkeleton } from '../components/Skeleton'
@@ -589,10 +590,7 @@ export default function MemberDashboard() {
     <div className="page">
       {/* Top nav */}
       <div className="topnav">
-        <div>
-          <div style={{ fontFamily:"'Plus Jakarta Sans',sans-serif", fontSize:16, fontWeight:700, color:'var(--text)' }}>{club?.name}</div>
-          <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>Member</div>
-        </div>
+        <GroupWorldHeader clubId={clubId} groupName={club?.name} isMod={false} activeTab={tab} />
       </div>
 
       <div className="content">

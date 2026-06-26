@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import { generateSchedule } from '../utils/scheduleGenerator'
 import { usePushNotifications } from '../hooks/usePushNotifications'
 import GroupNav from '../components/GroupNav'
+import GroupWorldHeader from '../components/GroupWorldHeader'
 import Toast from '../components/Toast'
 import { useConfirm } from '../hooks/useConfirm'
 import { DashboardSkeleton } from '../components/Skeleton'
@@ -725,10 +726,7 @@ export default function ModeratorDashboard() {
     <div className="page">
       {/* Top nav */}
       <div className="topnav">
-        <div>
-          <div style={{ fontFamily:"'Plus Jakarta Sans',sans-serif", fontSize:16, fontWeight:700, color:'var(--text)' }}>{club?.name}</div>
-          <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>Moderator</div>
-        </div>
+        <GroupWorldHeader clubId={clubId} groupName={club?.name} isMod={true} activeTab={tab} />
       </div>
 
       {/* Tab content */}
@@ -828,12 +826,6 @@ export default function ModeratorDashboard() {
                   <span style={{ fontSize:16, color:'var(--text3)', flexShrink:0 }}>›</span>
                 </div>
               ))}
-              {sessions.filter(s => s.status === 'ended').length > 8 && (
-                <div onClick={() => changeTab('sessions')}
-                  style={{ fontSize:13, color:'var(--accent)', fontWeight:600, textAlign:'center', padding:'14px 0', cursor:'pointer' }}>
-                  View all in Moderator Tools →
-                </div>
-              )}
             </div>
           )}
 

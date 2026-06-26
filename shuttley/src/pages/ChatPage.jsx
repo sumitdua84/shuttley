@@ -4,6 +4,7 @@ import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
 import { usePushNotifications } from '../hooks/usePushNotifications'
 import GroupNav from '../components/GroupNav'
+import GroupWorldHeader from '../components/GroupWorldHeader'
 import Toast from '../components/Toast'
 import { Skeleton, SkeletonRow } from '../components/Skeleton'
 
@@ -426,43 +427,39 @@ export default function ChatPage() {
 
   const isMod = SUPER_ADMINS.includes(user?.email) || myMem?.role === 'moderator'
 
-  // ── render ───────────────────────────────────────────────────────────────────
-  // Single mobile-style layout everywhere — centered with a max width on
-  // wider screens so Chat doesn't stretch into a desktop dashboard.
   return (
     <div style={{ position:'fixed', top:0, left:0, right:0, bottom:'calc(80px + env(safe-area-inset-bottom))',
       background:'var(--bg)', overflow:'hidden' }}>
     <div style={{ maxWidth:480, margin:'0 auto', height:'100%', display:'flex', flexDirection:'column',
       background:'var(--bg)', overflow:'hidden' }}>
 
-      {/* ══ Top bar ══ */}
-      <div style={{ height:56, flexShrink:0, display:'flex', alignItems:'center',
-        borderBottom:'0.5px solid var(--border)', background:'var(--bg2)',
-        paddingTop:'env(safe-area-inset-top)' }}>
+      {/* ══ Header — matches .topnav style ══ */}
+      <div style={{ flexShrink:0, display:'flex', alignItems:'center',
+        paddingTop:'calc(20px + env(safe-area-inset-top))', paddingBottom:14,
+        paddingLeft:20, paddingRight:20, background:'var(--bg)' }}>
 
-        {/* Mobile only: back arrow when viewing a chat */}
         {panel === 'chat' && (
-          <button className="chat-back-btn" onClick={() => setPanel('list')} style={{
-            background:'none', border:'none', fontSize:20, fontWeight:600, color:'var(--text2)',
-            cursor:'pointer', padding:'0 16px', flexShrink:0 }}>←</button>
+          <button onClick={() => setPanel('list')} style={{
+            background:'none', border:'none', fontSize:22, fontWeight:600, color:'var(--text2)',
+            cursor:'pointer', padding:0, marginRight:12, flexShrink:0 }}>←</button>
         )}
 
-        {/* Group name header (hidden on mobile when in chat panel) */}
-        <div style={{
-          display: panel === 'chat' ? 'none' : 'flex', flexDirection:'column',
-          padding:'0 16px', flexShrink:0 }}>
-          <div style={{ fontSize:14, fontWeight:700, color:'var(--text)', fontFamily:"'Plus Jakarta Sans',sans-serif" }}>{club?.name}</div>
-          <div style={{ fontSize:10, color:'var(--text3)' }}>Chat</div>
-        </div>
+        {panel !== 'chat' && (
+          <GroupWorldHeader
+            clubId={clubId} groupName={club?.name} isMod={isMod}
+            activeTab="chat" subLabel="Chat"
+            buildRoute={(targetClubId) => `/club/${targetClubId}/chat`}
+          />
+        )}
 
-        {/* Center: active conv name (mobile chat) or club name */}
-        {panel === 'chat' && activeConv ? (
-          <div className="chat-back-btn" style={{ display:'flex', alignItems:'center', gap:10, flex:1, minWidth:0, paddingRight:14 }}>
+        {panel === 'chat' && activeConv && (
+          <div style={{ display:'flex', alignItems:'center', gap:10, flex:1, minWidth:0 }}>
             <Avatar src={activeConv.type==='dm' ? activeConv.otherUser?.avatar_url : null}
               name={convName(activeConv)} size={32}
               accent={activeConv.type==='all'} emoji={activeConv.type==='all' ? '👥' : null} />
             <div style={{ minWidth:0 }}>
-              <div style={{ fontSize:15, fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+              <div style={{ fontSize:15, fontWeight:600, color:'var(--text)',
+                overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                 {convName(activeConv)}
               </div>
               {activeConv.type === 'all' && (
@@ -470,247 +467,246 @@ export default function ChatPage() {
               )}
             </div>
           </div>
-        ) : (
-          <div style={{ flex:1, minWidth:0, paddingLeft:4 }} />
         )}
+        {panel === 'chat' && !activeConv && <div style={{ flex:1 }} />}
       </div>
 
       {/* ══ Body ══ */}
-      <div style={{ flex:1, display:'flex', overflow:'hidden', minHeight:0 }}>
+      <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden', minHeight:0 }}>
 
-        {/* ── Col 2: All Members group + individual members ── */}
-        <div className="chat-col2" style={{
-          display: panel === 'chat' ? 'none' : 'flex',
-          flexDirection:'column', overflowY:'auto',
-          borderRight:'0.5px solid var(--border)',
-          width:'100%', minHeight:0,
-        }}>
-          {/* New Chat / New Group actions */}
-          <div className="chat-col2-actions" style={{
-            display:'flex', gap:8, padding:'10px 12px', borderBottom:'0.5px solid var(--border)',
-          }}>
-            <button onClick={() => setShowNewDM(true)} style={{
-              flex:1, padding:'8px', borderRadius:'var(--radius-sm)',
-              border:'none', background:'var(--accent-dim)', color:'var(--accent)',
-              fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:"'Inter',sans-serif",
-            }}>New Chat</button>
-            <button onClick={() => { setGroupName(''); setGroupSel([]); setShowNewGroup(true) }} style={{
-              flex:1, padding:'8px', borderRadius:'var(--radius-sm)',
-              border:'0.5px solid var(--border)', background:'var(--bg3)', color:'var(--text2)',
-              fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:"'Inter',sans-serif",
-            }}>New Group</button>
-          </div>
+        {/* ── LIST PANEL ── */}
+        {panel === 'list' && (
+          <div style={{ flex:1, overflowY:'auto', paddingBottom:8 }}>
 
-          {/* All Members group chat — always first */}
-          {(() => {
-            const allConv = conversations.find(c => c.type === 'all')
-            if (!allConv) return null
-            const active  = activeConv?.id === allConv.id
-            const unread  = !active && isUnread(allConv)
-            return (
-              <div onClick={() => { setActiveConv(allConv); setPanel('chat'); markRead(allConv.id) }}
-                style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 14px', cursor:'pointer',
-                  background: active ? 'var(--accent-dim)' : 'var(--bg2)',
-                  borderBottom:'0.5px solid var(--border)',
-                  borderLeft: active ? '3px solid var(--accent)' : '3px solid transparent',
-                }}>
-                <Avatar name="All Members" size={44} accent emoji="👥" />
-                <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ fontSize:14, fontWeight: unread ? 700 : 600, color:'var(--text)' }}>
-                    All Members
-                  </div>
-                  <div style={{ fontSize:12, marginTop:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap',
-                    fontWeight: unread ? 600 : 400,
-                    color: unread ? 'var(--text)' : 'var(--text3)',
-                  }}>
-                    {allConv.last_message_preview || `${members.length} members · Say hi 👋`}
-                  </div>
-                </div>
-                <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:4, flexShrink:0 }}>
-                  {allConv.last_message_at && (
-                    <div style={{ fontSize:11, color: unread ? 'var(--accent)' : 'var(--text3)' }}>
-                      {fmtTime(allConv.last_message_at)}
-                    </div>
-                  )}
-                  {unread && (
-                    <div style={{ width:8, height:8, borderRadius:'50%', background:'var(--accent)' }} />
-                  )}
-                </div>
-              </div>
-            )
-          })()}
-
-          {/* Section label */}
-          <div style={{ padding:'10px 14px 6px', fontSize:10, fontWeight:700,
-            textTransform:'uppercase', letterSpacing:'0.08em', color:'var(--text3)',
-            borderBottom:'0.5px solid var(--border)', background:'var(--bg)' }}>
-            Members · {members.filter(m => m.user_id !== user.id && !m.is_guest).length}
-          </div>
-
-          {/* Individual members — click to open DM */}
-          {members.filter(m => m.user_id !== user.id && !m.is_guest).map(m => {
-            const existingDM = conversations.find(c => c.type === 'dm' && c.otherUserId === m.user_id)
-            const active  = activeConv?.type === 'dm' && activeConv?.otherUserId === m.user_id
-            const unread  = !active && existingDM && isUnread(existingDM)
-            return (
-              <div key={m.id} onClick={() => openDM(m)}
-                style={{ display:'flex', alignItems:'center', gap:12, padding:'11px 14px', cursor:'pointer',
-                  background: active ? 'var(--accent-dim)' : 'transparent',
-                  borderBottom:'0.5px solid var(--border)',
-                  borderLeft: active ? '3px solid var(--accent)' : '3px solid transparent',
-                }}>
-                <Avatar src={m.profiles?.avatar_url} name={m.profiles?.full_name} size={40} />
-                <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ fontSize:14, color:'var(--text)',
-                    fontWeight: unread ? 700 : 500,
-                    overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                    {m.profiles?.full_name}
-                  </div>
-                  <div style={{ fontSize:12, marginTop:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap',
-                    fontWeight: unread ? 600 : 400,
-                    color: unread ? 'var(--text)' : 'var(--text3)',
-                  }}>
-                    {existingDM?.last_message_preview || ''}
-                  </div>
-                </div>
-                <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:4, flexShrink:0 }}>
-                  {existingDM?.last_message_at && (
-                    <div style={{ fontSize:11, color: unread ? 'var(--accent)' : 'var(--text3)' }}>
-                      {fmtTime(existingDM.last_message_at)}
-                    </div>
-                  )}
-                  {unread && (
-                    <div style={{ width:8, height:8, borderRadius:'50%', background:'var(--accent)' }} />
-                  )}
-                </div>
-              </div>
-            )
-          })}
-
-          {/* Custom group chats (if any) */}
-          {conversations.filter(c => c.type === 'group').length > 0 && (
-            <div style={{ padding:'10px 14px 6px', fontSize:10, fontWeight:700,
-              textTransform:'uppercase', letterSpacing:'0.08em', color:'var(--text3)',
-              borderBottom:'0.5px solid var(--border)', background:'var(--bg)' }}>
-              Groups
+            {/* Action buttons */}
+            <div style={{ display:'flex', gap:10, padding:'4px 16px 12px' }}>
+              <button onClick={() => setShowNewDM(true)} style={{
+                flex:1, padding:'10px', borderRadius:'var(--radius-sm)',
+                border:'none', background:'var(--accent-dim)', color:'var(--accent)',
+                fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:"'Inter',sans-serif",
+              }}>+ New Chat</button>
+              <button onClick={() => { setGroupName(''); setGroupSel([]); setShowNewGroup(true) }} style={{
+                flex:1, padding:'10px', borderRadius:'var(--radius-sm)',
+                border:'0.5px solid var(--border)', background:'var(--bg2)', color:'var(--text2)',
+                fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:"'Inter',sans-serif",
+              }}>+ New Group</button>
             </div>
-          )}
-          {conversations.filter(c => c.type === 'group').map(conv => {
-            const active = activeConv?.id === conv.id
-            return (
-              <div key={conv.id} onClick={() => { setActiveConv(conv); setPanel('chat') }}
-                style={{ display:'flex', alignItems:'center', gap:12, padding:'11px 14px', cursor:'pointer',
-                  background: active ? 'var(--accent-dim)' : 'transparent',
-                  borderBottom:'0.5px solid var(--border)',
-                  borderLeft: active ? '3px solid var(--accent)' : '3px solid transparent',
-                }}>
-                <Avatar name={conv.name} size={40} />
-                <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ fontSize:14, fontWeight:500, color:'var(--text)',
-                    overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                    {conv.name || 'Group'}
-                  </div>
-                  <div style={{ fontSize:11, color:'var(--text3)', marginTop:1,
-                    overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                    {conv.last_message_preview || 'No messages yet'}
-                  </div>
-                </div>
-                {conv.last_message_at && (
-                  <div style={{ fontSize:11, color:'var(--text3)', flexShrink:0 }}>{fmtTime(conv.last_message_at)}</div>
-                )}
-              </div>
-            )
-          })}
-        </div>
 
-        {/* ── Col 3: Messages ── */}
-        <div className="chat-col3" style={{
-          display: panel === 'list' ? 'none' : 'flex',
-          flexDirection:'column', flex:1, overflow:'hidden', minHeight:0,
-        }}>
-          {activeConv ? (
-            <>
-              {/* Message scroll area */}
-              <div style={{ flex:1, overflowY:'auto', padding:'12px 14px',
-                display:'flex', flexDirection:'column', gap:2, minHeight:0 }}>
-                {msgLoading && (
-                  <div style={{ textAlign:'center', color:'var(--text3)', fontSize:13, padding:40 }}>Loading…</div>
-                )}
-                {!msgLoading && messages.length === 0 && (
-                  <div style={{ textAlign:'center', color:'var(--text3)', fontSize:13, padding:'60px 20px' }}>
-                    <div style={{ fontSize:36, marginBottom:8 }}>💬</div>
-                    No messages yet — say hi!
+            {/* All Members */}
+            {(() => {
+              const allConv = conversations.find(c => c.type === 'all')
+              if (!allConv) return null
+              const active = activeConv?.id === allConv.id
+              const unread = !active && isUnread(allConv)
+              return (
+                <div onClick={() => { setActiveConv(allConv); setPanel('chat'); markRead(allConv.id) }}
+                  style={{ display:'flex', alignItems:'center', gap:12, padding:'14px',
+                    margin:'0 16px 8px', cursor:'pointer', borderRadius:'var(--radius-sm)',
+                    background: active ? 'var(--accent-dim)' : 'var(--bg2)',
+                    border:`0.5px solid ${active ? 'var(--accent)' : 'var(--border)'}`,
+                  }}>
+                  <Avatar name="All Members" size={44} accent emoji="👥" />
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:14, fontWeight: unread ? 700 : 600, color:'var(--text)' }}>
+                      All Members
+                    </div>
+                    <div style={{ fontSize:12, marginTop:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap',
+                      fontWeight: unread ? 600 : 400, color: unread ? 'var(--text)' : 'var(--text3)' }}>
+                      {allConv.last_message_preview || `${members.length} members · Say hi 👋`}
+                    </div>
                   </div>
-                )}
-                {messages.map((msg, i) => {
-                  const isMe = msg.sender_id === user.id
-                  const prev = messages[i-1], next = messages[i+1]
-                  const firstInGroup = msg.sender_id !== prev?.sender_id
-                  const lastInGroup  = msg.sender_id !== next?.sender_id
-                  return (
-                    <div key={msg.id} style={{ display:'flex', flexDirection: isMe ? 'row-reverse' : 'row',
-                      alignItems:'flex-end', gap:6, marginTop: firstInGroup ? 8 : 2 }}>
-                      {!isMe && (
-                        <div style={{ width:28, flexShrink:0 }}>
-                          {lastInGroup && <Avatar src={msg.profiles?.avatar_url} name={msg.profiles?.full_name} size={28} />}
-                        </div>
-                      )}
-                      <div style={{ maxWidth:'72%', display:'flex', flexDirection:'column', alignItems: isMe ? 'flex-end' : 'flex-start' }}>
-                        {!isMe && firstInGroup && (
-                          <div style={{ fontSize:11, color:'var(--accent)', marginBottom:2, marginLeft:4, fontWeight:600 }}>
-                            {msg.profiles?.full_name?.split(' ')[0]}
-                          </div>
-                        )}
-                        <div style={{
-                          padding:'8px 12px', fontSize:14, lineHeight:1.45, wordBreak:'break-word',
-                          background: isMe ? 'var(--accent)' : 'var(--bg3)',
-                          color: isMe ? '#fff' : 'var(--text)',
-                          borderRadius: isMe
-                            ? (firstInGroup ? '18px 18px 4px 18px' : '18px 4px 4px 18px')
-                            : (firstInGroup ? '18px 18px 18px 4px' : '4px 18px 18px 4px'),
-                        }}>{msg.content}</div>
-                        {lastInGroup && (
-                          <div style={{ fontSize:10, color:'var(--text3)', marginTop:2, marginLeft:4, marginRight:4 }}>
-                            {fmtMsgTime(msg.created_at)}
-                          </div>
-                        )}
+                  <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:4, flexShrink:0 }}>
+                    {allConv.last_message_at && (
+                      <div style={{ fontSize:11, color: unread ? 'var(--accent)' : 'var(--text3)' }}>
+                        {fmtTime(allConv.last_message_at)}
                       </div>
-                    </div>
-                  )
-                })}
-                <div ref={endRef} />
-              </div>
-
-              {/* Message input */}
-              <div style={{ display:'flex', gap:8, padding:'10px 14px',
-                borderTop:'0.5px solid var(--border)', background:'var(--bg2)',
-                alignItems:'flex-end', flexShrink:0,
-                paddingBottom:'calc(10px + env(safe-area-inset-bottom))' }}>
-                <div style={{ flex:1, background:'var(--bg3)', borderRadius:22, padding:'9px 14px',
-                  display:'flex', alignItems:'center', border:'0.5px solid var(--border)' }}>
-                  <input ref={inputRef} value={inputText} onChange={e => setInputText(e.target.value)}
-                    onKeyDown={e => { if (e.key==='Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
-                    placeholder="Message…"
-                    style={{ flex:1, background:'none', border:'none', outline:'none',
-                      color:'var(--text)', fontSize:14, fontFamily:"'Inter',sans-serif" }} />
+                    )}
+                    {unread && <div style={{ width:8, height:8, borderRadius:'50%', background:'var(--accent)' }} />}
+                  </div>
                 </div>
-                <button onClick={send} disabled={!inputText.trim() || sending} style={{
-                  width:42, height:42, borderRadius:'50%', border:'none', cursor:'pointer', flexShrink:0,
-                  background: inputText.trim() ? 'var(--accent)' : 'var(--bg3)',
-                  color: inputText.trim() ? '#fff' : 'var(--text3)',
-                  display:'flex', alignItems:'center', justifyContent:'center', fontSize:20,
-                }}>↑</button>
+              )
+            })()}
+
+            {/* Members */}
+            {members.filter(m => m.user_id !== user.id && !m.is_guest).length > 0 && (
+              <div style={{ fontSize:10, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.08em',
+                color:'var(--text3)', padding:'8px 16px 4px' }}>
+                Members
               </div>
-            </>
-          ) : (
-            <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center',
-              justifyContent:'center', color:'var(--text3)', gap:8 }}>
-              <div style={{ fontSize:40 }}>💬</div>
-              <div style={{ fontSize:14, fontWeight:500, color:'var(--text)' }}>Select a conversation</div>
-              <div style={{ fontSize:12 }}>or start a new one</div>
-            </div>
-          )}
-        </div>
+            )}
+            {members.filter(m => m.user_id !== user.id && !m.is_guest).map(m => {
+              const existingDM = conversations.find(c => c.type === 'dm' && c.otherUserId === m.user_id)
+              const active = activeConv?.type === 'dm' && activeConv?.otherUserId === m.user_id
+              const unread = !active && existingDM && isUnread(existingDM)
+              return (
+                <div key={m.id} onClick={() => openDM(m)}
+                  style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 14px',
+                    margin:'0 16px 8px', cursor:'pointer', borderRadius:'var(--radius-sm)',
+                    background: active ? 'var(--accent-dim)' : 'var(--bg2)',
+                    border:`0.5px solid ${active ? 'var(--accent)' : 'var(--border)'}`,
+                  }}>
+                  <Avatar src={m.profiles?.avatar_url} name={m.profiles?.full_name} size={40} />
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:14, color:'var(--text)', fontWeight: unread ? 700 : 500,
+                      overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                      {m.profiles?.full_name}
+                    </div>
+                    <div style={{ fontSize:12, marginTop:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap',
+                      fontWeight: unread ? 600 : 400, color: unread ? 'var(--text)' : 'var(--text3)' }}>
+                      {existingDM?.last_message_preview || 'Tap to message'}
+                    </div>
+                  </div>
+                  <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:4, flexShrink:0 }}>
+                    {existingDM?.last_message_at && (
+                      <div style={{ fontSize:11, color: unread ? 'var(--accent)' : 'var(--text3)' }}>
+                        {fmtTime(existingDM.last_message_at)}
+                      </div>
+                    )}
+                    {unread && <div style={{ width:8, height:8, borderRadius:'50%', background:'var(--accent)' }} />}
+                  </div>
+                </div>
+              )
+            })}
+
+            {/* Group chats */}
+            {conversations.filter(c => c.type === 'group').length > 0 && (
+              <div style={{ fontSize:10, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.08em',
+                color:'var(--text3)', padding:'8px 16px 4px' }}>
+                Group Chats
+              </div>
+            )}
+            {conversations.filter(c => c.type === 'group').map(conv => {
+              const active = activeConv?.id === conv.id
+              const unread = !active && isUnread(conv)
+              return (
+                <div key={conv.id} onClick={() => { setActiveConv(conv); setPanel('chat') }}
+                  style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 14px',
+                    margin:'0 16px 8px', cursor:'pointer', borderRadius:'var(--radius-sm)',
+                    background: active ? 'var(--accent-dim)' : 'var(--bg2)',
+                    border:`0.5px solid ${active ? 'var(--accent)' : 'var(--border)'}`,
+                  }}>
+                  <Avatar name={conv.name} size={40} />
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:14, fontWeight: unread ? 700 : 500, color:'var(--text)',
+                      overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                      {conv.name || 'Group'}
+                    </div>
+                    <div style={{ fontSize:11, marginTop:1,
+                      fontWeight: unread ? 600 : 400, color: unread ? 'var(--text)' : 'var(--text3)',
+                      overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                      {conv.last_message_preview || 'No messages yet'}
+                    </div>
+                  </div>
+                  <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:4, flexShrink:0 }}>
+                    {conv.last_message_at && (
+                      <div style={{ fontSize:11, color: unread ? 'var(--accent)' : 'var(--text3)' }}>
+                        {fmtTime(conv.last_message_at)}
+                      </div>
+                    )}
+                    {unread && <div style={{ width:8, height:8, borderRadius:'50%', background:'var(--accent)' }} />}
+                  </div>
+                </div>
+              )
+            })}
+
+            {conversations.length === 0 && (
+              <div style={{ textAlign:'center', padding:'60px 20px', color:'var(--text3)' }}>
+                <div style={{ fontSize:40, marginBottom:12 }}>💬</div>
+                <div style={{ fontSize:15, fontWeight:600, color:'var(--text)', marginBottom:6 }}>No chats yet</div>
+                <div style={{ fontSize:13 }}>Tap New Chat to start a conversation</div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── CHAT PANEL ── */}
+        {panel === 'chat' && (
+          <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden', minHeight:0 }}>
+            {activeConv ? (
+              <>
+                {/* Message scroll area */}
+                <div style={{ flex:1, overflowY:'auto', padding:'12px 16px',
+                  display:'flex', flexDirection:'column', gap:2, minHeight:0 }}>
+                  {msgLoading && (
+                    <div style={{ textAlign:'center', color:'var(--text3)', fontSize:13, padding:40 }}>Loading…</div>
+                  )}
+                  {!msgLoading && messages.length === 0 && (
+                    <div style={{ textAlign:'center', color:'var(--text3)', fontSize:13, padding:'60px 20px' }}>
+                      <div style={{ fontSize:36, marginBottom:8 }}>💬</div>
+                      No messages yet — say hi!
+                    </div>
+                  )}
+                  {messages.map((msg, i) => {
+                    const isMe = msg.sender_id === user.id
+                    const prev = messages[i-1], next = messages[i+1]
+                    const firstInGroup = msg.sender_id !== prev?.sender_id
+                    const lastInGroup  = msg.sender_id !== next?.sender_id
+                    return (
+                      <div key={msg.id} style={{ display:'flex', flexDirection: isMe ? 'row-reverse' : 'row',
+                        alignItems:'flex-end', gap:6, marginTop: firstInGroup ? 8 : 2 }}>
+                        {!isMe && (
+                          <div style={{ width:28, flexShrink:0 }}>
+                            {lastInGroup && <Avatar src={msg.profiles?.avatar_url} name={msg.profiles?.full_name} size={28} />}
+                          </div>
+                        )}
+                        <div style={{ maxWidth:'72%', display:'flex', flexDirection:'column', alignItems: isMe ? 'flex-end' : 'flex-start' }}>
+                          {!isMe && firstInGroup && (
+                            <div style={{ fontSize:11, color:'var(--accent)', marginBottom:2, marginLeft:4, fontWeight:600 }}>
+                              {msg.profiles?.full_name?.split(' ')[0]}
+                            </div>
+                          )}
+                          <div style={{
+                            padding:'8px 12px', fontSize:14, lineHeight:1.45, wordBreak:'break-word',
+                            background: isMe ? 'var(--accent)' : 'var(--bg3)',
+                            color: isMe ? '#fff' : 'var(--text)',
+                            borderRadius: isMe
+                              ? (firstInGroup ? '18px 18px 4px 18px' : '18px 4px 4px 18px')
+                              : (firstInGroup ? '18px 18px 18px 4px' : '4px 18px 18px 4px'),
+                          }}>{msg.content}</div>
+                          {lastInGroup && (
+                            <div style={{ fontSize:10, color:'var(--text3)', marginTop:2, marginLeft:4, marginRight:4 }}>
+                              {fmtMsgTime(msg.created_at)}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                  <div ref={endRef} />
+                </div>
+
+                {/* Message input */}
+                <div style={{ display:'flex', gap:8, padding:'10px 16px',
+                  borderTop:'0.5px solid var(--border)', background:'var(--bg2)',
+                  alignItems:'flex-end', flexShrink:0,
+                  paddingBottom:'calc(10px + env(safe-area-inset-bottom))' }}>
+                  <div style={{ flex:1, background:'var(--bg3)', borderRadius:22, padding:'9px 14px',
+                    display:'flex', alignItems:'center', border:'0.5px solid var(--border)' }}>
+                    <input ref={inputRef} value={inputText} onChange={e => setInputText(e.target.value)}
+                      onKeyDown={e => { if (e.key==='Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
+                      placeholder="Message…"
+                      style={{ flex:1, background:'none', border:'none', outline:'none',
+                        color:'var(--text)', fontSize:14, fontFamily:"'Inter',sans-serif" }} />
+                  </div>
+                  <button onClick={send} disabled={!inputText.trim() || sending} style={{
+                    width:42, height:42, borderRadius:'50%', border:'none', cursor:'pointer', flexShrink:0,
+                    background: inputText.trim() ? 'var(--accent)' : 'var(--bg3)',
+                    color: inputText.trim() ? '#fff' : 'var(--text3)',
+                    display:'flex', alignItems:'center', justifyContent:'center', fontSize:20,
+                  }}>↑</button>
+                </div>
+              </>
+            ) : (
+              <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center',
+                justifyContent:'center', color:'var(--text3)', gap:8 }}>
+                <div style={{ fontSize:40 }}>💬</div>
+                <div style={{ fontSize:14, fontWeight:500, color:'var(--text)' }}>Select a conversation</div>
+                <div style={{ fontSize:12 }}>or start a new one</div>
+              </div>
+            )}
+          </div>
+        )}
+
       </div>
 
       {/* ── New Chat modal ── */}

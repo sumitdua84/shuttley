@@ -3,6 +3,7 @@ import { useParams, useNavigate, useLocation, useSearchParams } from 'react-rout
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
 import GroupNav from '../components/GroupNav'
+import GroupWorldHeader from '../components/GroupWorldHeader'
 import Toast from '../components/Toast'
 import { useConfirm } from '../hooks/useConfirm'
 
@@ -407,12 +408,14 @@ export default function MatchesPage() {
   return (
     <div className="page">
       <div className="topnav">
-        <div>
-          <div style={{ fontFamily:"'Plus Jakarta Sans',sans-serif", fontSize:16, fontWeight:700, color:'var(--text)' }}>{club?.name}</div>
-          <div style={{ fontSize:11, color:'var(--text3)', fontWeight:500, marginTop:2 }}>
-            {{ history:'Match History', leaderboard:'Leaderboard', stats:'Player Stats', sessions:'Sessions' }[tab] || 'Stats'}
-          </div>
-        </div>
+        <GroupWorldHeader
+          clubId={clubId}
+          groupName={club?.name}
+          isMod={isModerator}
+          activeTab="stats"
+          subLabel={{ history:'Match History', leaderboard:'Leaderboard', stats:'Player Stats', sessions:'Sessions' }[tab] || 'Stats'}
+          buildRoute={(targetClubId) => `/club/${targetClubId}/matches?tab=${tab}`}
+        />
       </div>
 
       <div className="content" style={{ paddingTop:12, paddingBottom:90 }}>
