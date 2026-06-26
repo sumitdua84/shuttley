@@ -12,8 +12,6 @@ const ChevronDown = () => (
 
 function buildTargetRoute(targetClubId, targetIsMod, activeTab) {
   const dashPath = targetIsMod ? `/club/${targetClubId}/mod` : `/club/${targetClubId}/member`
-  if (activeTab === 'stats') return `/club/${targetClubId}/matches?tab=stats`
-  if (activeTab === 'chat')  return `/club/${targetClubId}/chat`
   const safeTab = ['session', 'polls', 'more'].includes(activeTab) ? activeTab : 'session'
   return `${dashPath}?tab=${safeTab}`
 }
@@ -33,7 +31,7 @@ export default function GroupWorldHeader({ clubId, groupName, isMod, activeTab, 
       .eq('user_id', user.id)
       .eq('status', 'approved')
       .then(({ data }) => {
-        if (data) setOtherGroups(data.filter(m => m.club_id !== clubId))
+        if (data) setOtherGroups(data.filter(m => m.club_id && m.club_id !== clubId))
       })
   }, [user, clubId])
 
@@ -50,6 +48,7 @@ export default function GroupWorldHeader({ clubId, groupName, isMod, activeTab, 
   const secondLine = subLabel ?? (isMod ? 'Moderator' : 'Member')
 
   function switchTo(m) {
+    if (!m.club_id) return
     setOpen(false)
     const route = buildRoute
       ? buildRoute(m.club_id, m.role)
@@ -61,6 +60,7 @@ export default function GroupWorldHeader({ clubId, groupName, isMod, activeTab, 
     <div ref={wrapRef} style={{ width: '100%', textAlign: 'center', position: 'relative' }}>
       {/* Group name row */}
       <button
+        type="button"
         onClick={() => hasMultiple && setOpen(o => !o)}
         style={{
           background: 'none', border: 'none', padding: 0,
@@ -101,6 +101,7 @@ export default function GroupWorldHeader({ clubId, groupName, isMod, activeTab, 
             </div>
             {otherGroups.map(m => (
               <button
+                type="button"
                 key={m.club_id}
                 onClick={() => switchTo(m)}
                 style={{
