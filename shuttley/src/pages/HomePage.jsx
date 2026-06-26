@@ -332,13 +332,7 @@ export default function HomePage() {
           {/* ── 2. My Groups (compact shortcuts) ── */}
           {memberships.length > 0 && (
             <div style={{ marginBottom: 20 }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                <div className="section-label" style={{ margin: 0 }}>My groups</div>
-                <button onClick={() => navigate('/groups')} style={{
-                  background: 'none', border: 'none', fontSize: 11, fontWeight: 600,
-                  color: 'var(--accent)', cursor: 'pointer', fontFamily: "'Inter',sans-serif", padding: 0,
-                }}>View all →</button>
-              </div>
+              <div className="section-label" style={{ marginBottom: 10 }}>My groups</div>
               {memberships.slice(0, 5).map(mem => {
                 const openPollCount = [
                   ...activePolls.filter(p => p.club_id === mem.club_id),
