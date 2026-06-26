@@ -90,6 +90,9 @@ export default function MemberDashboard() {
       setExpandedPolls(prev => ({ ...prev, [pollId]: true }))
       setTab('polls')
       setSearchParams({ tab: 'polls' }, { replace: true })
+      setTimeout(() => {
+        document.querySelector(`[data-poll-id="${pollId}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }, 150)
     }
   }, [activePolls.length])
 
@@ -999,7 +1002,7 @@ export default function MemberDashboard() {
                 : null
 
               return (
-                <div key={poll.id} style={{
+                <div key={poll.id} data-poll-id={poll.id} style={{
                   background:'var(--bg2)', border:'1px solid var(--border)',
                   borderLeft:`4px solid ${isCustom ? 'var(--accent)' : '#b04400'}`,
                   borderRadius:'var(--radius)', marginBottom:10, overflow:'hidden',

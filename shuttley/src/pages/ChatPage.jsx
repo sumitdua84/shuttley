@@ -425,10 +425,6 @@ export default function ChatPage() {
   )
 
   const isMod = SUPER_ADMINS.includes(user?.email) || myMem?.role === 'moderator'
-  const basePath = `/club/${clubId}/${isMod ? 'mod' : 'member'}`
-  const navTabs = isMod
-    ? [{id:'home',label:'Home'},{id:'members',label:'Members'},{id:'sessions',label:'Session'},{id:'settings',label:'Settings'}]
-    : [{id:'home',label:'Home'},{id:'members',label:'Members'}]
 
   // ── render ───────────────────────────────────────────────────────────────────
   // Single mobile-style layout everywhere — centered with a max width on

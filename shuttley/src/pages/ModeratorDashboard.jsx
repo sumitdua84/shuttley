@@ -109,6 +109,9 @@ export default function ModeratorDashboard() {
       setExpandedPolls(prev => ({ ...prev, [pollId]: true }))
       setTab('polls')
       setSearchParams({ tab: 'polls' }, { replace: true })
+      setTimeout(() => {
+        document.querySelector(`[data-poll-id="${pollId}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }, 150)
     }
   }, [activePolls.length])
 
@@ -744,7 +747,7 @@ export default function ModeratorDashboard() {
                 <button
                   onClick={() => navigate(`/club/${clubId}/session/${activeSession.id}/rotation`)}
                   style={{ flex:1, background:'#fff', color:'var(--accent)', border:'none', borderRadius:'var(--radius-sm)', padding:'10px', fontWeight:700, fontSize:13, cursor:'pointer', fontFamily:"'Inter',sans-serif" }}>
-                  Open Current Session
+                  Open Current Session →
                 </button>
                 <button
                   onClick={endSession}
@@ -859,7 +862,7 @@ export default function ModeratorDashboard() {
                 <button
                   onClick={() => navigate(`/club/${clubId}/session/${activeSession.id}/rotation`)}
                   style={{ flex:1, background:'#fff', color:'var(--accent)', border:'none', borderRadius:'var(--radius-sm)', padding:'10px', fontWeight:700, fontSize:13, cursor:'pointer', fontFamily:"'Inter',sans-serif" }}>
-                  Open Current Session
+                  Open Current Session →
                 </button>
                 <button
                   onClick={endSession}
@@ -1125,7 +1128,7 @@ export default function ModeratorDashboard() {
               ]
 
               return (
-                <div key={poll.id} style={{
+                <div key={poll.id} data-poll-id={poll.id} style={{
                   background:'var(--bg2)', border:'1px solid var(--border)',
                   borderLeft:`4px solid ${isCustom ? 'var(--accent)' : '#b04400'}`,
                   borderRadius:'var(--radius)', marginBottom:10, overflow:'hidden',
