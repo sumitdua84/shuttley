@@ -1,7 +1,132 @@
 # Shuttley — V1 App Feel Closeout Handover
 
-> Last updated: 2026-06-26
-> Session: V1 app-feel upgrade session (multi-day, closed out)
+> Last updated: 2026-06-27
+> Session: V1 app-feel upgrade session (multi-day, ongoing)
+
+---
+
+## UPDATE 2026-06-27 — Group-World Polish + Bug Fixes
+
+### Branch / Commit State
+
+| Field | Value |
+|---|---|
+| **Branch** | `feature/shuttley-app-feel-upgrade` |
+| **Latest committed** | `1510b38` — `fix: guard GroupWorldHeader against invalid group routes` |
+| **Commits ahead of `origin/feature/...`** | 3 (unpushed) |
+| **Commits ahead of `develop`** | 25+ |
+| **Commits ahead of `main`** | 25+ |
+| **Unstaged (not committed)** | `src/pages/ModeratorDashboard.jsx`, `src/pages/SessionPage.jsx`, `src/pages/MatchesPage.jsx` |
+| **Production / main / develop** | ✅ UNTOUCHED |
+| **Supabase / schema / RLS** | ✅ UNTOUCHED |
+| **Deployed** | ❌ No |
+| **V2** | ❌ Not started |
+
+### Work completed this session
+
+#### A — GroupWorldHeader component (`src/components/GroupWorldHeader.jsx`) ✅ COMMITTED
+
+New shared component. Shows the group name and role/sublabel in the topnav of group-world pages. When the user belongs to more than one club, clicking the group name opens a dropdown to switch groups. Used in:
+- `ModeratorDashboard.jsx` — shows group name + "Moderator", opens group-switcher
+- `MemberDashboard.jsx` — shows group name + "Member"
+- `MatchesPage.jsx` — shows group name + "Stats", `buildRoute` overrides to `/club/:id/matches`
+- `ChatPage.jsx` — shows group name + "Chat", `buildRoute` overrides to `/club/:id/chat`
+
+Fixed bugs in GroupWorldHeader:
+- Membership filter was keeping rows where `club_id` was null (since `null !== uuid`), generating routes like `/club/null/matches`. Fixed: `data.filter(m => m.club_id && m.club_id !== clubId)`.
+- Added `if (!m.club_id) return` guard in `switchTo()`.
+- Added `type="button"` to all buttons.
+- Removed dead `activeTab === 'stats'` / `activeTab === 'chat'` branches from `buildTargetRoute` — pages with non-dashboard routes always pass their own `buildRoute`.
+
+#### B — Named Session modal (`src/pages/ModeratorDashboard.jsx`) ⚠️ UNSTAGED
+
+Added `modalSessionName` state and a Session Name input field in the Step 1 Start Session modal. Pre-filled with a weekday default (`Monday Badminton`, `Friday Smash`, etc.). Editable before starting. Session is created with whatever name is in the field.
+
+Module-level additions:
+```js
+const WEEKDAY_SESSION_NAMES = {
+  0: 'Sunday Game', 1: 'Monday Badminton', 2: 'Tuesday Game',
+  3: 'Wednesday Social', 4: 'Thursday Badminton', 5: 'Friday Smash', 6: 'Saturday Badminton',
+}
+function weekdaySessionName() { return WEEKDAY_SESSION_NAMES[new Date().getDay()] }
+```
+
+State: `const [modalSessionName, setModalSessionName] = useState(weekdaySessionName())`
+(Important: initialised with plain call, NOT lazy initializer — see TDZ bug below.)
+
+#### C — TDZ crash fix (`src/pages/ModeratorDashboard.jsx`) ⚠️ UNSTAGED
+
+**Root cause of blank-page bug on group switch:**
+
+The named-session fix initially wrote:
+```js
+// WRONG — causes ReferenceError on remount:
+const [modalSessionName, setModalSessionName] = useState(() => prefillSessionNameRef.current || weekdaySessionName())
+```
+`prefillSessionNameRef` is declared with `const` on line ~73, AFTER this `useState` at line ~41. React calls lazy initializers synchronously at render time, before reaching line 73, so `prefillSessionNameRef` was in the Temporal Dead Zone → `ReferenceError: Cannot access 'prefillSessionNameRef' before initialization` → crash → blank page.
+
+Only triggered on **remount** (switching clubs via GroupWorldHeader changes `RouteTransition`'s `key={location.pathname}` → full unmount/remount). This is why the page loaded fine on first visit but went blank after a group switch.
+
+**Fix:**
+```js
+// CORRECT — no ref access at init time:
+const [modalSessionName, setModalSessionName] = useState(weekdaySessionName())
+```
+Prefill from navigation state (`location.state.prefillName`) is consumed in the autoStart `useEffect`, where all refs are safely in scope.
+
+#### D — SessionPage redesign (`src/pages/SessionPage.jsx`) ⚠️ UNSTAGED
+
+Redesigned as a creation/lobby page:
+- Hero card: LIVE block (if active session) or "Ready to Play?" (if not)
+- Weekday session name pre-fill
+- Moderators can start sessions from here → navigates to `/club/:clubId/mod` with `state: { prefillName, prefillType, autoStart: true }`
+- Members see poll/RSVP status only
+
+#### E — MatchesPage GroupWorldHeader wiring (`src/pages/MatchesPage.jsx`) ⚠️ UNSTAGED
+
+- Added GroupWorldHeader with `buildRoute={(targetClubId) => /club/${targetClubId}/matches}` so switching groups from the Stats screen goes to the same-type route, not mod/member dashboard
+- `subLabel="Stats"`, `activeTab="stats"`, `isMod={isModerator}`
+
+### Files changed this session
+
+| File | Status | Notes |
+|---|---|---|
+| `src/components/GroupWorldHeader.jsx` | ✅ Committed (`494e333`, `1510b38`) | New component, club_id guard fixed |
+| `src/pages/ModeratorDashboard.jsx` | ⚠️ Unstaged | Named session modal + TDZ bug fix |
+| `src/pages/SessionPage.jsx` | ⚠️ Unstaged | Redesigned creation/lobby page |
+| `src/pages/MatchesPage.jsx` | ⚠️ Unstaged | GroupWorldHeader wired |
+
+### Immediate next step before anything else
+
+**Commit the 3 unstaged files:**
+```
+git add src/pages/ModeratorDashboard.jsx src/pages/SessionPage.jsx src/pages/MatchesPage.jsx
+git commit -m "feat: session page redesign, named session modal, stats guest filter, TDZ fix"
+```
+
+Then push:
+```
+git push origin feature/shuttley-app-feel-upgrade
+```
+
+### Known open issues (this session)
+
+| # | Issue | Status |
+|---|---|---|
+| 1 | Named session flow — end-to-end test | ❌ Not manually tested |
+| 2 | Group-switch blank page fix — verify resolved | ❌ Not manually re-tested after TDZ fix |
+| 3 | SessionPage → ModeratorDashboard autoStart flow | ❌ Not manually tested |
+| 4 | No UI link to `/admin` — super admins must type URL | ⚠️ Known, deferred |
+| 5 | All V1 manual QA checklist items from §6 below | ❌ Still not done |
+
+### Safety constraints (unchanged)
+
+- Do NOT touch Home (`src/pages/HomePage.jsx`)
+- Do NOT touch RotationPage, SessionSummary, RecordMatch, BottomNav, GroupNav
+- No V2, no merge, no deploy, no production
+- No Supabase SQL without Sumit approval
+
+---
 
 ---
 
