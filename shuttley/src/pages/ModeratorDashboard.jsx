@@ -10,6 +10,12 @@ import Toast from '../components/Toast'
 import { useConfirm } from '../hooks/useConfirm'
 import { DashboardSkeleton } from '../components/Skeleton'
 
+const WEEKDAY_SESSION_NAMES = {
+  0: 'Sunday Game', 1: 'Monday Badminton', 2: 'Tuesday Game',
+  3: 'Wednesday Social', 4: 'Thursday Badminton', 5: 'Friday Smash', 6: 'Saturday Badminton',
+}
+function weekdaySessionName() { return WEEKDAY_SESSION_NAMES[new Date().getDay()] }
+
 export default function ModeratorDashboard() {
   const { clubId } = useParams()
   const { user, profile } = useAuth()
@@ -32,6 +38,7 @@ export default function ModeratorDashboard() {
   const [showStartModal, setShowStartModal] = useState(false)
   const [selectedPlayerIds, setSelectedPlayerIds] = useState([])
   const [modalMatchType, setModalMatchType] = useState('doubles')
+  const [modalSessionName, setModalSessionName] = useState(weekdaySessionName())
   const [sessionMode, setSessionMode] = useState('free')
   const [modalStep, setModalStep] = useState(1)
   const [membersExpanded, setMembersExpanded] = useState(true)
@@ -63,6 +70,9 @@ export default function ModeratorDashboard() {
   // Capture location state immediately — window.history.replaceState clears it before polls load
   const startFromPollIdRef = useRef(location.state?.startFromPollId)
   const openPollIdRef = useRef(location.state?.openPollId)
+  const prefillSessionNameRef = useRef(location.state?.prefillName || null)
+  const prefillMatchTypeRef = useRef(location.state?.prefillType || null)
+  const autoStartSessionRef = useRef(location.state?.autoStart || false)
 
   const { sendPush, subscribe } = usePushNotifications()
   const [notifStatus, setNotifStatus] = useState(() =>
@@ -94,6 +104,20 @@ export default function ModeratorDashboard() {
     const t = searchParams.get('tab')
     if (t) setTab(t)
   }, [searchParams])
+
+  // Auto-open start modal when navigated from SessionPage creation modal
+  useEffect(() => {
+    if (loading) return
+    if (!autoStartSessionRef.current) return
+    autoStartSessionRef.current = false
+    if (activeSession) return
+    if (prefillMatchTypeRef.current) { setModalMatchType(prefillMatchTypeRef.current); prefillMatchTypeRef.current = null }
+    if (prefillSessionNameRef.current) { setModalSessionName(prefillSessionNameRef.current); prefillSessionNameRef.current = null }
+    setSelectedPlayerIds([])
+    setSessionMode('free')
+    setModalStep(1)
+    setShowStartModal(true)
+  }, [loading])
 
   // Handle navigation from Home: either expand a poll or directly start a session from it
   useEffect(() => {
@@ -472,6 +496,7 @@ export default function ModeratorDashboard() {
       ?.filter(r => r.response === 'yes')
       .map(r => r.user_id) || []
     setSelectedPlayerIds(yesVoters)
+    setModalSessionName(weekdaySessionName())
     setModalStep(1)
     setShowStartModal(true)
   }
@@ -607,6 +632,11 @@ export default function ModeratorDashboard() {
   }
 
   function getSessionName() {
+    if (prefillSessionNameRef.current) {
+      const name = prefillSessionNameRef.current
+      prefillSessionNameRef.current = null
+      return name
+    }
     const now = new Date()
     const weekday = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][now.getDay()]
     const day = now.getDate()
@@ -633,7 +663,7 @@ export default function ModeratorDashboard() {
     }
     const { data: sess, error } = await supabase.from('sessions').insert({
       club_id: clubId,
-      name: getSessionName(),
+      name: modalSessionName.trim() || weekdaySessionName(),
       started_by: user.id,
       status: 'active',
       match_type: modalMatchType,
@@ -760,7 +790,7 @@ export default function ModeratorDashboard() {
               <div style={{ fontSize:22, fontWeight:700, marginBottom:6, fontFamily:"'Plus Jakarta Sans',sans-serif" }}>Start a Session</div>
               <div style={{ fontSize:13, opacity:0.75, marginBottom:16, lineHeight:1.5 }}>Track live matches, scores and court rotations</div>
               <button
-                onClick={() => { setSelectedPlayerIds([]); setSessionMode('free'); setModalStep(1); setShowStartModal(true) }}
+                onClick={() => { setSelectedPlayerIds([]); setSessionMode('free'); setModalSessionName(weekdaySessionName()); setModalStep(1); setShowStartModal(true) }}
                 style={{ width:'100%', background:'#fff', color:'var(--accent)', border:'none', borderRadius:'var(--radius-sm)', padding:'11px', fontWeight:700, fontSize:14, cursor:'pointer', fontFamily:"'Inter',sans-serif" }}>
                 ▶  Start Session
               </button>
@@ -872,7 +902,7 @@ export default function ModeratorDashboard() {
               <div style={{ fontSize:22, fontWeight:700, marginBottom:6, fontFamily:"'Plus Jakarta Sans',sans-serif" }}>Start a Session</div>
               <div style={{ fontSize:13, opacity:0.75, marginBottom:16, lineHeight:1.5 }}>Track live matches, scores and court rotations</div>
               <button
-                onClick={() => { setSelectedPlayerIds([]); setSessionMode('free'); setModalStep(1); setShowStartModal(true) }}
+                onClick={() => { setSelectedPlayerIds([]); setSessionMode('free'); setModalSessionName(weekdaySessionName()); setModalStep(1); setShowStartModal(true) }}
                 style={{ width:'100%', background:'#fff', color:'var(--accent)', border:'none', borderRadius:'var(--radius-sm)', padding:'11px', fontWeight:700, fontSize:14, cursor:'pointer', fontFamily:"'Inter',sans-serif" }}>
                 ▶  Start Session
               </button>
@@ -1705,6 +1735,23 @@ export default function ModeratorDashboard() {
 
             {modalStep === 1 && <>
               <h3 style={{ fontSize:20, marginBottom:16 }}>Start Session</h3>
+
+              <div style={{ marginBottom:16 }}>
+                <div style={{ fontSize:11, color:'var(--text2)', fontWeight:600, textTransform:'uppercase', marginBottom:8 }}>Session Name</div>
+                <input
+                  type="text"
+                  value={modalSessionName}
+                  onChange={e => setModalSessionName(e.target.value)}
+                  maxLength={60}
+                  placeholder={weekdaySessionName()}
+                  style={{
+                    width:'100%', padding:'10px 12px', boxSizing:'border-box',
+                    background:'var(--bg3)', border:'0.5px solid var(--border2)',
+                    borderRadius:'var(--radius-sm)', color:'var(--text)',
+                    fontSize:15, fontFamily:"'Inter',sans-serif", outline:'none',
+                  }}
+                />
+              </div>
 
               <div style={{ marginBottom:16 }}>
                 <div style={{ fontSize:11, color:'var(--text2)', fontWeight:600, textTransform:'uppercase', marginBottom:8 }}>Match Type</div>
