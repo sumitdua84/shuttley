@@ -293,13 +293,13 @@ export default function RotationPage() {
         {/* Progress header — rotation only */}
         {rotationMatches.length > 0 && (
           <div style={{
-            background: 'rgba(122,164,196,0.06)', border: '1px solid rgba(122,164,196,0.2)',
+            background: 'var(--bg2)', border: '1px solid var(--border)',
             borderRadius: 'var(--radius)', padding: '14px 16px', marginBottom: 16
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
               <div>
                 <div style={{ fontSize: 11, color: isActive ? 'var(--accent)' : 'var(--text3)', fontWeight: 700, textTransform: 'uppercase', marginBottom: 2 }}>
-                  {isActive ? '● Live' : 'Ended'} · {session.match_type === 'singles' ? 'Singles' : 'Doubles'}
+                  {isActive ? '● LIVE' : 'ENDED'} · AUTO SCHEDULE · {session.match_type === 'singles' ? 'SINGLES' : 'DOUBLES'}
                 </div>
                 <div style={{ fontSize: 22, fontWeight: 700 }}>
                   {submitted.length} <span style={{ fontSize: 14, color: 'var(--text2)', fontWeight: 400 }}>/ {total} matches</span>
@@ -330,47 +330,53 @@ export default function RotationPage() {
         {/* Players section — rotation mode only */}
         {rotationMatches.length > 0 && (
           <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 600, textTransform: 'uppercase', marginBottom: 8 }}>
-              Players ({currentPlayers.length})
+            <div style={{ fontSize: 11, color: '#2a8c55', fontWeight: 700, textTransform: 'uppercase', marginBottom: 8, letterSpacing: '0.06em' }}>
+              Playing · {currentPlayers.length}
             </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: isModerator && isActive && availableToAdd.length > 0 ? 10 : 0 }}>
               {currentPlayers.map(id => (
                 <div key={id} style={{
                   display: 'flex', alignItems: 'center', gap: 5,
-                  background: 'var(--bg3)', borderRadius: 99, padding: '5px 10px', fontSize: 13
+                  background: 'rgba(42,140,85,0.08)', border: '1px solid rgba(42,140,85,0.25)',
+                  borderRadius: 99, padding: '5px 10px', fontSize: 13, color: 'var(--text)',
                 }}>
                   <span>{shortName(id)}</span>
                   {isModerator && isActive && (
                     <button onClick={() => removePlayer(id)} style={{
-                      background: 'none', border: 'none', color: 'var(--text3)',
+                      background: 'none', border: 'none', color: '#2a8c55',
                       cursor: 'pointer', fontSize: 11, padding: 0, lineHeight: 1, marginTop: 1
                     }}>✕</button>
                   )}
                 </div>
               ))}
-              {isModerator && isActive && (
-                <button onClick={() => setShowAddPlayer(!showAddPlayer)} style={{
-                  background: 'rgba(122,164,196,0.1)', border: '1px dashed rgba(122,164,196,0.4)',
-                  borderRadius: 99, padding: '5px 12px', fontSize: 13, color: 'var(--accent)',
-                  cursor: 'pointer'
-                }}>+ Add</button>
-              )}
             </div>
-            {showAddPlayer && (
-              <div className="card" style={{ marginTop: 8 }}>
-                {availableToAdd.length === 0 ? (
-                  <div style={{ fontSize: 13, color: 'var(--text3)' }}>No more members to add</div>
-                ) : <>
-                  <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 8 }}>Select player to add:</div>
-                  {availableToAdd.map(p => (
-                    <button key={p.id} onClick={() => addPlayer(p.id)} style={{
-                      display: 'block', width: '100%', textAlign: 'left',
-                      background: 'none', border: 'none', padding: '9px 4px',
-                      fontSize: 14, color: 'var(--text)', cursor: 'pointer',
-                      borderBottom: '1px solid var(--bg3)'
-                    }}>{p.full_name}</button>
-                  ))}
-                </>}
+            {isModerator && isActive && availableToAdd.length > 0 && (
+              <div>
+                <button
+                  onClick={() => setShowAddPlayer(p => !p)}
+                  style={{
+                    background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+                    fontSize: 12, color: 'var(--accent)', fontWeight: 600,
+                    display: 'flex', alignItems: 'center', gap: 4, marginBottom: showAddPlayer ? 8 : 0,
+                  }}>
+                  <span style={{ fontSize: 10 }}>{showAddPlayer ? '▲' : '▼'}</span>
+                  {showAddPlayer ? 'Hide other players' : `Add player (${availableToAdd.length})`}
+                </button>
+                {showAddPlayer && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {availableToAdd.map(p => (
+                      <button key={p.id} onClick={() => { addPlayer(p.id); setShowAddPlayer(false) }} style={{
+                        display: 'flex', alignItems: 'center', gap: 4,
+                        background: 'var(--bg3)', border: '1px dashed var(--border2)',
+                        borderRadius: 99, padding: '5px 10px', fontSize: 13, color: 'var(--text2)',
+                        cursor: 'pointer', fontFamily: "'Inter',sans-serif",
+                      }}>
+                        <span style={{ fontSize: 10, color: 'var(--accent)', fontWeight: 700 }}>+</span>
+                        <span>{p.full_name?.split(' ')[0]}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
