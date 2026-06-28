@@ -85,8 +85,17 @@ export default function RecordMatch() {
     setSlots(n)
   }
 
+  const [showOtherMembers, setShowOtherMembers] = useState(false)
+
   const selectedIds    = slots.slice(0, maxSlots).filter(Boolean)
   const sortedMembers  = [...members].sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''))
+  const presentIds     = activeSession?.rotation_player_ids || []
+  const presentMembers = presentIds.length > 0
+    ? sortedMembers.filter(m => presentIds.includes(m.id))
+    : sortedMembers
+  const otherMembers   = presentIds.length > 0
+    ? sortedMembers.filter(m => !presentIds.includes(m.id))
+    : []
 
   async function submitMatch() {
     if (!scoreReady || !playersReady) return
@@ -315,13 +324,13 @@ export default function RecordMatch() {
             )}
           </div>
 
-          {/* ── Available players ── */}
-          {sortedMembers.length > 0 && <>
+          {/* ── Present players ── */}
+          {presentMembers.length > 0 && <>
             <div style={{ fontSize:11, fontWeight:600, textTransform:'uppercase', color:'var(--text3)', letterSpacing:'0.06em', marginBottom:10 }}>
               Tap to add
             </div>
-            <div style={{ display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:8, marginBottom:20 }}>
-              {sortedMembers.map(m => {
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:8, marginBottom:12 }}>
+              {presentMembers.map(m => {
                 const taken = selectedIds.includes(m.id)
                 if (taken) return null
                 return (
@@ -343,6 +352,47 @@ export default function RecordMatch() {
               })}
             </div>
           </>}
+
+          {/* ── Other group members (collapsed) ── */}
+          {otherMembers.length > 0 && (
+            <div style={{ marginBottom:12 }}>
+              <button
+                onClick={() => setShowOtherMembers(p => !p)}
+                style={{
+                  background:'none', border:'none', padding:0, cursor:'pointer',
+                  fontSize:12, color:'var(--accent)', fontWeight:600,
+                  display:'flex', alignItems:'center', gap:4,
+                  marginBottom: showOtherMembers ? 8 : 0,
+                }}>
+                <span style={{ fontSize:10 }}>{showOtherMembers ? '▲' : '▼'}</span>
+                {showOtherMembers ? 'Hide other players' : `Add other players (${otherMembers.filter(m => !selectedIds.includes(m.id)).length})`}
+              </button>
+              {showOtherMembers && (
+                <div style={{ display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:8 }}>
+                  {otherMembers.map(m => {
+                    const taken = selectedIds.includes(m.id)
+                    if (taken) return null
+                    return (
+                      <button key={m.id}
+                        onClick={() => handlePlayerTap(m.id)}
+                        style={{
+                          padding:'11px 6px', borderRadius:'var(--radius-sm)',
+                          border:'1.5px dashed var(--border2)',
+                          background:'var(--bg3)',
+                          color:'var(--text2)', fontSize:13, fontWeight:500,
+                          cursor:'pointer',
+                          textAlign:'center', lineHeight:1.3,
+                          fontFamily:"'Inter',sans-serif", transition:'all 0.15s',
+                        }}>
+                        {m.full_name?.split(' ')[0]}
+                        {m.id === user.id && <span style={{ display:'block', fontSize:10, color:'var(--text3)', marginTop:2 }}>you</span>}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* ── Confirmation toggle ── */}
           <div style={{

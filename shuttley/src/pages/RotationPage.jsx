@@ -26,6 +26,7 @@ export default function RotationPage() {
   const [toast, setToast] = useState('')
   const [confirmDialog, confirmModal] = useConfirm()
   const [viewRound, setViewRound] = useState(0) // 0-based index into rounds array
+  const [showOtherPlayers, setShowOtherPlayers] = useState(false)
 
   useEffect(() => { fetchData() }, [sessionId])
 
@@ -411,25 +412,34 @@ export default function RotationPage() {
                 </div>
               )}
 
-              {/* Not Available players */}
+              {/* Other players — collapsed by default */}
               {isModerator && isActive && availableToAdd.length > 0 && (
                 <div style={{ marginBottom:16 }}>
-                  <div style={{ fontSize:11, fontWeight:700, textTransform:'uppercase', color:'var(--text3)', letterSpacing:'0.06em', marginBottom:8 }}>
-                    Not Available · {availableToAdd.length}
-                  </div>
-                  <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
-                    {availableToAdd.map(p => (
-                      <button key={p.id} onClick={() => toggleSessionPlayer(p.id)} style={{
-                        display:'flex', alignItems:'center', gap:4,
-                        background:'var(--bg3)', border:'1px dashed var(--border2)',
-                        borderRadius:99, padding:'5px 10px', fontSize:13, color:'var(--text2)',
-                        cursor:'pointer', fontFamily:"'Inter',sans-serif",
-                      }}>
-                        <span style={{ fontSize:10, color:'var(--accent)', fontWeight:700 }}>+</span>
-                        <span>{p.full_name?.split(' ')[0]}</span>
-                      </button>
-                    ))}
-                  </div>
+                  <button
+                    onClick={() => setShowOtherPlayers(p => !p)}
+                    style={{
+                      background:'none', border:'none', padding:0, cursor:'pointer',
+                      fontSize:12, color:'var(--accent)', fontWeight:600,
+                      display:'flex', alignItems:'center', gap:4, marginBottom: showOtherPlayers ? 8 : 0,
+                    }}>
+                    <span style={{ fontSize:10 }}>{showOtherPlayers ? '▲' : '▼'}</span>
+                    {showOtherPlayers ? 'Hide other players' : `Add other players (${availableToAdd.length})`}
+                  </button>
+                  {showOtherPlayers && (
+                    <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+                      {availableToAdd.map(p => (
+                        <button key={p.id} onClick={() => { toggleSessionPlayer(p.id); setShowOtherPlayers(false) }} style={{
+                          display:'flex', alignItems:'center', gap:4,
+                          background:'var(--bg3)', border:'1px dashed var(--border2)',
+                          borderRadius:99, padding:'5px 10px', fontSize:13, color:'var(--text2)',
+                          cursor:'pointer', fontFamily:"'Inter',sans-serif",
+                        }}>
+                          <span style={{ fontSize:10, color:'var(--accent)', fontWeight:700 }}>+</span>
+                          <span>{p.full_name?.split(' ')[0]}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 

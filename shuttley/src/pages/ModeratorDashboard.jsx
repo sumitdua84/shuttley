@@ -40,6 +40,7 @@ export default function ModeratorDashboard() {
   const [modalMatchType, setModalMatchType] = useState('doubles')
   const [modalSessionName, setModalSessionName] = useState(weekdaySessionName())
   const [sessionMode, setSessionMode] = useState('free')
+  const [skipPlayerPicker, setSkipPlayerPicker] = useState(false)
   const [modalStep, setModalStep] = useState(1)
   const [membersExpanded, setMembersExpanded] = useState(true)
   const [guestsExpanded, setGuestsExpanded] = useState(false)
@@ -497,6 +498,7 @@ export default function ModeratorDashboard() {
       .map(r => r.user_id) || []
     setSelectedPlayerIds(yesVoters)
     setModalSessionName(weekdaySessionName())
+    setSkipPlayerPicker(true)
     setModalStep(1)
     setShowStartModal(true)
   }
@@ -1790,10 +1792,19 @@ export default function ModeratorDashboard() {
               </div>
 
               <button className="btn btn-primary" style={{ width:'100%', marginBottom:8 }}
-                onClick={() => { setModalStep(2) }}>
-                Next — Who's Available? →
+                onClick={() => {
+                  if (skipPlayerPicker) {
+                    setSkipPlayerPicker(false)
+                    startSessionWithRotation()
+                  } else {
+                    setModalStep(2)
+                  }
+                }}>
+                {skipPlayerPicker
+                  ? `▶ Start Session · ${selectedPlayerIds.length} player${selectedPlayerIds.length !== 1 ? 's' : ''} from poll`
+                  : "Next — Who's Available? →"}
               </button>
-              <button className="btn btn-ghost" style={{ width:'100%' }} onClick={() => setShowStartModal(false)}>
+              <button className="btn btn-ghost" style={{ width:'100%' }} onClick={() => { setSkipPlayerPicker(false); setShowStartModal(false) }}>
                 Cancel
               </button>
             </>}
