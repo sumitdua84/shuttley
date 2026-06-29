@@ -20,6 +20,9 @@ export default function HomePage() {
   const [pendingMatchAlerts, setPendingMatchAlerts] = useState([]) // per-group match confirmation alerts
   const [loading, setLoading] = useState(true)
   const [toast, setToast] = useState('')
+  const [openAttendancePollId, setOpenAttendancePollId] = useState(null)
+  const [attendanceMap, setAttendanceMap] = useState({})
+  const [collapsedGroups, setCollapsedGroups] = useState({})
 
   useEffect(() => { fetchAll() }, [user])
 
@@ -170,6 +173,29 @@ export default function HomePage() {
   }
 
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(''), 2500) }
+
+  async function fetchAttendance(poll) {
+    if (attendanceMap[poll.id]) return
+    setAttendanceMap(prev => ({ ...prev, [poll.id]: { loading: true } }))
+    const { data: memberData } = await supabase
+      .from('memberships').select('user_id').eq('club_id', poll.club_id).eq('status', 'approved')
+    const memberIds = (memberData || []).map(m => m.user_id)
+    const { data: profileData } = memberIds.length > 0
+      ? await supabase.from('profiles').select('id, full_name').in('id', memberIds)
+      : { data: [] }
+    const profileMap = Object.fromEntries((profileData || []).map(p => [p.id, p.full_name || 'Member']))
+    const responseMap = Object.fromEntries((poll.poll_responses || []).map(r => [r.user_id, r.response]))
+    const yes = [], no = [], maybe = [], noResponse = []
+    memberIds.forEach(uid => {
+      const name = profileMap[uid] || 'Member'
+      const resp = responseMap[uid]
+      if (resp === 'yes') yes.push(name)
+      else if (resp === 'no') no.push(name)
+      else if (resp === 'maybe') maybe.push(name)
+      else noResponse.push(name)
+    })
+    setAttendanceMap(prev => ({ ...prev, [poll.id]: { loading: false, yes, no, maybe, noResponse } }))
+  }
 
   async function updatePollResponse(pollId, response, pollClubId) {
     await supabase.from('poll_responses').upsert(
@@ -484,16 +510,72 @@ export default function HomePage() {
                                 </div>
                               </div>
                               {isMod && !liveClubIds.has(poll.club_id) ? (
-                                <button
-                                  onClick={() => navigate(`/club/${poll.club_id}/mod`, { state: { startFromPollId: poll.id } })}
-                                  style={{
-                                    width: '100%', padding: '9px', background: 'var(--accent-dim)',
-                                    color: 'var(--accent)', border: '1.5px solid var(--accent)',
-                                    borderRadius: 'var(--radius-sm)', fontWeight: 700,
-                                    fontSize: 13, cursor: 'pointer', fontFamily: "'Inter',sans-serif",
-                                  }}>
-                                  ▶ Start Session from this Poll
-                                </button>
+                                <>
+                                  <div style={{ display: 'flex', gap: 8 }}>
+                                    <button
+                                      onClick={() => {
+                                        const isOpen = openAttendancePollId === poll.id
+                                        setOpenAttendancePollId(isOpen ? null : poll.id)
+                                        if (!isOpen) fetchAttendance(poll)
+                                      }}
+                                      style={{
+                                        flex: 1, padding: '9px', background: 'transparent',
+                                        color: 'var(--text2)', border: '1px solid var(--border)',
+                                        borderRadius: 'var(--radius-sm)', fontWeight: 600,
+                                        fontSize: 13, cursor: 'pointer', fontFamily: "'Inter',sans-serif",
+                                      }}>
+                                      View Attendance
+                                    </button>
+                                    <button
+                                      onClick={() => navigate(`/club/${poll.club_id}/mod`, { state: { startFromPollId: poll.id } })}
+                                      style={{
+                                        flex: 1, padding: '9px', background: 'var(--accent-dim)',
+                                        color: 'var(--accent)', border: '1.5px solid var(--accent)',
+                                        borderRadius: 'var(--radius-sm)', fontWeight: 700,
+                                        fontSize: 13, cursor: 'pointer', fontFamily: "'Inter',sans-serif",
+                                      }}>
+                                      ▶ Start Session
+                                    </button>
+                                  </div>
+                                  {openAttendancePollId === poll.id && (() => {
+                                    const att = attendanceMap[poll.id]
+                                    if (!att || att.loading) return (
+                                      <div style={{ marginTop: 10, fontSize: 13, color: 'var(--text3)' }}>Loading…</div>
+                                    )
+                                    const groups = [
+                                      { key: 'yes', label: 'Coming', items: att.yes, defaultOpen: true, color: 'var(--success)' },
+                                      { key: 'maybe', label: 'Maybe', items: att.maybe, defaultOpen: false, color: '#a07800' },
+                                      { key: 'no', label: 'Not coming', items: att.no, defaultOpen: false, color: 'var(--danger)' },
+                                      { key: 'noResponse', label: "Didn't respond", items: att.noResponse, defaultOpen: false, color: 'var(--text3)' },
+                                    ].filter(g => g.items.length > 0)
+                                    return (
+                                      <div style={{ marginTop: 10, borderTop: '0.5px solid var(--border)', paddingTop: 10 }}>
+                                        {groups.map(g => {
+                                          const colKey = `${poll.id}-${g.key}`
+                                          const isCollapsed = collapsedGroups[colKey] ?? !g.defaultOpen
+                                          return (
+                                            <div key={g.key} style={{ marginBottom: 8 }}>
+                                              <div
+                                                onClick={() => setCollapsedGroups(prev => ({ ...prev, [colKey]: !isCollapsed }))}
+                                                style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', marginBottom: isCollapsed ? 0 : 6 }}>
+                                                <span style={{ fontSize: 12, fontWeight: 700, color: g.color }}>{g.label}</span>
+                                                <span style={{ fontSize: 11, color: 'var(--text3)', background: 'var(--bg3)', borderRadius: 99, padding: '1px 7px', fontWeight: 600 }}>{g.items.length}</span>
+                                                <span style={{ fontSize: 14, color: 'var(--text3)', marginLeft: 'auto', display: 'inline-block', transform: isCollapsed ? 'none' : 'rotate(90deg)', transition: 'transform 0.15s' }}>›</span>
+                                              </div>
+                                              {!isCollapsed && (
+                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                                                  {g.items.map((name, i) => (
+                                                    <span key={i} style={{ fontSize: 12, background: 'var(--bg3)', color: 'var(--text2)', borderRadius: 99, padding: '3px 10px' }}>{name}</span>
+                                                  ))}
+                                                </div>
+                                              )}
+                                            </div>
+                                          )
+                                        })}
+                                      </div>
+                                    )
+                                  })()}
+                                </>
                               ) : (
                                 <button
                                   onClick={() => navigate(`/club/${poll.club_id}/${isMod ? 'mod' : 'member'}`, { state: { tab: 'polls', openPollId: poll.id } })}
