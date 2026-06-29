@@ -1,6 +1,14 @@
 # Shuttley — Roadmap
 
-## In progress: App-Feel Upgrade (`feature/shuttley-app-feel-upgrade`)
+## Status: MERGED to develop — 2026-06-29
+
+`feature/shuttley-app-feel-upgrade` merged to `develop` via PR #2 (merge commit `73860e9`).
+See `SHUTTLEY — V1 APP-FEEL POST-MERGE HANDOVER.md` for the full post-merge summary.
+Next: shuttley-dev Vercel setup → HTTPS PWA install QA → release readiness decision.
+
+---
+
+## App-Feel Upgrade (`feature/shuttley-app-feel-upgrade`) — MERGED
 
 Controlled frontend/UX upgrade. No new features, no schema changes, no
 production deploys until tested. See [PROJECT.md](PROJECT.md) for full
@@ -119,9 +127,8 @@ Full restart context: `SHUTTLEY — APP FEEL CLOSE OF DAY HANDOVER.md`
 Safari install, Android Chrome install banner, update-while-installed)
 using the shuttley-dev Vercel Preview URL. Do not start V2 before then.
 
-**This branch is parked, not merged.** Sumit will review the diff
-himself and decide whether to merge to `develop`. No further work
-happens on this branch until that decision is made.
+**Merged to `develop` 2026-06-29** via PR #2 (merge commit `73860e9`).
+LAN mobile UI/flow QA passed. Deferred: HTTPS PWA install QA (requires staging deploy).
 
 A separate **v2 architecture initiative** (groups/venues model) is
 planned on its own branch (`docs/shuttley-v2-architecture-planning` →

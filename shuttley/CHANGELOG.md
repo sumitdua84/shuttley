@@ -1,5 +1,24 @@
 # Shuttley — Changelog
 
+## 2026-06-29 — V1 app-feel upgrade merged to develop (PR #2)
+
+**Branch:** `feature/shuttley-app-feel-upgrade` → `develop`
+**Merge commit:** `73860e9`
+
+**Commits included (this session):**
+- `bf0c92b` — Super-admin profile link (Admin Dashboard card on ProfilePage, sumit@shuttley.club / sumitdua84@gmail.com only)
+- `3ccc31d` — Auto Schedule visual polish (CSS vars, `● LIVE · AUTO SCHEDULE · DOUBLES` label, green player chips, collapsed add-player toggle)
+- `ed38423` — Session participant scoping (Record Match + RotationPage free play default to present players; others collapsed under `▼ Add other players (N)`)
+- `59e4938` — Named session modal, SessionPage redesign, MatchesPage GroupWorldHeader wired + `match.match_type` stats bug fixed
+
+**QA:** Full browser QA on dev Supabase (`ecdibuhrgdmsdvovmlvl`) + LAN mobile UI/flow QA at 390×844 (production build preview). Guest RPC (`create_guest_profile`) verified. All flows passed.
+
+**Deferred:** HTTPS PWA install QA (Add to Home Screen, service worker, standalone launch) — requires staging/HTTPS deploy.
+
+**Production touched:** No. No production SQL. No production deploy. No `main` changes. V2 not started.
+
+---
+
 ## 2026-06-23 — Vercel preview readiness + account-deletion runtime test: PASS
 
 **Branch:** `feature/shuttley-app-feel-upgrade`

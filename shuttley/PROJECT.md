@@ -35,16 +35,17 @@ commands and [docs/STAGING.md](docs/STAGING.md) for environment history.
   project's Preview deployments of `feature/shuttley-app-feel-upgrade`,
   never its "Production" deployment.
 
-## Current status (close of day, 2026-06-21)
+## Current status — MERGED to develop (2026-06-29)
 
-**Session closed for the night at commit `13ce90f`. Full restart
-context: `SHUTTLEY — APP FEEL CLOSE OF DAY HANDOVER.md` (repo root, one
-level up from this `shuttley/` folder). See also ISSUES.md's "Close of
-day" entry at the bottom and §6 for the original restart-from-cold
-guide.**
+**`feature/shuttley-app-feel-upgrade` merged to `develop` via PR #2, merge commit `73860e9`.**
+Full post-merge context: `SHUTTLEY — V1 APP-FEEL POST-MERGE HANDOVER.md`.
+LAN mobile UI/flow QA passed. Deferred: HTTPS PWA install QA (requires HTTPS deploy).
+Production (`main`) untouched. Supabase production untouched. V2 not started.
 
-- Active branch: `feature/shuttley-app-feel-upgrade`, off `develop`,
-  clean working tree, **not pushed, not merged**.
+(Prior close-of-day context from 2026-06-21 below, retained for history.)
+
+- Active branch at time of merge: `feature/shuttley-app-feel-upgrade`, off `develop`,
+  clean working tree, **merged to develop via PR #2**.
 - Production (`main`) untouched throughout — no schema changes, no
   deploys, confirmed at every step. Every SQL fix this session was
   applied directly to the shuttley-dev Supabase project only.
