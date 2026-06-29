@@ -5,6 +5,8 @@ import { supabase } from '../lib/supabase'
 import Toast from '../components/Toast'
 import { useConfirm } from '../hooks/useConfirm'
 
+const SUPER_ADMINS = ['sumit@shuttley.club', 'sumitdua84@gmail.com']
+
 export default function ProfilePage() {
   const { user, signOut } = useAuth()
   const navigate = useNavigate()
@@ -182,6 +184,21 @@ export default function ProfilePage() {
               }}>
               🗑 Request to Delete Group
             </button>
+          </div>
+        )}
+
+        {/* Super-admin link */}
+        {SUPER_ADMINS.includes(user?.email) && (
+          <div
+            onClick={() => navigate('/admin')}
+            style={{
+              background: 'var(--bg2)', borderRadius: 'var(--radius)',
+              padding: '14px 16px', marginBottom: 16,
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              cursor: 'pointer',
+            }}>
+            <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>Admin Dashboard</span>
+            <span style={{ fontSize: 16, color: 'var(--text3)' }}>›</span>
           </div>
         )}
 
