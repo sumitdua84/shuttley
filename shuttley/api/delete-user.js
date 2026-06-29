@@ -61,14 +61,19 @@ export default async function handler(req, res) {
     else console.log('[delete-user] auth email changed to', anonEmail)
 
     // 4. Remove from all clubs
-    const { error: memberErr } = await admin.from('club_members').delete().eq('user_id', userId)
-    if (memberErr) console.log('[delete-user] club_members remove error:', memberErr.message)
+    const { error: memberErr } = await admin.from('memberships').delete().eq('user_id', userId)
+    if (memberErr) console.log('[delete-user] memberships remove error:', memberErr.message)
     else console.log('[delete-user] removed from all clubs')
 
     // 5. Delete chat messages
     const { error: chatErr } = await admin.from('chat_messages').delete().eq('sender_id', userId)
     if (chatErr) console.log('[delete-user] chat_messages delete error:', chatErr.message)
     else console.log('[delete-user] chat messages cleared')
+
+    // 5b. Remove from chat conversation membership (DMs/groups)
+    const { error: chatMemberErr } = await admin.from('chat_members').delete().eq('user_id', userId)
+    if (chatMemberErr) console.log('[delete-user] chat_members remove error:', chatMemberErr.message)
+    else console.log('[delete-user] removed from chat conversations')
 
     // 6. Mark deletion request as completed
     if (requestId) {

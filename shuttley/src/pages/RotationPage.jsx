@@ -3,6 +3,10 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
 import { generateSchedule, generateRebalancedSchedule, generateMatchesForNewPlayer, reorderPendingMatches } from '../utils/scheduleGenerator'
+import Toast from '../components/Toast'
+import { useConfirm } from '../hooks/useConfirm'
+import { DashboardSkeleton } from '../components/Skeleton'
+import GroupNav from '../components/GroupNav'
 
 export default function RotationPage() {
   const { clubId, sessionId } = useParams()
@@ -20,7 +24,9 @@ export default function RotationPage() {
   const [submitting, setSubmitting] = useState({})
   const [showAddPlayer, setShowAddPlayer] = useState(false)
   const [toast, setToast] = useState('')
+  const [confirmDialog, confirmModal] = useConfirm()
   const [viewRound, setViewRound] = useState(0) // 0-based index into rounds array
+  const [showOtherPlayers, setShowOtherPlayers] = useState(false)
 
   useEffect(() => { fetchData() }, [sessionId])
 
@@ -127,7 +133,7 @@ export default function RotationPage() {
   }
 
   async function removePlayer(playerId) {
-    if (!confirm(`Remove ${shortName(playerId)} from rotation? Their pending matches will be cancelled.`)) return
+    if (!(await confirmDialog(`Remove ${shortName(playerId)} from rotation? Their pending matches will be cancelled.`))) return
 
     const newIds = (session.rotation_player_ids || []).filter(id => id !== playerId)
     await supabase.from('sessions').update({ rotation_player_ids: newIds }).eq('id', sessionId)
@@ -144,7 +150,7 @@ export default function RotationPage() {
   }
 
   async function rebalance() {
-    if (!confirm('Rebalance will replace all pending matches with a fresh schedule for the current players, keeping all submitted results. Continue?')) return
+    if (!(await confirmDialog('Rebalance will replace all pending matches with a fresh schedule for the current players, keeping all submitted results. Continue?'))) return
 
     // Remove all pending matches
     const pendingIds = rotationMatches.filter(m => m.status === 'pending').map(m => m.id)
@@ -159,9 +165,10 @@ export default function RotationPage() {
 
     if (newMatches.length > 0) {
       const maxSeq = rotationMatches.reduce((mx, r) => Math.max(mx, r.seq), 0)
-      await supabase.from('rotation_matches').insert(
+      const { error: rmError } = await supabase.from('rotation_matches').insert(
         newMatches.map((m, i) => ({ ...m, session_id: sessionId, club_id: clubId, seq: maxSeq + i + 1, status: 'pending' }))
       )
+      if (rmError) { showToast('Rebalance failed: ' + rmError.message); fetchData(); return }
       showToast(`Schedule rebalanced — ${newMatches.length} matches remaining`)
     } else {
       showToast('All pairs already played — start a new cycle!')
@@ -186,9 +193,10 @@ export default function RotationPage() {
     const newMatches = generateMatchesForNewPlayer(profileId, newIds, rotationMatches, session.match_type)
     if (newMatches.length > 0) {
       const maxSeq = rotationMatches.reduce((mx, r) => Math.max(mx, r.seq), 0)
-      await supabase.from('rotation_matches').insert(
+      const { error: rmError } = await supabase.from('rotation_matches').insert(
         newMatches.map((m, i) => ({ ...m, session_id: sessionId, club_id: clubId, seq: maxSeq + i + 1, status: 'pending' }))
       )
+      if (rmError) { showToast('Adding player failed: ' + rmError.message); setShowAddPlayer(false); fetchData(); return }
     }
 
     setShowAddPlayer(false)
@@ -215,29 +223,30 @@ export default function RotationPage() {
   async function endSession() {
     if (pending.length > 0) {
       const word = pending.length === 1 ? '1 match is' : `${pending.length} matches are`
-      if (!confirm(`${word} still pending. End session anyway?`)) return
+      if (!(await confirmDialog(`${word} still pending. End session anyway?`))) return
     }
     const { error } = await supabase
       .from('sessions')
       .update({ status: 'ended', ended_at: new Date().toISOString() })
       .eq('id', sessionId)
-    if (error) { alert('Error ending session: ' + error.message); return }
+    if (error) { showToast('Error ending session: ' + error.message); return }
     navigate(`/club/${clubId}/session/${sessionId}`)
   }
 
   async function newCycle() {
     const pending = rotationMatches.filter(m => m.status === 'pending')
     if (pending.length > 0) {
-      if (!confirm(`${pending.length} match${pending.length !== 1 ? 'es' : ''} still pending. Start new cycle anyway?`)) return
+      if (!(await confirmDialog(`${pending.length} match${pending.length !== 1 ? 'es' : ''} still pending. Start new cycle anyway?`))) return
     }
     const players = session.rotation_player_ids || []
     if (players.length < 2) { showToast('Not enough players'); return }
 
     const newMatches = generateSchedule(players, session.match_type)
     const maxSeq = rotationMatches.reduce((mx, r) => Math.max(mx, r.seq), 0)
-    await supabase.from('rotation_matches').insert(
+    const { error: rmError } = await supabase.from('rotation_matches').insert(
       newMatches.map((m, i) => ({ ...m, session_id: sessionId, club_id: clubId, seq: maxSeq + i + 1, status: 'pending' }))
     )
+    if (rmError) { showToast('New cycle failed: ' + rmError.message); fetchData(); return }
     showToast('New cycle started!')
     fetchData()
   }
@@ -248,7 +257,7 @@ export default function RotationPage() {
   }
 
   async function deleteMatch(mId) {
-    if (!confirm('Delete this match? This cannot be undone.')) return
+    if (!(await confirmDialog('Delete this match? This cannot be undone.'))) return
     await supabase.from('match_players').delete().eq('match_id', mId)
     const { error } = await supabase.from('matches').delete().eq('id', mId)
     if (error) { showToast('Error deleting match'); return }
@@ -256,7 +265,7 @@ export default function RotationPage() {
     fetchData()
   }
 
-  if (loading) return <div className="splash"><div className="splash-logo">S</div></div>
+  if (loading) return <DashboardSkeleton />
   if (!session) return (
     <div className="page"><div className="content"><p style={{ color: 'var(--text2)' }}>Session not found.</p></div></div>
   )
@@ -276,8 +285,7 @@ export default function RotationPage() {
       <div className="topnav">
         <div style={{ width: 40 }} />
         <span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontSize: 18 }}>{session.name}</span>
-        <button onClick={() => navigate(`/club/${clubId}/member`)}
-          style={{ background: 'none', border: 'none', color: 'var(--text2)', cursor: 'pointer', fontSize: 13, fontWeight: 500, padding: 0 }}>Home</button>
+        <div style={{ width: 40 }} />
       </div>
 
       <div className="content">
@@ -285,13 +293,13 @@ export default function RotationPage() {
         {/* Progress header — rotation only */}
         {rotationMatches.length > 0 && (
           <div style={{
-            background: 'rgba(122,164,196,0.06)', border: '1px solid rgba(122,164,196,0.2)',
+            background: 'var(--bg2)', border: '1px solid var(--border)',
             borderRadius: 'var(--radius)', padding: '14px 16px', marginBottom: 16
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
               <div>
                 <div style={{ fontSize: 11, color: isActive ? 'var(--accent)' : 'var(--text3)', fontWeight: 700, textTransform: 'uppercase', marginBottom: 2 }}>
-                  {isActive ? '● Live' : 'Ended'} · {session.match_type === 'singles' ? 'Singles' : 'Doubles'}
+                  {isActive ? '● LIVE' : 'ENDED'} · AUTO SCHEDULE · {session.match_type === 'singles' ? 'SINGLES' : 'DOUBLES'}
                 </div>
                 <div style={{ fontSize: 22, fontWeight: 700 }}>
                   {submitted.length} <span style={{ fontSize: 14, color: 'var(--text2)', fontWeight: 400 }}>/ {total} matches</span>
@@ -322,47 +330,53 @@ export default function RotationPage() {
         {/* Players section — rotation mode only */}
         {rotationMatches.length > 0 && (
           <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 600, textTransform: 'uppercase', marginBottom: 8 }}>
-              Players ({currentPlayers.length})
+            <div style={{ fontSize: 11, color: '#2a8c55', fontWeight: 700, textTransform: 'uppercase', marginBottom: 8, letterSpacing: '0.06em' }}>
+              Playing · {currentPlayers.length}
             </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: isModerator && isActive && availableToAdd.length > 0 ? 10 : 0 }}>
               {currentPlayers.map(id => (
                 <div key={id} style={{
                   display: 'flex', alignItems: 'center', gap: 5,
-                  background: 'var(--bg3)', borderRadius: 99, padding: '5px 10px', fontSize: 13
+                  background: 'rgba(42,140,85,0.08)', border: '1px solid rgba(42,140,85,0.25)',
+                  borderRadius: 99, padding: '5px 10px', fontSize: 13, color: 'var(--text)',
                 }}>
                   <span>{shortName(id)}</span>
                   {isModerator && isActive && (
                     <button onClick={() => removePlayer(id)} style={{
-                      background: 'none', border: 'none', color: 'var(--text3)',
+                      background: 'none', border: 'none', color: '#2a8c55',
                       cursor: 'pointer', fontSize: 11, padding: 0, lineHeight: 1, marginTop: 1
                     }}>✕</button>
                   )}
                 </div>
               ))}
-              {isModerator && isActive && (
-                <button onClick={() => setShowAddPlayer(!showAddPlayer)} style={{
-                  background: 'rgba(122,164,196,0.1)', border: '1px dashed rgba(122,164,196,0.4)',
-                  borderRadius: 99, padding: '5px 12px', fontSize: 13, color: 'var(--accent)',
-                  cursor: 'pointer'
-                }}>+ Add</button>
-              )}
             </div>
-            {showAddPlayer && (
-              <div className="card" style={{ marginTop: 8 }}>
-                {availableToAdd.length === 0 ? (
-                  <div style={{ fontSize: 13, color: 'var(--text3)' }}>No more members to add</div>
-                ) : <>
-                  <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 8 }}>Select player to add:</div>
-                  {availableToAdd.map(p => (
-                    <button key={p.id} onClick={() => addPlayer(p.id)} style={{
-                      display: 'block', width: '100%', textAlign: 'left',
-                      background: 'none', border: 'none', padding: '9px 4px',
-                      fontSize: 14, color: 'var(--text)', cursor: 'pointer',
-                      borderBottom: '1px solid var(--bg3)'
-                    }}>{p.full_name}</button>
-                  ))}
-                </>}
+            {isModerator && isActive && availableToAdd.length > 0 && (
+              <div>
+                <button
+                  onClick={() => setShowAddPlayer(p => !p)}
+                  style={{
+                    background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+                    fontSize: 12, color: 'var(--accent)', fontWeight: 600,
+                    display: 'flex', alignItems: 'center', gap: 4, marginBottom: showAddPlayer ? 8 : 0,
+                  }}>
+                  <span style={{ fontSize: 10 }}>{showAddPlayer ? '▲' : '▼'}</span>
+                  {showAddPlayer ? 'Hide other players' : `Add player (${availableToAdd.length})`}
+                </button>
+                {showAddPlayer && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {availableToAdd.map(p => (
+                      <button key={p.id} onClick={() => { addPlayer(p.id); setShowAddPlayer(false) }} style={{
+                        display: 'flex', alignItems: 'center', gap: 4,
+                        background: 'var(--bg3)', border: '1px dashed var(--border2)',
+                        borderRadius: 99, padding: '5px 10px', fontSize: 13, color: 'var(--text2)',
+                        cursor: 'pointer', fontFamily: "'Inter',sans-serif",
+                      }}>
+                        <span style={{ fontSize: 10, color: 'var(--accent)', fontWeight: 700 }}>+</span>
+                        <span>{p.full_name?.split(' ')[0]}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -371,15 +385,72 @@ export default function RotationPage() {
         {/* Match list — paginated rounds */}
         {rotationMatches.length === 0 ? (
           <div>
-            {/* Header + Record button */}
-            <div style={{ textAlign:'center', padding:'24px 0 20px' }}>
-              <div style={{ fontSize:36, marginBottom:10 }}>🏸</div>
-              <div style={{ fontSize:16, fontWeight:600, marginBottom:4 }}>Free Play</div>
-              <div style={{ fontSize:13, color:'var(--text2)', marginBottom:20 }}>
+            {/* Free Play header + players */}
+            <div style={{ padding:'8px 0 16px' }}>
+              <div style={{ fontSize:16, fontWeight:700, marginBottom:4, color:'var(--text)' }}>Free Play</div>
+              <div style={{ fontSize:13, color:'var(--text2)', marginBottom:16 }}>
                 Record matches as you play them.
               </div>
+
+              {/* Available players */}
+              {currentPlayers.length > 0 && (
+                <div style={{ marginBottom:12 }}>
+                  <div style={{ fontSize:11, fontWeight:700, textTransform:'uppercase', color:'#2a8c55', letterSpacing:'0.06em', marginBottom:8 }}>
+                    Available · {currentPlayers.length}
+                  </div>
+                  <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+                    {currentPlayers.map(id => (
+                      <div key={id} style={{
+                        display:'flex', alignItems:'center', gap:5,
+                        background:'rgba(42,140,85,0.08)', border:'1px solid rgba(42,140,85,0.25)',
+                        borderRadius:99, padding:'5px 10px', fontSize:13, color:'var(--text)',
+                      }}>
+                        <span>{shortName(id)}</span>
+                        {isModerator && isActive && (
+                          <button onClick={() => toggleSessionPlayer(id)} style={{
+                            background:'none', border:'none', color:'#2a8c55',
+                            cursor:'pointer', fontSize:11, padding:0, lineHeight:1, marginTop:1
+                          }}>✕</button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Other players — collapsed by default */}
+              {isModerator && isActive && availableToAdd.length > 0 && (
+                <div style={{ marginBottom:16 }}>
+                  <button
+                    onClick={() => setShowOtherPlayers(p => !p)}
+                    style={{
+                      background:'none', border:'none', padding:0, cursor:'pointer',
+                      fontSize:12, color:'var(--accent)', fontWeight:600,
+                      display:'flex', alignItems:'center', gap:4, marginBottom: showOtherPlayers ? 8 : 0,
+                    }}>
+                    <span style={{ fontSize:10 }}>{showOtherPlayers ? '▲' : '▼'}</span>
+                    {showOtherPlayers ? 'Hide other players' : `Add other players (${availableToAdd.length})`}
+                  </button>
+                  {showOtherPlayers && (
+                    <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+                      {availableToAdd.map(p => (
+                        <button key={p.id} onClick={() => { toggleSessionPlayer(p.id); setShowOtherPlayers(false) }} style={{
+                          display:'flex', alignItems:'center', gap:4,
+                          background:'var(--bg3)', border:'1px dashed var(--border2)',
+                          borderRadius:99, padding:'5px 10px', fontSize:13, color:'var(--text2)',
+                          cursor:'pointer', fontFamily:"'Inter',sans-serif",
+                        }}>
+                          <span style={{ fontSize:10, color:'var(--accent)', fontWeight:700 }}>+</span>
+                          <span>{p.full_name?.split(' ')[0]}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {isActive && (
-                <button className="btn btn-primary" onClick={() => navigate(`/club/${clubId}/record`, { state: { returnTo: `/club/${clubId}/session/${sessionId}/rotation`, matchType: session.match_type } })}>
+                <button className="btn btn-primary" onClick={() => navigate(`/club/${clubId}/record`, { state: { returnTo: `/club/${clubId}/session/${sessionId}/rotation`, matchType: session.match_type, isMod: isModerator } })}>
                   + Record a Match
                 </button>
               )}
@@ -581,7 +652,7 @@ export default function RotationPage() {
         {isActive && (
           <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 8 }}>
             {rotationMatches.length > 0 && <>
-              <button className="btn btn-secondary" onClick={() => navigate(`/club/${clubId}/record`, { state: { returnTo: `/club/${clubId}/session/${sessionId}/rotation`, matchType: session.match_type } })}>
+              <button className="btn btn-secondary" onClick={() => navigate(`/club/${clubId}/record`, { state: { returnTo: `/club/${clubId}/session/${sessionId}/rotation`, matchType: session.match_type, isMod: isModerator } })}>
                 Custom Match
               </button>
               <button className="btn btn-ghost" onClick={newCycle}>
@@ -600,7 +671,9 @@ export default function RotationPage() {
         )}
 
       </div>
-      {toast && <div className="toast">{toast}</div>}
+      <Toast message={toast} />
+      {confirmModal}
+      <GroupNav clubId={clubId} isMod={isModerator} activeTab="session" />
     </div>
   )
 }

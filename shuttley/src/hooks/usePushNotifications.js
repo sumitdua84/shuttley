@@ -26,6 +26,7 @@ export function usePushNotifications() {
     if (isIOSApp) {
       // On iOS, request native push permission — token comes back via 'push-token' event
       window.webkit?.messageHandlers?.['push-permission-request']?.postMessage(null)
+      localStorage.setItem('push_subscribed', '1')
       return true
     }
 
@@ -48,6 +49,7 @@ export function usePushNotifications() {
         { user_id: userId, endpoint: subJson.endpoint, subscription: subJson },
         { onConflict: 'user_id,endpoint' }
       )
+      localStorage.setItem('push_subscribed', '1')
       return true
     } catch (e) {
       console.error('Push subscribe error:', e)

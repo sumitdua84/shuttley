@@ -2,7 +2,10 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
-import BottomNav from '../components/BottomNav'
+import Toast from '../components/Toast'
+import { useConfirm } from '../hooks/useConfirm'
+
+const SUPER_ADMINS = ['sumit@shuttley.club', 'sumitdua84@gmail.com']
 
 export default function ProfilePage() {
   const { user, signOut } = useAuth()
@@ -18,6 +21,7 @@ export default function ProfilePage() {
   const [uploading, setUploading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState('')
+  const [confirmDialog, confirmModal] = useConfirm()
   const fileRef = useRef()
 
   useEffect(() => { fetchProfile() }, [user])
@@ -68,7 +72,7 @@ export default function ProfilePage() {
   }
 
   async function handleSignOut() {
-    if (!confirm('Sign out?')) return
+    if (!(await confirmDialog('Sign out?'))) return
     await signOut()
     navigate('/login')
   }
@@ -83,12 +87,22 @@ export default function ProfilePage() {
   return (
     <div className="page">
       <div className="topnav">
-        <div style={{ width: 40 }} />
+        <button onClick={() => navigate('/')} style={{
+          background: 'none', border: 'none', cursor: 'pointer',
+          display: 'flex', alignItems: 'center', gap: 4,
+          color: 'var(--accent)', fontSize: 14, fontWeight: 600,
+          fontFamily: "'Inter',sans-serif", padding: 0,
+        }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M15 18l-6-6 6-6"/>
+          </svg>
+          Home
+        </button>
         <span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontSize: 18 }}>Me</span>
-        <div style={{ width: 40 }} />
+        <div style={{ width: 60 }} />
       </div>
 
-      <div className="content" style={{ paddingBottom: 90 }}>
+      <div className="content" style={{ paddingBottom: 24 }}>
 
         {/* Avatar + name */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '24px 0 20px' }}>
@@ -158,18 +172,33 @@ export default function ProfilePage() {
         {/* Moderator / Admin settings */}
         {isModerator && club && (
           <div style={{ background: 'var(--bg2)', borderRadius: 'var(--radius)', padding: '16px', marginBottom: 16 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 12 }}>Club Settings — {club.name}</div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 12 }}>Group Settings — {club.name}</div>
 
             <button
               className="btn btn-danger"
               style={{ width: '100%', marginTop: 14, fontSize: 13 }}
-              onClick={() => {
-                if (confirm('Send a request to delete this club? This action will be reviewed.')) {
+              onClick={async () => {
+                if (await confirmDialog('Send a request to delete this group? This action will be reviewed.')) {
                   showToast('Delete request sent')
                 }
               }}>
-              🗑 Request to Delete Club
+              🗑 Request to Delete Group
             </button>
+          </div>
+        )}
+
+        {/* Super-admin link */}
+        {SUPER_ADMINS.includes(user?.email) && (
+          <div
+            onClick={() => navigate('/admin')}
+            style={{
+              background: 'var(--bg2)', borderRadius: 'var(--radius)',
+              padding: '14px 16px', marginBottom: 16,
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              cursor: 'pointer',
+            }}>
+            <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>Admin Dashboard</span>
+            <span style={{ fontSize: 16, color: 'var(--text3)' }}>›</span>
           </div>
         )}
 
@@ -193,8 +222,8 @@ export default function ProfilePage() {
 
       </div>
 
-      {toast && <div className="toast">{toast}</div>}
-      <BottomNav clubId={clubId} activeTab="me" />
+      <Toast message={toast} />
+      {confirmModal}
     </div>
   )
 }

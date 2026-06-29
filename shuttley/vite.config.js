@@ -13,7 +13,7 @@ export default defineConfig({
       injectManifest: {
         swDest: 'dist/sw.js',
       },
-      includeAssets: ['favicon.ico', 'logo.svg', 'apple-touch-icon-180x180.png'],
+      includeAssets: ['favicon.ico', 'apple-touch-icon-180x180.png'],
       devOptions: {
         enabled: false,
       },

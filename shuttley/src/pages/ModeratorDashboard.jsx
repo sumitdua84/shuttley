@@ -4,11 +4,21 @@ import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
 import { generateSchedule } from '../utils/scheduleGenerator'
 import { usePushNotifications } from '../hooks/usePushNotifications'
-import BottomNav from '../components/BottomNav'
+import GroupNav from '../components/GroupNav'
+import GroupWorldHeader from '../components/GroupWorldHeader'
+import Toast from '../components/Toast'
+import { useConfirm } from '../hooks/useConfirm'
+import { DashboardSkeleton } from '../components/Skeleton'
+
+const WEEKDAY_SESSION_NAMES = {
+  0: 'Sunday Game', 1: 'Monday Badminton', 2: 'Tuesday Game',
+  3: 'Wednesday Social', 4: 'Thursday Badminton', 5: 'Friday Smash', 6: 'Saturday Badminton',
+}
+function weekdaySessionName() { return WEEKDAY_SESSION_NAMES[new Date().getDay()] }
 
 export default function ModeratorDashboard() {
   const { clubId } = useParams()
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -17,8 +27,9 @@ export default function ModeratorDashboard() {
   const [disputedMatches, setDisputedMatches] = useState([])
   const [pendingMatches, setPendingMatches] = useState([])
   const [activeSession, setActiveSession] = useState(null)
-  const [tab, setTab] = useState(searchParams.get('tab') || 'home')
+  const [tab, setTab] = useState(searchParams.get('tab') || 'session')
   const [toast, setToast] = useState('')
+  const [confirmDialog, confirmModal] = useConfirm()
   const [loading, setLoading] = useState(true)
   const [linkCopied, setLinkCopied] = useState(false)
   const [guestName, setGuestName] = useState('')
@@ -27,7 +38,9 @@ export default function ModeratorDashboard() {
   const [showStartModal, setShowStartModal] = useState(false)
   const [selectedPlayerIds, setSelectedPlayerIds] = useState([])
   const [modalMatchType, setModalMatchType] = useState('doubles')
+  const [modalSessionName, setModalSessionName] = useState(weekdaySessionName())
   const [sessionMode, setSessionMode] = useState('free')
+  const [skipPlayerPicker, setSkipPlayerPicker] = useState(false)
   const [modalStep, setModalStep] = useState(1)
   const [membersExpanded, setMembersExpanded] = useState(true)
   const [guestsExpanded, setGuestsExpanded] = useState(false)
@@ -39,6 +52,11 @@ export default function ModeratorDashboard() {
   const tileTransMs  = useRef({ history:2000, leaders:2000, stats:2000, polls:2000, splits:2000 })
   const [sessions, setSessions] = useState([])
   const [showPollModal, setShowPollModal] = useState(false)
+  const [showCustomPollModal, setShowCustomPollModal] = useState(false)
+  const [customPollQ, setCustomPollQ] = useState('')
+  const [customPollNotes, setCustomPollNotes] = useState('')
+  const [customPollOptions, setCustomPollOptions] = useState(['', ''])
+  const [creatingCustomPoll, setCreatingCustomPoll] = useState(false)
   const [pollDate, setPollDate] = useState('')
   const [pollStartH, setPollStartH] = useState('')
   const [pollStartM, setPollStartM] = useState('00')
@@ -50,8 +68,18 @@ export default function ModeratorDashboard() {
   const [creatingPoll, setCreatingPoll] = useState(false)
   const [activePolls, setActivePolls] = useState([])
   const [expandedPolls, setExpandedPolls] = useState({})
+  // Capture location state immediately — window.history.replaceState clears it before polls load
+  const startFromPollIdRef = useRef(location.state?.startFromPollId)
+  const openPollIdRef = useRef(location.state?.openPollId)
+  const prefillSessionNameRef = useRef(location.state?.prefillName || null)
+  const prefillMatchTypeRef = useRef(location.state?.prefillType || null)
+  const autoStartSessionRef = useRef(location.state?.autoStart || false)
+
   const { sendPush, subscribe } = usePushNotifications()
-  const [notifStatus, setNotifStatus] = useState(Notification.permission)
+  const [notifStatus, setNotifStatus] = useState(() =>
+    Notification.permission === 'granted' || localStorage.getItem('push_subscribed') === '1'
+      ? 'granted' : Notification.permission
+  )
   const [showNotifModal, setShowNotifModal] = useState(false) // 'default'|'granted'|'denied'
   const [notifTitle, setNotifTitle] = useState('')
   const [notifBody, setNotifBody] = useState('')
@@ -65,12 +93,53 @@ export default function ModeratorDashboard() {
   }
 
   useEffect(() => {
-    const t = location.state?.tab || searchParams.get('tab') || 'home'
+    const t = location.state?.tab || searchParams.get('tab') || 'session'
     setTab(t)
     setSearchParams({ tab: t }, { replace: true })
     window.history.replaceState({}, '')
     fetchData()
   }, [clubId])
+
+  // Sync tab when GroupNav changes ?tab= param on the same route
+  useEffect(() => {
+    const t = searchParams.get('tab')
+    if (t) setTab(t)
+  }, [searchParams])
+
+  // Auto-open start modal when navigated from SessionPage creation modal
+  useEffect(() => {
+    if (loading) return
+    if (!autoStartSessionRef.current) return
+    autoStartSessionRef.current = false
+    if (activeSession) return
+    if (prefillMatchTypeRef.current) { setModalMatchType(prefillMatchTypeRef.current); prefillMatchTypeRef.current = null }
+    if (prefillSessionNameRef.current) { setModalSessionName(prefillSessionNameRef.current); prefillSessionNameRef.current = null }
+    setSelectedPlayerIds([])
+    setSessionMode('free')
+    setModalStep(1)
+    setShowStartModal(true)
+  }, [loading])
+
+  // Handle navigation from Home: either expand a poll or directly start a session from it
+  useEffect(() => {
+    if (activePolls.length === 0) return
+
+    if (startFromPollIdRef.current) {
+      const pollId = startFromPollIdRef.current
+      startFromPollIdRef.current = null // fire once
+      const poll = activePolls.find(p => p.id === pollId)
+      if (poll) startSessionFromPoll(poll)
+    } else if (openPollIdRef.current) {
+      const pollId = openPollIdRef.current
+      openPollIdRef.current = null // fire once
+      setExpandedPolls(prev => ({ ...prev, [pollId]: true }))
+      setTab('polls')
+      setSearchParams({ tab: 'polls' }, { replace: true })
+      setTimeout(() => {
+        document.querySelector(`[data-poll-id="${pollId}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }, 150)
+    }
+  }, [activePolls.length])
 
   useEffect(() => {
     if (loading) return
@@ -145,56 +214,57 @@ export default function ModeratorDashboard() {
 
   async function fetchData() {
     setClubFeatures([])
-    const { data: clubData } = await supabase.from('clubs').select('*').eq('id', clubId).single()
-    setClub(clubData)
 
     // Super admins bypass the membership guard
     const SUPER_ADMINS = ['sumit@shuttley.club']
     const isSuperAdmin = SUPER_ADMINS.includes(user?.email)
 
+    const [{ data: clubData }, { data: myMem }] = await Promise.all([
+      supabase.from('clubs').select('*').eq('id', clubId).single(),
+      isSuperAdmin
+        ? Promise.resolve({ data: null })
+        : supabase.from('memberships').select('role, status').eq('club_id', clubId).eq('user_id', user.id).single(),
+    ])
+    setClub(clubData)
+
     if (!isSuperAdmin) {
       // Guard: redirect if current user is no longer a moderator
-      const { data: myMem } = await supabase
-        .from('memberships').select('role, status').eq('club_id', clubId).eq('user_id', user.id).single()
       if (!myMem || myMem.role !== 'moderator' || myMem.status !== 'approved') {
         navigate(`/club/${clubId}/member`, { replace: true })
         return
       }
     }
 
-    const { data: mems } = await supabase
-      .from('memberships')
-      .select('*, profiles(*)')
-      .eq('club_id', clubId)
-      .order('joined_at', { ascending: false })
+    const today = new Date().toISOString().split('T')[0]
+
+    // Independent reads — fetched in parallel instead of one-by-one.
+    const [
+      { data: mems },
+      { data: disputed },
+      { data: pending },
+      { data: session },
+      { data: winMatches },
+      { count: sCount },
+      { data: sessDetail },
+      { data: pollData },
+      { data: featuresData },
+    ] = await Promise.all([
+      supabase.from('memberships').select('*, profiles(*)').eq('club_id', clubId).order('joined_at', { ascending: false }),
+      supabase.from('matches').select('*, match_players(user_id, side, profiles(full_name))').eq('club_id', clubId).eq('status', 'disputed'),
+      supabase.from('matches').select('*, match_players(user_id, side, profiles(full_name))').eq('club_id', clubId).eq('status', 'pending'),
+      supabase.from('sessions').select('*').eq('club_id', clubId).eq('status', 'active').maybeSingle(),
+      supabase.from('matches').select('winner_side, team1_score, team2_score, played_at, match_players(user_id, side, profiles(full_name))').eq('club_id', clubId).eq('status', 'confirmed'),
+      supabase.from('sessions').select('*', { count: 'exact', head: true }).eq('club_id', clubId),
+      supabase.from('sessions').select('id, name, started_at, ended_at, status, rotation_player_ids, match_type, matches(count)').eq('club_id', clubId).order('started_at', { ascending: false }),
+      supabase.from('session_polls').select('*, poll_responses(*)').eq('club_id', clubId).eq('status', 'open').or(`session_date.gte.${today},session_date.is.null`).order('session_date', { ascending: true, nullsFirst: false }),
+      supabase.from('club_features').select('*').eq('club_id', clubId),
+    ])
+
     setMembers(mems || [])
-
-    const { data: disputed } = await supabase
-      .from('matches')
-      .select('*, match_players(user_id, side, profiles(full_name))')
-      .eq('club_id', clubId)
-      .eq('status', 'disputed')
     setDisputedMatches(disputed || [])
-
-    const { data: pending } = await supabase
-      .from('matches')
-      .select('*, match_players(user_id, side, profiles(full_name))')
-      .eq('club_id', clubId)
-      .eq('status', 'pending')
     setPendingMatches(pending || [])
-
-    const { data: session } = await supabase
-      .from('sessions')
-      .select('*')
-      .eq('club_id', clubId)
-      .eq('status', 'active')
-      .maybeSingle()
     setActiveSession(session || null)
 
-    const { data: winMatches } = await supabase
-      .from('matches')
-      .select('winner_side, team1_score, team2_score, played_at, match_players(user_id, side, profiles(full_name))')
-      .eq('club_id', clubId).eq('status', 'confirmed')
     const wm = winMatches || []
     setMatchCount(wm.length)
 
@@ -243,10 +313,6 @@ export default function ModeratorDashboard() {
     })
 
     // Sessions detail
-    const { count: sCount } = await supabase.from('sessions').select('*', { count:'exact', head:true }).eq('club_id', clubId)
-    const { data: sessDetail } = await supabase
-      .from('sessions').select('id, name, started_at, ended_at, status, rotation_player_ids, match_type, matches(count)')
-      .eq('club_id', clubId).order('started_at', { ascending: false })
     const sd = sessDetail || []
     setSessions(sd)
     const lastSessionDate = sd[0] ? new Date(sd[0].started_at).toLocaleDateString('en-AU', { day:'numeric', month:'short' }) : null
@@ -275,17 +341,8 @@ export default function ModeratorDashboard() {
       recentMatchCount: recentWm.length, lastSessionDate, mostActiveMonth, avgPlayers })
 
     // Active polls — only today or future (auto-expire by session date)
-    const today = new Date().toISOString().split('T')[0]
-    const { data: pollData } = await supabase
-      .from('session_polls')
-      .select('*, poll_responses(*)')
-      .eq('club_id', clubId)
-      .eq('status', 'open')
-      .gte('session_date', today)
-      .order('session_date', { ascending: true })
     setActivePolls(pollData || [])
 
-    const { data: featuresData } = await supabase.from('club_features').select('*').eq('club_id', clubId)
     setClubFeatures(featuresData || [])
 
     // Splits balance for live tile
@@ -398,9 +455,67 @@ export default function ModeratorDashboard() {
     fetchData()
   }
 
+  async function createCustomPoll() {
+    if (!customPollQ.trim()) return
+    setCreatingCustomPoll(true)
+
+    const filledOpts = customPollOptions.map(o => o.trim()).filter(Boolean)
+    let notesContent
+    if (filledOpts.length >= 2) {
+      // Custom options mode — store as JSON
+      notesContent = JSON.stringify({
+        q: customPollQ.trim(),
+        opts: filledOpts,
+        ...(customPollNotes.trim() ? { note: customPollNotes.trim() } : {}),
+      })
+    } else {
+      // Legacy plain-text mode (Yes/No/Maybe)
+      notesContent = customPollQ.trim() + (customPollNotes.trim() ? '\n' + customPollNotes.trim() : '')
+    }
+
+    const { error } = await supabase.from('session_polls').insert({
+      club_id: clubId, created_by: user.id,
+      session_date: null,
+      notes: notesContent,
+    })
+    if (!error) {
+      const memberUserIds = members.filter(m => m.status === 'approved').map(m => m.user_id)
+      if (memberUserIds.length > 0) {
+        await sendPush(memberUserIds, `${club?.name} — Poll`, customPollQ.trim(), '/')
+      }
+    }
+    setCreatingCustomPoll(false)
+    setShowCustomPollModal(false)
+    setCustomPollQ('')
+    setCustomPollNotes('')
+    setCustomPollOptions(['', ''])
+    fetchData()
+  }
+
+  function startSessionFromPoll(poll) {
+    const yesVoters = poll.poll_responses
+      ?.filter(r => r.response === 'yes')
+      .map(r => r.user_id) || []
+    setSelectedPlayerIds(yesVoters)
+    setModalSessionName(weekdaySessionName())
+    setSkipPlayerPicker(true)
+    setModalStep(1)
+    setShowStartModal(true)
+  }
+
   function formatPollDate(dateStr) {
     const d = new Date(dateStr + 'T00:00:00')
     return d.toLocaleDateString('en-AU', { weekday:'short', day:'numeric', month:'short' })
+  }
+
+  function parseCustomPollNotes(notes) {
+    if (!notes) return { question: '', options: null, note: null }
+    try {
+      const p = JSON.parse(notes)
+      if (p.q) return { question: p.q, options: Array.isArray(p.opts) && p.opts.length >= 2 ? p.opts : null, note: p.note || null }
+    } catch {}
+    const parts = notes.split('\n')
+    return { question: parts[0], options: null, note: parts.slice(1).join('\n') || null }
   }
 
   async function updatePollResponse(pollId, response) {
@@ -412,7 +527,7 @@ export default function ModeratorDashboard() {
   }
 
   async function deletePoll(pollId) {
-    if (!window.confirm('Are you sure you want to delete this poll? This cannot be undone.')) return
+    if (!(await confirmDialog('Are you sure you want to delete this poll? This cannot be undone.'))) return
     const { error } = await supabase.from('session_polls').delete().eq('id', pollId)
     if (error) { showToast('Error deleting poll'); return }
     showToast('Poll deleted')
@@ -426,20 +541,33 @@ export default function ModeratorDashboard() {
   }
 
   async function promoteMod(membershipId) {
+    if (!(await confirmDialog('Make this person a moderator?'))) return
     await supabase.from('memberships').update({ role: 'moderator' }).eq('id', membershipId)
-    showToast('Promoted to admin')
+    showToast('Promoted to moderator')
     fetchData()
   }
 
   async function demoteMod(membershipId) {
-    if (!confirm('Remove admin rights and make this person a regular member?')) return
+    const target = members.find(m => m.id === membershipId)
+    const moderatorCount = members.filter(m => m.status === 'approved' && m.role === 'moderator').length
+    if (target?.role === 'moderator' && moderatorCount <= 1) {
+      showToast('Group must have at least one moderator')
+      return
+    }
+    if (!(await confirmDialog('Remove moderator rights and make this person a regular member?'))) return
     await supabase.from('memberships').update({ role: 'member' }).eq('id', membershipId)
-    showToast('Admin rights removed')
+    showToast('Moderator rights removed')
     fetchData()
   }
 
   async function removeMember(membershipId) {
-    if (!confirm('Remove this member from the club?')) return
+    const target = members.find(m => m.id === membershipId)
+    const moderatorCount = members.filter(m => m.status === 'approved' && m.role === 'moderator').length
+    if (target?.role === 'moderator' && moderatorCount <= 1) {
+      showToast('Group must have at least one moderator')
+      return
+    }
+    if (!(await confirmDialog('Remove this member from the club?'))) return
     await supabase.from('memberships').delete().eq('id', membershipId)
     showToast('Member removed')
     fetchData()
@@ -449,23 +577,68 @@ export default function ModeratorDashboard() {
     if (!guestName.trim()) return
     setAddingGuest(true)
     const guestId = crypto.randomUUID()
-    const { error } = await supabase.rpc('create_guest_profile', {
+    const name = guestName.trim()
+
+    // Try RPC first (SECURITY DEFINER needed to insert guest profile)
+    const { error: rpcError } = await supabase.rpc('create_guest_profile', {
       guest_id: guestId,
-      guest_name: guestName.trim(),
-      p_club_id: clubId
+      guest_name: name,
+      p_club_id: clubId,
     })
-    if (!error) {
-      showToast(`Guest "${guestName.trim()}" added!`)
+
+    if (!rpcError) {
+      showToast(`Guest "${name}" added!`)
       setGuestName('')
       setShowGuestForm(false)
       fetchData()
     } else {
-      showToast('Error adding guest')
+      console.error('create_guest_profile RPC error:', rpcError)
+      // RPC missing or misconfigured — try direct insert as fallback
+      // (profiles insert will fail RLS if no SECURITY DEFINER fn available)
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .insert({ id: guestId, full_name: name })
+
+      if (!profileError) {
+        const { error: memError } = await supabase
+          .from('memberships')
+          .insert({ user_id: guestId, club_id: clubId, role: 'member', status: 'approved', is_guest: true })
+
+        if (!memError) {
+          showToast(`Guest "${name}" added!`)
+          setGuestName('')
+          setShowGuestForm(false)
+          fetchData()
+        } else {
+          console.error('Guest membership insert error:', memError)
+          showToast(`Cannot add guest: ${memError.message || 'membership error'}`)
+        }
+      } else {
+        console.error('Guest profile insert error:', profileError)
+        // Most likely cause: create_guest_profile RPC does not exist in this DB.
+        // Required fix: run the following SQL in Supabase Dashboard → SQL Editor:
+        //
+        // CREATE OR REPLACE FUNCTION create_guest_profile(
+        //   guest_id uuid, guest_name text, p_club_id uuid
+        // ) RETURNS void LANGUAGE plpgsql SECURITY DEFINER AS $$
+        // BEGIN
+        //   INSERT INTO public.profiles (id, full_name)
+        //   VALUES (guest_id, guest_name) ON CONFLICT (id) DO NOTHING;
+        //   INSERT INTO public.memberships (user_id, club_id, role, status, is_guest)
+        //   VALUES (guest_id, p_club_id, 'member', 'approved', true) ON CONFLICT DO NOTHING;
+        // END; $$;
+        showToast(`Cannot add guest: ${rpcError.message || 'backend function missing'}`)
+      }
     }
     setAddingGuest(false)
   }
 
   function getSessionName() {
+    if (prefillSessionNameRef.current) {
+      const name = prefillSessionNameRef.current
+      prefillSessionNameRef.current = null
+      return name
+    }
     const now = new Date()
     const weekday = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][now.getDay()]
     const day = now.getDate()
@@ -478,7 +651,7 @@ export default function ModeratorDashboard() {
     const { data: existing } = await supabase
       .from('sessions').select('id, name').eq('club_id', clubId).eq('status', 'active').maybeSingle()
     if (existing) {
-      alert(`"${existing.name}" is still active. End it before starting a new session.`)
+      showToast(`"${existing.name}" is still active. End it before starting a new session.`)
       setShowStartModal(false)
       fetchData()
       return
@@ -487,25 +660,32 @@ export default function ModeratorDashboard() {
     if (sessionMode === 'rotation') {
       const minPlayers = modalMatchType === 'doubles' ? 4 : 2
       if (selectedPlayerIds.length < minPlayers) {
-        alert(`Need at least ${minPlayers} players for ${modalMatchType}`); return
+        showToast(`Need at least ${minPlayers} players for ${modalMatchType}`); return
       }
     }
     const { data: sess, error } = await supabase.from('sessions').insert({
       club_id: clubId,
-      name: getSessionName(),
+      name: modalSessionName.trim() || weekdaySessionName(),
       started_by: user.id,
       status: 'active',
       match_type: modalMatchType,
       rotation_player_ids: selectedPlayerIds
     }).select().single()
-    if (error) { console.error('startSession error:', error); alert('Error: ' + error.message); return }
+    if (error) { console.error('startSession error:', error); showToast('Error: ' + error.message); return }
 
     if (sessionMode === 'rotation') {
       const schedule = generateSchedule(selectedPlayerIds, modalMatchType)
       if (schedule.length > 0) {
-        await supabase.from('rotation_matches').insert(
+        const { error: rmError } = await supabase.from('rotation_matches').insert(
           schedule.map((m, i) => ({ ...m, session_id: sess.id, club_id: clubId, seq: i + 1, status: 'pending' }))
         )
+        if (rmError) {
+          console.error('rotation schedule error:', rmError)
+          await supabase.from('sessions').delete().eq('id', sess.id)
+          showToast('Could not generate schedule — session not started: ' + rmError.message)
+          fetchData()
+          return
+        }
       }
     }
 
@@ -518,7 +698,7 @@ export default function ModeratorDashboard() {
     const sessionPending = pendingMatches.filter(m => m.session_id === activeSession.id)
     if (sessionPending.length > 0) {
       const word = sessionPending.length === 1 ? '1 match is' : `${sessionPending.length} matches are`
-      if (!confirm(`${word} still pending. You can confirm them after the session ends. End session anyway?`)) return
+      if (!(await confirmDialog(`${word} still pending. You can confirm them after the session ends. End session anyway?`))) return
     }
     const { error } = await supabase
       .from('sessions')
@@ -536,7 +716,7 @@ export default function ModeratorDashboard() {
 
   async function resolveDispute(matchId, resolution) {
     if (resolution === 'void') {
-      if (!confirm('This will delete the match entirely. Are you sure?')) return
+      if (!(await confirmDialog('This will delete the match entirely. Are you sure?'))) return
       const { error: e1 } = await supabase.from('match_players').delete().eq('match_id', matchId)
       if (e1) { showToast('Error voiding match'); return }
       const { error: e2 } = await supabase.from('matches').delete().eq('id', matchId)
@@ -567,28 +747,130 @@ export default function ModeratorDashboard() {
     setTimeout(() => setToast(''), 2500)
   }
 
-  if (loading) return <div className="splash"><div className="splash-logo">S</div></div>
+  if (loading) return <DashboardSkeleton />
 
   const pending = members.filter(m => m.status === 'pending')
   const approved = members.filter(m => m.status === 'approved' && !m.profiles?.full_name?.startsWith('deleted_'))
   const alertCount = disputedMatches.length + pendingMatches.length
+  const firstName = profile?.full_name?.split(' ')[0] || ''
 
   return (
     <div className="page">
       {/* Top nav */}
       <div className="topnav">
-        <div style={{ width:64 }} />
-        <div style={{ textAlign:'center' }}>
-          <div style={{ fontFamily:"'Plus Jakarta Sans',sans-serif", fontSize:17, fontWeight:600 }}>{club?.name}</div>
-          <div style={{ fontSize:11, color:'var(--accent)', fontWeight:600 }}>Admin</div>
-        </div>
-        <div style={{ width: 40 }} />
+        <GroupWorldHeader clubId={clubId} groupName={club?.name} isMod={true} activeTab={tab} />
       </div>
 
       {/* Tab content */}
       <div className="content">
 
-        {/* ── HOME ── */}
+        {/* ── SESSION ── */}
+        {tab === 'session' && <>
+
+          {/* Session hero card */}
+          {activeSession ? (
+            <div style={{ background:'var(--accent)', borderRadius:'var(--radius)', padding:'20px', marginBottom:16, color:'#fff' }}>
+              <div style={{ fontSize:11, fontWeight:700, opacity:0.7, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:6 }}>● Session in Progress</div>
+              <div style={{ fontSize:22, fontWeight:700, marginBottom:4, fontFamily:"'Plus Jakarta Sans',sans-serif" }}>{activeSession.name}</div>
+              <div style={{ fontSize:13, opacity:0.75, marginBottom:16, lineHeight:1.4 }}>A session is currently running. Tap to continue.</div>
+              <div style={{ display:'flex', gap:8 }}>
+                <button
+                  onClick={() => navigate(`/club/${clubId}/session/${activeSession.id}/rotation`)}
+                  style={{ flex:1, background:'#fff', color:'var(--accent)', border:'none', borderRadius:'var(--radius-sm)', padding:'10px', fontWeight:700, fontSize:13, cursor:'pointer', fontFamily:"'Inter',sans-serif" }}>
+                  Open Current Session →
+                </button>
+                <button
+                  onClick={endSession}
+                  style={{ background:'rgba(255,255,255,0.15)', color:'#fff', border:'1px solid rgba(255,255,255,0.35)', borderRadius:'var(--radius-sm)', padding:'10px 16px', fontWeight:600, fontSize:13, cursor:'pointer', fontFamily:"'Inter',sans-serif" }}>
+                  End
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div style={{ background:'var(--accent)', borderRadius:'var(--radius)', padding:'20px', marginBottom:16, color:'#fff' }}>
+              <div style={{ fontSize:11, fontWeight:600, opacity:0.65, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:6 }}>Ready to play?</div>
+              <div style={{ fontSize:22, fontWeight:700, marginBottom:6, fontFamily:"'Plus Jakarta Sans',sans-serif" }}>Start a Session</div>
+              <div style={{ fontSize:13, opacity:0.75, marginBottom:16, lineHeight:1.5 }}>Track live matches, scores and court rotations</div>
+              <button
+                onClick={() => { setSelectedPlayerIds([]); setSessionMode('free'); setModalSessionName(weekdaySessionName()); setModalStep(1); setShowStartModal(true) }}
+                style={{ width:'100%', background:'#fff', color:'var(--accent)', border:'none', borderRadius:'var(--radius-sm)', padding:'11px', fontWeight:700, fontSize:14, cursor:'pointer', fontFamily:"'Inter',sans-serif" }}>
+                ▶  Start Session
+              </button>
+            </div>
+          )}
+
+          {/* Pending members alert */}
+          {pending.length > 0 && (
+            <div onClick={() => changeTab('members')} style={{
+              display:'flex', alignItems:'center', gap:12,
+              background:'rgba(255,200,50,0.07)', border:'1px solid rgba(255,200,50,0.3)',
+              borderRadius:'var(--radius)', padding:'14px 16px', marginBottom:12, cursor:'pointer',
+            }}>
+              <div style={{ flex:1 }}>
+                <div style={{ fontSize:14, fontWeight:600, color:'#ffc832' }}>
+                  {pending.length} member{pending.length !== 1 ? 's' : ''} awaiting approval
+                </div>
+                <div style={{ fontSize:12, color:'var(--text3)', marginTop:2 }}>Tap to review in Members</div>
+              </div>
+              <span style={{ color:'var(--text3)', fontSize:18 }}>›</span>
+            </div>
+          )}
+
+          {/* Disputes alert */}
+          {alertCount > 0 && (
+            <div onClick={() => changeTab('sessions')} style={{
+              display:'flex', alignItems:'center', gap:12,
+              background:'rgba(224,85,85,0.06)', border:'1px solid rgba(224,85,85,0.2)',
+              borderRadius:'var(--radius)', padding:'14px 16px', marginBottom:12, cursor:'pointer',
+            }}>
+              <div style={{ flex:1 }}>
+                <div style={{ fontSize:14, fontWeight:600, color:'var(--danger)' }}>
+                  {alertCount} match{alertCount !== 1 ? 'es' : ''} need attention
+                </div>
+                <div style={{ fontSize:12, color:'var(--text3)', marginTop:2 }}>
+                  {[
+                    disputedMatches.length > 0 && `${disputedMatches.length} disputed`,
+                    pendingMatches.length > 0 && `${pendingMatches.length} pending confirmation`,
+                  ].filter(Boolean).join(' · ')}
+                </div>
+              </div>
+              <span style={{ color:'var(--text3)', fontSize:18 }}>›</span>
+            </div>
+          )}
+
+          {/* Past sessions */}
+          {sessions.filter(s => s.status === 'ended').length > 0 && (
+            <div>
+              <div className="section-label">Past sessions</div>
+              {sessions.filter(s => s.status === 'ended').slice(0, 8).map(s => (
+                <div key={s.id} onClick={() => navigate(`/club/${clubId}/session/${s.id}`)}
+                  style={{ display:'flex', alignItems:'center', gap:12, padding:'11px 0', borderBottom:'0.5px solid var(--border)', cursor:'pointer' }}>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:14, fontWeight:500, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{s.name || 'Session'}</div>
+                    <div style={{ fontSize:12, color:'var(--text3)', marginTop:2 }}>
+                      {s.rotation_player_ids?.length > 0 ? `${s.rotation_player_ids.length} players` : s.match_type || '—'}
+                      {s.matches?.[0]?.count > 0 && ` · ${s.matches[0].count} match${s.matches[0].count !== 1 ? 'es' : ''}`}
+                    </div>
+                  </div>
+                  <div style={{ fontSize:12, color:'var(--text3)', flexShrink:0 }}>
+                    {s.ended_at ? new Date(s.ended_at).toLocaleDateString('en-AU', { day:'numeric', month:'short' }) : '—'}
+                  </div>
+                  <span style={{ fontSize:16, color:'var(--text3)', flexShrink:0 }}>›</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {sessions.filter(s => s.status === 'ended').length === 0 && !activeSession && (
+            <div className="empty">
+              <div className="empty-icon">🏸</div>
+              <p>No past sessions yet. Start one above!</p>
+            </div>
+          )}
+
+        </>}
+
+        {/* ── HOME (legacy tile dashboard) ── */}
         {tab === 'home' && <>
 
           {/* Session hero card */}
@@ -597,13 +879,14 @@ export default function ModeratorDashboard() {
               background: 'var(--accent)', borderRadius: 'var(--radius)',
               padding: '20px', marginBottom: 16, color: '#fff',
             }}>
-              <div style={{ fontSize:11, fontWeight:700, opacity:0.7, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:6 }}>● Live Session</div>
-              <div style={{ fontSize:22, fontWeight:700, marginBottom:16, fontFamily:"'Plus Jakarta Sans',sans-serif" }}>{activeSession.name}</div>
+              <div style={{ fontSize:11, fontWeight:700, opacity:0.7, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:6 }}>● Session in Progress</div>
+              <div style={{ fontSize:22, fontWeight:700, marginBottom:4, fontFamily:"'Plus Jakarta Sans',sans-serif" }}>{activeSession.name}</div>
+              <div style={{ fontSize:13, opacity:0.75, marginBottom:16, lineHeight:1.4 }}>A session is currently running. Tap to continue.</div>
               <div style={{ display:'flex', gap:8 }}>
                 <button
                   onClick={() => navigate(`/club/${clubId}/session/${activeSession.id}/rotation`)}
                   style={{ flex:1, background:'#fff', color:'var(--accent)', border:'none', borderRadius:'var(--radius-sm)', padding:'10px', fontWeight:700, fontSize:13, cursor:'pointer', fontFamily:"'Inter',sans-serif" }}>
-                  View Schedule
+                  Open Current Session →
                 </button>
                 <button
                   onClick={endSession}
@@ -621,7 +904,7 @@ export default function ModeratorDashboard() {
               <div style={{ fontSize:22, fontWeight:700, marginBottom:6, fontFamily:"'Plus Jakarta Sans',sans-serif" }}>Start a Session</div>
               <div style={{ fontSize:13, opacity:0.75, marginBottom:16, lineHeight:1.5 }}>Track live matches, scores and court rotations</div>
               <button
-                onClick={() => { setSelectedPlayerIds([]); setSessionMode('free'); setModalStep(1); setShowStartModal(true) }}
+                onClick={() => { setSelectedPlayerIds([]); setSessionMode('free'); setModalSessionName(weekdaySessionName()); setModalStep(1); setShowStartModal(true) }}
                 style={{ width:'100%', background:'#fff', color:'var(--accent)', border:'none', borderRadius:'var(--radius-sm)', padding:'11px', fontWeight:700, fontSize:14, cursor:'pointer', fontFamily:"'Inter',sans-serif" }}>
                 ▶  Start Session
               </button>
@@ -744,7 +1027,9 @@ export default function ModeratorDashboard() {
                     return (
                       <div style={{ flex:1, opacity: tileOpacity.polls, transition: `opacity ${tileTransMs.current.polls}ms ease`, textAlign:'center' }}>
                         <div style={{ fontSize:13, fontWeight:600, color:'var(--text)', lineHeight:1.3 }}>
-                          {new Date(poll.session_date + 'T00:00:00').toLocaleDateString('en-AU', { weekday:'short', day:'numeric', month:'short' })}
+                          {poll.session_date
+                            ? new Date(poll.session_date + 'T00:00:00').toLocaleDateString('en-AU', { weekday:'short', day:'numeric', month:'short' })
+                            : 'Custom poll'}
                         </div>
                         <div style={{ fontSize:11, color:'var(--text3)', marginTop:2, minHeight:15 }}>{tally}</div>
                       </div>
@@ -782,8 +1067,8 @@ export default function ModeratorDashboard() {
                       Chat
                     </div>
                     <div style={{ flex:1, textAlign:'center' }}>
-                      <div style={{ fontSize:13, fontWeight:600, color:'var(--text)', lineHeight:1.3 }}>Club chat</div>
-                      <div style={{ fontSize:11, color:'var(--text3)', marginTop:2, minHeight:15 }}>Message your club</div>
+                      <div style={{ fontSize:13, fontWeight:600, color:'var(--text)', lineHeight:1.3 }}>Group chat</div>
+                      <div style={{ fontSize:11, color:'var(--text3)', marginTop:2, minHeight:15 }}>Message your group</div>
                     </div>
                     <span style={{ fontSize:16, color:'var(--text)', marginLeft:8, flexShrink:0 }}>›</span>
                   </div>
@@ -814,14 +1099,24 @@ export default function ModeratorDashboard() {
         {/* ── POLLS ── */}
         {tab === 'polls' && (
           <div>
-            <button onClick={() => { setPollDate(''); setPollStartH(''); setPollStartM('00'); setPollStartAP('PM'); setPollEndH(''); setPollEndM('00'); setPollEndAP('PM'); setPollNotes(''); setShowPollModal(true) }} style={{
-              width:'100%', marginBottom:16, padding:'11px',
-              background:'transparent', border:'1.5px dashed var(--border2)',
-              borderRadius:'var(--radius)', color:'var(--accent)',
-              fontSize:14, fontWeight:600, cursor:'pointer', fontFamily:"'Inter',sans-serif",
-            }}>
-              + New Poll
-            </button>
+            <div style={{ display:'flex', gap:8, marginBottom:16 }}>
+              <button onClick={() => { setPollDate(''); setPollStartH(''); setPollStartM('00'); setPollStartAP('PM'); setPollEndH(''); setPollEndM('00'); setPollEndAP('PM'); setPollNotes(''); setShowPollModal(true) }} style={{
+                flex:1, padding:'11px',
+                background:'transparent', border:'1.5px dashed var(--border2)',
+                borderRadius:'var(--radius)', color:'var(--accent)',
+                fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:"'Inter',sans-serif",
+              }}>
+                + Session Poll
+              </button>
+              <button onClick={() => { setCustomPollQ(''); setCustomPollNotes(''); setCustomPollOptions(['', '']); setShowCustomPollModal(true) }} style={{
+                flex:1, padding:'11px',
+                background:'transparent', border:'1.5px dashed var(--border2)',
+                borderRadius:'var(--radius)', color:'var(--accent)',
+                fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:"'Inter',sans-serif",
+              }}>
+                + Custom Poll
+              </button>
+            </div>
             {activePolls.length === 0 ? (
               <div className="empty">
                 <div className="empty-icon">📊</div>
@@ -830,37 +1125,78 @@ export default function ModeratorDashboard() {
             ) : activePolls.map(poll => {
               const responseMap = {}
               poll.poll_responses?.forEach(r => { responseMap[r.user_id] = r.response })
-              const yes   = poll.poll_responses?.filter(r => r.response === 'yes').length   || 0
-              const no    = poll.poll_responses?.filter(r => r.response === 'no').length    || 0
-              const maybe = poll.poll_responses?.filter(r => r.response === 'maybe').length || 0
-              const dateLabel = formatPollDate(poll.session_date)
+              const isCustom = !poll.session_date
+              const dateLabel = isCustom ? null : formatPollDate(poll.session_date)
+              const parsedCustom = isCustom ? parseCustomPollNotes(poll.notes) : null
+              const hasCustomOpts = !!parsedCustom?.options
               const myResp = poll.poll_responses?.find(r => r.user_id === user.id)?.response
               const regularMembers = approved.filter(m => !m.is_guest)
               const pendingCount = regularMembers.filter(m => !responseMap[m.user_id]).length
               const isExpanded = !!expandedPolls[poll.id]
+
+              // Vote counts (standard or custom options)
+              const yes   = poll.poll_responses?.filter(r => r.response === 'yes').length   || 0
+              const no    = poll.poll_responses?.filter(r => r.response === 'no').length    || 0
+              const maybe = poll.poll_responses?.filter(r => r.response === 'maybe').length || 0
+              const optionCounts = hasCustomOpts
+                ? Object.fromEntries(parsedCustom.options.map(opt => [
+                    opt, poll.poll_responses?.filter(r => r.response === opt).length || 0
+                  ]))
+                : null
+
+              // Response options to render
+              const standardOpts = [
+                { key:'yes',   label:'Yes',   color:'#2a8c55', bg:'rgba(42,140,85,0.1)',  border:'rgba(42,140,85,0.3)'  },
+                { key:'no',    label:'No',    color:'#e05555', bg:'rgba(224,85,85,0.1)',  border:'rgba(224,85,85,0.3)'  },
+                { key:'maybe', label:'Maybe', color:'#a07800', bg:'rgba(255,200,50,0.1)', border:'rgba(220,175,20,0.3)' },
+              ]
+
               return (
-                <div key={poll.id} style={{
+                <div key={poll.id} data-poll-id={poll.id} style={{
                   background:'var(--bg2)', border:'1px solid var(--border)',
-                  borderLeft:'4px solid #b04400',
+                  borderLeft:`4px solid ${isCustom ? 'var(--accent)' : '#b04400'}`,
                   borderRadius:'var(--radius)', marginBottom:10, overflow:'hidden',
                 }}>
-                  {/* ── Collapsed header (always visible, tap to expand) ── */}
+                  {/* ── Collapsed header ── */}
                   <div onClick={() => setExpandedPolls(prev => ({ ...prev, [poll.id]: !prev[poll.id] }))}
                     style={{ padding:'13px 14px', cursor:'pointer', display:'flex', alignItems:'flex-start', gap:8 }}>
                     <div style={{ flex:1 }}>
-                      <div style={{ fontSize:14, fontWeight:700, marginBottom: poll.session_time ? 2 : 7 }}>
-                        Coming {dateLabel}?
-                      </div>
-                      {poll.session_time && (
-                        <div style={{ fontSize:12, color:'var(--text2)', marginBottom: poll.notes ? 2 : 7 }}>{poll.session_time}</div>
-                      )}
-                      {poll.notes && (
-                        <div style={{ fontSize:11, color:'var(--text3)', marginBottom:7 }}>{poll.notes}</div>
+                      {isCustom ? (
+                        <>
+                          <div style={{ fontSize:14, fontWeight:700, marginBottom: parsedCustom?.note ? 2 : 7 }}>
+                            {parsedCustom?.question || 'Custom Poll'}
+                          </div>
+                          {parsedCustom?.note && (
+                            <div style={{ fontSize:11, color:'var(--text3)', marginBottom:7 }}>{parsedCustom.note}</div>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          <div style={{ fontSize:14, fontWeight:700, marginBottom: poll.session_time ? 2 : 7 }}>
+                            Coming {dateLabel}?
+                          </div>
+                          {poll.session_time && (
+                            <div style={{ fontSize:12, color:'var(--text2)', marginBottom: poll.notes ? 2 : 7 }}>{poll.session_time}</div>
+                          )}
+                          {poll.notes && (
+                            <div style={{ fontSize:11, color:'var(--text3)', marginBottom:7 }}>{poll.notes}</div>
+                          )}
+                        </>
                       )}
                       <div style={{ display:'flex', gap:5, flexWrap:'wrap' }}>
-                        <span style={{ padding:'2px 9px', borderRadius:99, fontSize:11, fontWeight:700, background:'rgba(42,140,85,0.1)', color:'#2a8c55' }}>{yes} Yes</span>
-                        <span style={{ padding:'2px 9px', borderRadius:99, fontSize:11, fontWeight:700, background:'rgba(224,85,85,0.1)', color:'#e05555' }}>{no} No</span>
-                        {maybe > 0 && <span style={{ padding:'2px 9px', borderRadius:99, fontSize:11, fontWeight:700, background:'rgba(255,200,50,0.1)', color:'#a07800' }}>{maybe} Maybe</span>}
+                        {hasCustomOpts ? (
+                          parsedCustom.options.map(opt => (
+                            <span key={opt} style={{ padding:'2px 9px', borderRadius:99, fontSize:11, fontWeight:700, background:'rgba(122,164,196,0.12)', color:'var(--accent)' }}>
+                              {optionCounts[opt]} · {opt}
+                            </span>
+                          ))
+                        ) : (
+                          <>
+                            <span style={{ padding:'2px 9px', borderRadius:99, fontSize:11, fontWeight:700, background:'rgba(42,140,85,0.1)', color:'#2a8c55' }}>{yes} Yes</span>
+                            <span style={{ padding:'2px 9px', borderRadius:99, fontSize:11, fontWeight:700, background:'rgba(224,85,85,0.1)', color:'#e05555' }}>{no} No</span>
+                            {maybe > 0 && <span style={{ padding:'2px 9px', borderRadius:99, fontSize:11, fontWeight:700, background:'rgba(255,200,50,0.1)', color:'#a07800' }}>{maybe} Maybe</span>}
+                          </>
+                        )}
                         {pendingCount > 0 && <span style={{ padding:'2px 9px', borderRadius:99, fontSize:11, fontWeight:600, background:'var(--bg3)', color:'var(--text3)' }}>{pendingCount} Pending</span>}
                       </div>
                     </div>
@@ -870,51 +1206,65 @@ export default function ModeratorDashboard() {
                   {/* ── Expanded body ── */}
                   {isExpanded && (
                     <div style={{ padding:'12px 14px 16px', borderTop:'0.5px solid var(--border)' }}>
+
                       {/* Your response */}
                       <div style={{ fontSize:11, color:'var(--text3)', marginBottom:6, textTransform:'uppercase', fontWeight:700, letterSpacing:'0.07em' }}>
                         {myResp ? 'Update your response' : 'Your response'}
                       </div>
-                      <div style={{ display:'flex', gap:8, marginBottom:16 }}>
-                        {[
-                          { key:'yes',   label:'Yes',   color:'#2a8c55', bg:'rgba(42,140,85,0.1)',  border:'rgba(42,140,85,0.3)'  },
-                          { key:'no',    label:'No',    color:'#e05555', bg:'rgba(224,85,85,0.1)',  border:'rgba(224,85,85,0.3)'  },
-                          { key:'maybe', label:'Maybe', color:'#a07800', bg:'rgba(255,200,50,0.1)', border:'rgba(220,175,20,0.3)' },
-                        ].map(opt => (
-                          <button key={opt.key} onClick={() => updatePollResponse(poll.id, opt.key)} style={{
-                            flex:1, padding:'9px 4px', borderRadius:'var(--radius-sm)',
-                            fontSize:13, fontWeight: myResp === opt.key ? 700 : 500,
-                            cursor:'pointer', fontFamily:"'Inter',sans-serif",
-                            background: myResp === opt.key ? opt.bg : 'transparent',
-                            color: myResp === opt.key ? opt.color : 'var(--text2)',
-                            border: `1.5px solid ${myResp === opt.key ? opt.border : 'var(--border)'}`,
-                            transition:'all 0.15s ease',
-                          }}>{opt.label}</button>
-                        ))}
-                      </div>
+                      {hasCustomOpts ? (
+                        <div style={{ display:'flex', flexDirection:'column', gap:6, marginBottom:16 }}>
+                          {parsedCustom.options.map(opt => (
+                            <button key={opt} onClick={() => updatePollResponse(poll.id, opt)} style={{
+                              padding:'9px 14px', borderRadius:'var(--radius-sm)', textAlign:'left',
+                              fontSize:13, fontWeight: myResp === opt ? 700 : 500,
+                              cursor:'pointer', fontFamily:"'Inter',sans-serif",
+                              background: myResp === opt ? 'rgba(122,164,196,0.15)' : 'transparent',
+                              color: myResp === opt ? 'var(--accent)' : 'var(--text2)',
+                              border: `1.5px solid ${myResp === opt ? 'var(--accent)' : 'var(--border)'}`,
+                              transition:'all 0.15s ease',
+                              display:'flex', alignItems:'center', justifyContent:'space-between',
+                            }}>
+                              <span>{opt}</span>
+                              {myResp === opt && <span style={{ fontSize:11 }}>✓</span>}
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <div style={{ display:'flex', gap:8, marginBottom:16 }}>
+                          {standardOpts.map(opt => (
+                            <button key={opt.key} onClick={() => updatePollResponse(poll.id, opt.key)} style={{
+                              flex:1, padding:'9px 4px', borderRadius:'var(--radius-sm)',
+                              fontSize:13, fontWeight: myResp === opt.key ? 700 : 500,
+                              cursor:'pointer', fontFamily:"'Inter',sans-serif",
+                              background: myResp === opt.key ? opt.bg : 'transparent',
+                              color: myResp === opt.key ? opt.color : 'var(--text2)',
+                              border: `1.5px solid ${myResp === opt.key ? opt.border : 'var(--border)'}`,
+                              transition:'all 0.15s ease',
+                            }}>{opt.label}</button>
+                          ))}
+                        </div>
+                      )}
 
                       {/* Grouped responses */}
-                      {[
-                        { key:'yes',   label:'Yes',            color:'#2a8c55', bg:'rgba(42,140,85,0.1)'  },
-                        { key:'no',    label:'No',             color:'#e05555', bg:'rgba(224,85,85,0.1)'  },
-                        { key:'maybe', label:'Maybe',          color:'#a07800', bg:'rgba(255,200,50,0.1)' },
-                        { key:null,    label:"Didn't respond", color:'var(--text3)', bg:'var(--bg3)'       },
-                      ].map(group => {
-                        const groupMembers = regularMembers.filter(m =>
-                          group.key ? responseMap[m.user_id] === group.key : !responseMap[m.user_id]
-                        )
-                        if (groupMembers.length === 0) return null
-                        return (
-                          <div key={group.key || 'none'} style={{ marginBottom:12 }}>
-                            <div style={{
-                              display:'inline-flex', alignItems:'center',
-                              padding:'2px 10px', borderRadius:99, marginBottom:6,
-                              background:group.bg, color:group.color, fontSize:11, fontWeight:700,
-                            }}>
-                              {group.label} · {groupMembers.length}
-                            </div>
-                            {groupMembers.map(m => {
-                              const isMe = m.user_id === user.id
-                              return (
+                      {hasCustomOpts ? (
+                        // Custom option groups
+                        [...parsedCustom.options, null].map(opt => {
+                          const groupMembers = regularMembers.filter(m =>
+                            opt ? responseMap[m.user_id] === opt : !responseMap[m.user_id]
+                          )
+                          if (groupMembers.length === 0) return null
+                          return (
+                            <div key={opt || 'none'} style={{ marginBottom:12 }}>
+                              <div style={{
+                                display:'inline-flex', alignItems:'center',
+                                padding:'2px 10px', borderRadius:99, marginBottom:6,
+                                background: opt ? 'rgba(122,164,196,0.12)' : 'var(--bg3)',
+                                color: opt ? 'var(--accent)' : 'var(--text3)',
+                                fontSize:11, fontWeight:700,
+                              }}>
+                                {opt || "Didn't respond"} · {groupMembers.length}
+                              </div>
+                              {groupMembers.map(m => (
                                 <div key={m.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'6px 4px', borderBottom:'0.5px solid var(--border)' }}>
                                   <div style={{ width:26, height:26, borderRadius:'50%', flexShrink:0, background:'var(--bg3)', overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:600, color:'var(--accent)' }}>
                                     {m.profiles?.avatar_url
@@ -923,16 +1273,75 @@ export default function ModeratorDashboard() {
                                   </div>
                                   <div style={{ flex:1, fontSize:13, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
                                     {m.profiles?.full_name}
-                                    {isMe && <span style={{ fontSize:11, color:'var(--accent)', marginLeft:4 }}>· you</span>}
+                                    {m.user_id === user.id && <span style={{ fontSize:11, color:'var(--accent)', marginLeft:4 }}>· you</span>}
                                   </div>
                                 </div>
-                              )
-                            })}
-                          </div>
-                        )
-                      })}
+                              ))}
+                            </div>
+                          )
+                        })
+                      ) : (
+                        [
+                          { key:'yes',   label:'Yes',            color:'#2a8c55', bg:'rgba(42,140,85,0.1)'  },
+                          { key:'no',    label:'No',             color:'#e05555', bg:'rgba(224,85,85,0.1)'  },
+                          { key:'maybe', label:'Maybe',          color:'#a07800', bg:'rgba(255,200,50,0.1)' },
+                          { key:null,    label:"Didn't respond", color:'var(--text3)', bg:'var(--bg3)'       },
+                        ].map(group => {
+                          const groupMembers = regularMembers.filter(m =>
+                            group.key ? responseMap[m.user_id] === group.key : !responseMap[m.user_id]
+                          )
+                          if (groupMembers.length === 0) return null
+                          return (
+                            <div key={group.key || 'none'} style={{ marginBottom:12 }}>
+                              <div style={{
+                                display:'inline-flex', alignItems:'center',
+                                padding:'2px 10px', borderRadius:99, marginBottom:6,
+                                background:group.bg, color:group.color, fontSize:11, fontWeight:700,
+                              }}>
+                                {group.label} · {groupMembers.length}
+                              </div>
+                              {groupMembers.map(m => (
+                                <div key={m.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'6px 4px', borderBottom:'0.5px solid var(--border)' }}>
+                                  <div style={{ width:26, height:26, borderRadius:'50%', flexShrink:0, background:'var(--bg3)', overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:600, color:'var(--accent)' }}>
+                                    {m.profiles?.avatar_url
+                                      ? <img src={m.profiles.avatar_url} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+                                      : (m.profiles?.full_name||'?')[0]}
+                                  </div>
+                                  <div style={{ flex:1, fontSize:13, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+                                    {m.profiles?.full_name}
+                                    {m.user_id === user.id && <span style={{ fontSize:11, color:'var(--accent)', marginLeft:4 }}>· you</span>}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )
+                        })
+                      )}
 
-                      {/* Delete poll — only visible to the creator */}
+                      {/* Start Session / Open Session — session polls only */}
+                      {!isCustom && (
+                        activeSession ? (
+                          <button onClick={() => navigate(`/club/${clubId}/session/${activeSession.id}/rotation`)} style={{
+                            marginTop:4, marginBottom:8, width:'100%', padding:'9px',
+                            background:'var(--accent)', border:'none',
+                            borderRadius:'var(--radius-sm)', color:'#fff',
+                            fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:"'Inter',sans-serif",
+                          }}>
+                            Open Current Session →
+                          </button>
+                        ) : (
+                          <button onClick={() => startSessionFromPoll(poll)} style={{
+                            marginTop:4, marginBottom:8, width:'100%', padding:'9px',
+                            background:'var(--accent-dim)', border:'1.5px solid var(--accent)',
+                            borderRadius:'var(--radius-sm)', color:'var(--accent)',
+                            fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:"'Inter',sans-serif",
+                          }}>
+                            ▶ Start Session from this Poll
+                          </button>
+                        )
+                      )}
+
+                      {/* Delete poll */}
                       {poll.created_by === user.id && (
                         <button onClick={() => deletePoll(poll.id)} style={{
                           marginTop:4, width:'100%', padding:'9px',
@@ -997,8 +1406,8 @@ export default function ModeratorDashboard() {
                   {m.role === 'moderator' && <span style={{ fontStyle:'italic', fontWeight:400, color:'var(--accent)', fontSize:12 }}> (mod)</span>}
                 </div>
                 <div style={{ display:'flex', gap:6, flexShrink:0 }}>
-                  {m.role !== 'moderator' && !m.profiles?.full_name?.startsWith('deleted_') && <button className="btn btn-ghost btn-sm" onClick={() => promoteMod(m.id)} style={{ padding:'4px 10px', fontSize:11 }}>Make Admin</button>}
-                  {m.role === 'moderator' && m.user_id !== user.id && <button className="btn btn-ghost btn-sm" onClick={() => demoteMod(m.id)} style={{ padding:'4px 10px', fontSize:11 }}>Remove Admin</button>}
+                  {m.role !== 'moderator' && !m.profiles?.full_name?.startsWith('deleted_') && <button className="btn btn-ghost btn-sm" onClick={() => promoteMod(m.id)} style={{ padding:'4px 10px', fontSize:11 }}>Make Moderator</button>}
+                  {m.role === 'moderator' && m.user_id !== user.id && <button className="btn btn-ghost btn-sm" onClick={() => demoteMod(m.id)} style={{ padding:'4px 10px', fontSize:11 }}>Remove Moderator</button>}
                   {m.user_id !== user.id && <button className="btn btn-danger btn-sm" onClick={() => removeMember(m.id)} style={{ padding:'4px 10px', fontSize:11 }}>Remove</button>}
                 </div>
               </div>
@@ -1170,7 +1579,7 @@ export default function ModeratorDashboard() {
           <div className="section-label">Invite link</div>
           <div className="card" style={{ marginBottom:20 }}>
             <p style={{ fontSize:13,color:'var(--text2)',marginBottom:12,lineHeight:1.6 }}>
-              Share this link so people can find and request to join your club instantly.
+              Share this link so people can find and request to join your group instantly.
             </p>
             <div style={{ background:'var(--bg3)',borderRadius:'var(--radius-sm)',padding:'10px 14px',fontFamily:'var(--font-mono)',fontSize:12,color:'var(--text2)',marginBottom:12,wordBreak:'break-all' }}>
               {window.location.origin}/join/{club?.invite_code}
@@ -1200,7 +1609,7 @@ export default function ModeratorDashboard() {
                 disabled={notifStatus === 'granted'}
                 onClick={async () => {
                   const ok = await subscribe(user.id)
-                  setNotifStatus(Notification.permission)
+                  setNotifStatus(ok ? 'granted' : Notification.permission)
                   if (ok) showToast('🔔 Notifications enabled!')
                   else showToast('Could not enable notifications')
                 }}>
@@ -1216,7 +1625,7 @@ export default function ModeratorDashboard() {
             borderRadius:'var(--radius)', padding:'14px 16px', marginBottom:20,
           }}>
             <div style={{ fontSize:12, color:'var(--text3)', marginBottom:12, lineHeight:1.5 }}>
-              Send a custom push notification to all club members
+              Send a custom push notification to all group members
             </div>
             <div className="input-wrap" style={{ marginBottom:10 }}>
               <label className="input-label">Title</label>
@@ -1243,9 +1652,9 @@ export default function ModeratorDashboard() {
             </button>
           </div>
 
-          <div className="section-label">Club info</div>
+          <div className="section-label">Group info</div>
           <div className="card">
-            <div style={{ fontSize:13,color:'var(--text2)',marginBottom:4 }}>Club name</div>
+            <div style={{ fontSize:13,color:'var(--text2)',marginBottom:4 }}>Group name</div>
             <div style={{ fontSize:15,fontWeight:500 }}>{club?.name}</div>
             {club?.description && <>
               <div style={{ fontSize:13,color:'var(--text2)',marginTop:12,marginBottom:4 }}>Description</div>
@@ -1254,10 +1663,65 @@ export default function ModeratorDashboard() {
           </div>
         </>}
 
+        {/* ── MORE ── */}
+        {tab === 'more' && (
+          <div>
+            <div className="section-label">Group</div>
+            {[
+              { label: 'Members', badge: pending.length, onClick: () => changeTab('members') },
+              { label: 'Moderator Tools', badge: alertCount, onClick: () => changeTab('settings') },
+            ].map(item => (
+              <div key={item.label} onClick={item.onClick} style={{
+                display: 'flex', alignItems: 'center', gap: 12,
+                background: 'var(--bg2)', border: '0.5px solid var(--border)',
+                borderRadius: 'var(--radius)', padding: '14px 16px', marginBottom: 8,
+                cursor: 'pointer', position: 'relative',
+              }}>
+                {item.badge > 0 && (
+                  <span style={{
+                    position: 'absolute', top: 8, right: 36,
+                    background: '#ff5c5c', color: '#fff', borderRadius: 99,
+                    fontSize: 9, fontWeight: 700, minWidth: 16, height: 16,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px',
+                  }}>{item.badge}</span>
+                )}
+                <span style={{ flex: 1, fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{item.label}</span>
+                <span style={{ fontSize: 18, color: 'var(--text3)' }}>›</span>
+              </div>
+            ))}
+
+            <div style={{ marginTop: 24 }}>
+              <button
+                onClick={async () => {
+                  const ok = await confirmDialog('Leave this group? You will lose moderator access.')
+                  if (!ok) return
+                  const myMem = members.find(m => m.user_id === user.id)
+                  if (myMem) {
+                    await supabase.from('memberships').delete().eq('id', myMem.id)
+                  }
+                  navigate('/groups')
+                }}
+                style={{
+                  width: '100%', padding: '13px',
+                  background: 'transparent', border: '1px solid rgba(224,85,85,0.3)',
+                  borderRadius: 'var(--radius)', color: '#e05555',
+                  fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: "'Inter',sans-serif",
+                }}>
+                Leave Group
+              </button>
+            </div>
+          </div>
+        )}
+
       </div>
 
       {/* Tab bar */}
-      <BottomNav clubId={clubId} activeTab="home" />
+      <GroupNav clubId={clubId} isMod={true} activeTab={
+        tab === 'polls'                                                              ? 'polls'
+        : tab === 'more' || tab === 'members' || tab === 'sessions' || tab === 'settings' ? 'more'
+        : tab === 'session' || tab === 'home'                                       ? 'session'
+        : 'session'
+      } />
 
       {/* Start session modal */}
       {showStartModal && (
@@ -1273,6 +1737,23 @@ export default function ModeratorDashboard() {
 
             {modalStep === 1 && <>
               <h3 style={{ fontSize:20, marginBottom:16 }}>Start Session</h3>
+
+              <div style={{ marginBottom:16 }}>
+                <div style={{ fontSize:11, color:'var(--text2)', fontWeight:600, textTransform:'uppercase', marginBottom:8 }}>Session Name</div>
+                <input
+                  type="text"
+                  value={modalSessionName}
+                  onChange={e => setModalSessionName(e.target.value)}
+                  maxLength={60}
+                  placeholder={weekdaySessionName()}
+                  style={{
+                    width:'100%', padding:'10px 12px', boxSizing:'border-box',
+                    background:'var(--bg3)', border:'0.5px solid var(--border2)',
+                    borderRadius:'var(--radius-sm)', color:'var(--text)',
+                    fontSize:15, fontFamily:"'Inter',sans-serif", outline:'none',
+                  }}
+                />
+              </div>
 
               <div style={{ marginBottom:16 }}>
                 <div style={{ fontSize:11, color:'var(--text2)', fontWeight:600, textTransform:'uppercase', marginBottom:8 }}>Match Type</div>
@@ -1310,18 +1791,20 @@ export default function ModeratorDashboard() {
                 </div>
               </div>
 
-              {sessionMode === 'free' ? (
-                <button className="btn btn-primary" style={{ width:'100%', marginBottom:8 }}
-                  onClick={startSessionWithRotation}>
-                  ▶ Start Free Play
-                </button>
-              ) : (
-                <button className="btn btn-primary" style={{ width:'100%', marginBottom:8 }}
-                  onClick={() => { setSelectedPlayerIds([]); setModalStep(2) }}>
-                  Next — Select Players →
-                </button>
-              )}
-              <button className="btn btn-ghost" style={{ width:'100%' }} onClick={() => setShowStartModal(false)}>
+              <button className="btn btn-primary" style={{ width:'100%', marginBottom:8 }}
+                onClick={() => {
+                  if (skipPlayerPicker) {
+                    setSkipPlayerPicker(false)
+                    startSessionWithRotation()
+                  } else {
+                    setModalStep(2)
+                  }
+                }}>
+                {skipPlayerPicker
+                  ? `▶ Start Session · ${selectedPlayerIds.length} player${selectedPlayerIds.length !== 1 ? 's' : ''} from poll`
+                  : "Next — Who's Available? →"}
+              </button>
+              <button className="btn btn-ghost" style={{ width:'100%' }} onClick={() => { setSkipPlayerPicker(false); setShowStartModal(false) }}>
                 Cancel
               </button>
             </>}
@@ -1329,12 +1812,20 @@ export default function ModeratorDashboard() {
             {modalStep === 2 && <>
               <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:16 }}>
                 <button onClick={() => setModalStep(1)} style={{ background:'none', border:'none', color:'var(--text2)', cursor:'pointer', fontSize:20, padding:0 }}>←</button>
-                <h3 style={{ fontSize:20, margin:0 }}>Who's Playing?</h3>
+                <h3 style={{ fontSize:20, margin:0 }}>
+                  {sessionMode === 'free' ? "Who's Available Today?" : "Who's Playing?"}
+                </h3>
               </div>
+
+              {sessionMode === 'free' && (
+                <div style={{ fontSize:13, color:'var(--text2)', marginBottom:14, lineHeight:1.5 }}>
+                  Select everyone who is present. You can add more players during the session.
+                </div>
+              )}
 
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
                 <div style={{ fontSize:11, color:'var(--text2)', fontWeight:600, textTransform:'uppercase' }}>
-                  Select players ({selectedPlayerIds.length})
+                  Available ({selectedPlayerIds.length})
                 </div>
                 <button onClick={() => {
                   const allIds = approved.map(m => m.user_id)
@@ -1344,40 +1835,76 @@ export default function ModeratorDashboard() {
                 </button>
               </div>
 
-              <div style={{ marginBottom:20 }}>
-                {approved.map(m => {
-                  const sel = selectedPlayerIds.includes(m.user_id)
-                  return (
-                    <div key={m.id} onClick={() => setSelectedPlayerIds(prev =>
-                      sel ? prev.filter(id => id !== m.user_id) : [...prev, m.user_id]
-                    )} style={{
-                      display:'flex', alignItems:'center', gap:12,
-                      padding:'10px 12px', marginBottom:4,
-                      background: sel ? 'rgba(122,164,196,0.1)' : 'var(--bg3)',
-                      border:`1px solid ${sel ? 'rgba(122,164,196,0.35)' : 'transparent'}`,
-                      borderRadius:'var(--radius-sm)', cursor:'pointer'
-                    }}>
+              {/* Available section */}
+              {selectedPlayerIds.length > 0 && (
+                <div style={{ marginBottom:8 }}>
+                  <div style={{ fontSize:11, color:'#2a8c55', fontWeight:700, textTransform:'uppercase', marginBottom:6, letterSpacing:'0.06em' }}>
+                    Available · {selectedPlayerIds.length}
+                  </div>
+                  {approved.filter(m => selectedPlayerIds.includes(m.user_id)).map(m => (
+                    <div key={m.id} onClick={() => setSelectedPlayerIds(prev => prev.filter(id => id !== m.user_id))}
+                      style={{
+                        display:'flex', alignItems:'center', gap:12,
+                        padding:'10px 12px', marginBottom:4,
+                        background:'rgba(42,140,85,0.07)', border:'1px solid rgba(42,140,85,0.25)',
+                        borderRadius:'var(--radius-sm)', cursor:'pointer'
+                      }}>
                       <div style={{
                         width:20, height:20, borderRadius:4, flexShrink:0,
-                        background: sel ? 'var(--accent)' : 'var(--bg2)',
-                        border:`1px solid ${sel ? 'var(--accent)' : 'var(--text3)'}`,
+                        background:'#2a8c55', border:'1px solid #2a8c55',
                         display:'flex', alignItems:'center', justifyContent:'center',
                         fontSize:12, color:'#fff'
-                      }}>{sel ? '✓' : ''}</div>
+                      }}>✓</div>
                       <div style={{ flex:1, fontSize:14 }}>
                         {m.profiles?.full_name}
                         {m.is_guest && <span style={{ fontStyle:'italic', color:'var(--text3)', fontSize:13 }}> (guest)</span>}
                       </div>
+                      <span style={{ fontSize:11, color:'var(--text3)' }}>tap to remove</span>
                     </div>
-                  )
-                })}
-              </div>
+                  ))}
+                </div>
+              )}
 
-              <button className="btn btn-primary" style={{ width:'100%', marginBottom:8 }}
-                disabled={selectedPlayerIds.length < (modalMatchType === 'doubles' ? 4 : 2)}
-                onClick={startSessionWithRotation}>
-                ▶ Start with Auto Schedule
-              </button>
+              {/* Not available section */}
+              {approved.filter(m => !selectedPlayerIds.includes(m.user_id)).length > 0 && (
+                <div style={{ marginBottom:20 }}>
+                  <div style={{ fontSize:11, color:'var(--text3)', fontWeight:700, textTransform:'uppercase', marginBottom:6, letterSpacing:'0.06em' }}>
+                    Not Available · {approved.filter(m => !selectedPlayerIds.includes(m.user_id)).length}
+                  </div>
+                  {approved.filter(m => !selectedPlayerIds.includes(m.user_id)).map(m => (
+                    <div key={m.id} onClick={() => setSelectedPlayerIds(prev => [...prev, m.user_id])}
+                      style={{
+                        display:'flex', alignItems:'center', gap:12,
+                        padding:'10px 12px', marginBottom:4,
+                        background:'var(--bg3)', border:'1px solid transparent',
+                        borderRadius:'var(--radius-sm)', cursor:'pointer'
+                      }}>
+                      <div style={{
+                        width:20, height:20, borderRadius:4, flexShrink:0,
+                        background:'var(--bg2)', border:'1px solid var(--text3)',
+                      }} />
+                      <div style={{ flex:1, fontSize:14, color:'var(--text2)' }}>
+                        {m.profiles?.full_name}
+                        {m.is_guest && <span style={{ fontStyle:'italic', fontSize:13 }}> (guest)</span>}
+                      </div>
+                      <span style={{ fontSize:11, color:'var(--accent)' }}>+ add</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {sessionMode === 'free' ? (
+                <button className="btn btn-primary" style={{ width:'100%', marginBottom:8 }}
+                  onClick={startSessionWithRotation}>
+                  ▶ Start Free Play {selectedPlayerIds.length > 0 ? `· ${selectedPlayerIds.length} available` : ''}
+                </button>
+              ) : (
+                <button className="btn btn-primary" style={{ width:'100%', marginBottom:8 }}
+                  disabled={selectedPlayerIds.length < (modalMatchType === 'doubles' ? 4 : 2)}
+                  onClick={startSessionWithRotation}>
+                  ▶ Start with Auto Schedule
+                </button>
+              )}
               <button className="btn btn-ghost" style={{ width:'100%' }} onClick={() => setShowStartModal(false)}>
                 Cancel
               </button>
@@ -1387,7 +1914,8 @@ export default function ModeratorDashboard() {
         </div>
       )}
 
-      {toast && <div className="toast">{toast}</div>}
+      <Toast message={toast} />
+      {confirmModal}
 
       {/* ── Notification permission modal ── */}
       {showNotifModal && (
@@ -1491,6 +2019,74 @@ export default function ModeratorDashboard() {
               {creatingPoll ? 'Creating…' : 'Send Poll to Members'}
             </button>
             <button className="btn btn-ghost" onClick={() => setShowPollModal(false)}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {showCustomPollModal && (
+        <div style={{
+          position:'fixed', inset:0, background:'rgba(0,0,0,0.6)',
+          zIndex:200, display:'flex', alignItems:'flex-end', justifyContent:'center',
+        }} onClick={() => setShowCustomPollModal(false)}>
+          <div style={{
+            background:'var(--bg)', borderRadius:'20px 20px 0 0',
+            padding:'24px 20px 40px', width:'100%', maxWidth:430,
+            maxHeight:'90vh', overflowY:'auto',
+          }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize:18, fontWeight:700, marginBottom:6, fontFamily:"'Plus Jakarta Sans',sans-serif" }}>
+              Custom Poll
+            </div>
+            <div style={{ fontSize:13, color:'var(--text3)', marginBottom:20 }}>
+              Ask the group any question with custom answer choices.
+            </div>
+
+            <div className="input-wrap">
+              <label className="input-label">Poll question</label>
+              <input className="input" placeholder="e.g. Which venue should we play at?" value={customPollQ}
+                onChange={e => setCustomPollQ(e.target.value)} />
+            </div>
+
+            <div className="input-wrap">
+              <label className="input-label">Options (add at least 2, or leave empty for Yes / No / Maybe)</label>
+              {customPollOptions.map((opt, idx) => (
+                <div key={idx} style={{ display:'flex', gap:8, marginBottom:8, alignItems:'center' }}>
+                  <input
+                    className="input"
+                    style={{ marginBottom:0, flex:1 }}
+                    placeholder={`Option ${idx + 1}`}
+                    value={opt}
+                    onChange={e => {
+                      const n = [...customPollOptions]; n[idx] = e.target.value; setCustomPollOptions(n)
+                    }}
+                  />
+                  {customPollOptions.length > 2 && (
+                    <button
+                      onClick={() => setCustomPollOptions(prev => prev.filter((_, i) => i !== idx))}
+                      style={{ background:'none', border:'none', color:'var(--text3)', cursor:'pointer', fontSize:18, padding:'0 4px', lineHeight:1 }}>
+                      ✕
+                    </button>
+                  )}
+                </div>
+              ))}
+              <button
+                onClick={() => setCustomPollOptions(prev => [...prev, ''])}
+                style={{ background:'none', border:'1px dashed var(--border2)', borderRadius:'var(--radius-sm)', color:'var(--accent)', padding:'7px 14px', fontSize:13, fontWeight:600, cursor:'pointer', marginTop:4 }}>
+                + Add option
+              </button>
+            </div>
+
+            <div className="input-wrap">
+              <label className="input-label">Details (optional)</label>
+              <input className="input" placeholder="Extra context for members" value={customPollNotes}
+                onChange={e => setCustomPollNotes(e.target.value)} />
+            </div>
+
+            <button className="btn btn-primary" style={{ marginBottom:10 }}
+              disabled={!customPollQ.trim() || creatingCustomPoll}
+              onClick={createCustomPoll}>
+              {creatingCustomPoll ? 'Sending…' : 'Send Poll to Members'}
+            </button>
+            <button className="btn btn-ghost" onClick={() => setShowCustomPollModal(false)}>Cancel</button>
           </div>
         </div>
       )}

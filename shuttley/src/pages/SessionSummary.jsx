@@ -2,6 +2,10 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
+import Toast from '../components/Toast'
+import { useConfirm } from '../hooks/useConfirm'
+import { DashboardSkeleton } from '../components/Skeleton'
+import GroupNav from '../components/GroupNav'
 
 export default function SessionSummary() {
   const { clubId, sessionId } = useParams()
@@ -13,6 +17,7 @@ export default function SessionSummary() {
   const [isModerator, setIsModerator] = useState(false)
   const [loading, setLoading] = useState(true)
   const [toast, setToast] = useState('')
+  const [confirmDialog, confirmModal] = useConfirm()
   const [editingMatchDate, setEditingMatchDate] = useState(null) // matchId
   const [editingDate, setEditingDate] = useState('')
   const [standingsExpanded, setStandingsExpanded] = useState(false)
@@ -29,7 +34,7 @@ export default function SessionSummary() {
 
   async function fetchData() {
     const [{ data: s }, { data: m }, { data: c }, { data: mem }, { data: mems }, { data: prof }] = await Promise.all([
-      supabase.from('sessions').select('*, profiles(full_name)').eq('id', sessionId).single(),
+      supabase.from('sessions').select('*').eq('id', sessionId).single(),
       supabase.from('matches')
         .select('*, match_players(user_id, side, profiles(id, full_name))')
         .eq('session_id', sessionId)
@@ -147,7 +152,7 @@ export default function SessionSummary() {
   }
 
   async function deleteSession() {
-    if (!confirm('Delete this session? This cannot be undone.')) return
+    if (!(await confirmDialog('Delete this session? This cannot be undone.'))) return
     await supabase.from('rotation_matches').delete().eq('session_id', sessionId)
     const { error } = await supabase.from('sessions').delete().eq('id', sessionId)
     if (error) { showToast('Error deleting session'); return }
@@ -207,7 +212,7 @@ export default function SessionSummary() {
     return Object.values(stats).sort((a, b) => b.wins - a.wins || a.losses - b.losses)
   }
 
-  if (loading) return <div className="splash"><div className="splash-logo">S</div></div>
+  if (loading) return <DashboardSkeleton />
   if (!session) return (
     <div className="page"><div className="content"><p style={{ color:'var(--text2)' }}>Session not found.</p></div></div>
   )
@@ -222,7 +227,7 @@ export default function SessionSummary() {
       <div className="topnav">
         <div style={{ width:40 }} />
         <span style={{ fontFamily:"'Plus Jakarta Sans',sans-serif", fontSize:18 }}>Session Summary</span>
-        <button onClick={() => navigate(`/club/${clubId}/member`)} style={{ background:'none',border:'none',color:'var(--text2)',cursor:'pointer',fontSize:13,fontWeight:500,padding:0 }}>Home</button>
+        <div style={{ width:40 }} />
       </div>
 
       <div className="content">
@@ -540,7 +545,9 @@ export default function SessionSummary() {
         ))}
       </div>
 
-      {toast && <div className="toast">{toast}</div>}
+      <Toast message={toast} />
+      {confirmModal}
+      <GroupNav clubId={clubId} isMod={isModerator} activeTab="session" />
     </div>
   )
 }

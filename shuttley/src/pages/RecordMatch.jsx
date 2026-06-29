@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
+import GroupNav from '../components/GroupNav'
 
 export default function RecordMatch() {
   const { clubId } = useParams()
@@ -10,6 +11,7 @@ export default function RecordMatch() {
   const location = useLocation()
   const returnTo = location.state?.returnTo
   const sessionMatchType = location.state?.matchType
+  const [isMod, setIsMod] = useState(location.state?.isMod ?? false)
 
   const initialStep = sessionMatchType ? 2 : 1
 
@@ -52,6 +54,10 @@ export default function RecordMatch() {
       .select('user_id, role, profiles(id, full_name, avatar_url)')
       .eq('club_id', clubId)
       .eq('status', 'approved')
+    if (!location.state?.isMod) {
+      const myMem = (data || []).find(m => m.user_id === user?.id)
+      if (myMem?.role === 'moderator') setIsMod(true)
+    }
     setMembers((data || []).map(m => m.profiles).filter(Boolean))
 
     const { data: session } = await supabase
@@ -79,8 +85,17 @@ export default function RecordMatch() {
     setSlots(n)
   }
 
+  const [showOtherMembers, setShowOtherMembers] = useState(false)
+
   const selectedIds    = slots.slice(0, maxSlots).filter(Boolean)
   const sortedMembers  = [...members].sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''))
+  const presentIds     = activeSession?.rotation_player_ids || []
+  const presentMembers = presentIds.length > 0
+    ? sortedMembers.filter(m => presentIds.includes(m.id))
+    : sortedMembers
+  const otherMembers   = presentIds.length > 0
+    ? sortedMembers.filter(m => !presentIds.includes(m.id))
+    : []
 
   async function submitMatch() {
     if (!scoreReady || !playersReady) return
@@ -168,11 +183,10 @@ export default function RecordMatch() {
     <div className="page">
       <div className="topnav">
         <button
-          onClick={() => step > startStep ? setStep(step - 1) : navigate(`/club/${clubId}/member`)}
+          onClick={() => step > startStep ? setStep(step - 1) : (returnTo ? navigate(returnTo) : navigate(-1))}
           style={{ background:'none',border:'none',color:'var(--text2)',cursor:'pointer',fontSize:22,padding:0 }}>←</button>
         <span style={{ fontFamily:"'Plus Jakarta Sans',sans-serif", fontSize:18 }}>Record Match</span>
-        <button onClick={() => navigate(`/club/${clubId}/member`)}
-          style={{ background:'none',border:'none',color:'var(--text2)',cursor:'pointer',fontSize:13,fontWeight:500,padding:0 }}>Home</button>
+        <div style={{ width:40 }} />
       </div>
 
       {/* Step indicator */}
@@ -197,16 +211,21 @@ export default function RecordMatch() {
             {['singles','doubles'].map(t => (
               <div key={t} onClick={() => setType(t)}
                 style={{
-                  padding:'20px', borderRadius:'var(--radius)',
+                  padding:'16px 20px', borderRadius:'var(--radius)',
                   border:`1.5px solid ${type===t ? 'var(--accent)' : 'var(--border2)'}`,
                   background: type===t ? 'var(--accent-dim)' : 'var(--bg2)',
-                  cursor:'pointer', transition:'all 0.15s'
+                  cursor:'pointer', transition:'all 0.15s',
+                  display:'flex', alignItems:'center', gap:12,
                 }}>
-                <div style={{ fontSize:32, marginBottom:8 }}>{t==='singles'?'🏸':'🏸🏸'}</div>
-                <div style={{ fontWeight:500, fontSize:16, color: type===t ? 'var(--accent)' : 'var(--text)', textTransform:'capitalize' }}>{t}</div>
-                <div style={{ fontSize:13, color:'var(--text2)', marginTop:2 }}>
-                  {t==='singles' ? '1 player vs 1 player' : '2 players vs 2 players'}
+                <div style={{ flex:1 }}>
+                  <div style={{ fontWeight:600, fontSize:16, color: type===t ? 'var(--accent)' : 'var(--text)', textTransform:'capitalize' }}>{t}</div>
+                  <div style={{ fontSize:13, color:'var(--text2)', marginTop:2 }}>
+                    {t==='singles' ? '1 vs 1' : '2 vs 2'}
+                  </div>
                 </div>
+                {type===t && <div style={{ width:20, height:20, borderRadius:'50%', background:'var(--accent)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                  <span style={{ color:'#fff', fontSize:12, fontWeight:700 }}>✓</span>
+                </div>}
               </div>
             ))}
           </div>
@@ -305,34 +324,75 @@ export default function RecordMatch() {
             )}
           </div>
 
-          {/* ── Available players ── */}
-          {sortedMembers.length > 0 && <>
+          {/* ── Present players ── */}
+          {presentMembers.length > 0 && <>
             <div style={{ fontSize:11, fontWeight:600, textTransform:'uppercase', color:'var(--text3)', letterSpacing:'0.06em', marginBottom:10 }}>
               Tap to add
             </div>
-            <div style={{ display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:8, marginBottom:20 }}>
-              {sortedMembers.map(m => {
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:8, marginBottom:12 }}>
+              {presentMembers.map(m => {
                 const taken = selectedIds.includes(m.id)
+                if (taken) return null
                 return (
                   <button key={m.id}
-                    onClick={() => !taken && handlePlayerTap(m.id)}
-                    disabled={taken}
+                    onClick={() => handlePlayerTap(m.id)}
                     style={{
-                      padding:'12px 6px', borderRadius:'var(--radius-sm)',
-                      border:'1.5px solid transparent', background:'transparent',
+                      padding:'11px 6px', borderRadius:'var(--radius-sm)',
+                      border:'1.5px solid var(--border2)',
+                      background:'var(--bg2)',
                       color:'var(--text)', fontSize:13, fontWeight:500,
-                      cursor: taken ? 'default' : 'pointer',
+                      cursor:'pointer',
                       textAlign:'center', lineHeight:1.3,
                       fontFamily:"'Inter',sans-serif", transition:'all 0.15s',
-                      visibility: taken ? 'hidden' : 'visible',
                     }}>
                     {m.full_name?.split(' ')[0]}
-                    {m.id === user.id && <span style={{ display:'block', fontSize:10, opacity:0.6, marginTop:2 }}>you</span>}
+                    {m.id === user.id && <span style={{ display:'block', fontSize:10, color:'var(--text3)', marginTop:2 }}>you</span>}
                   </button>
                 )
               })}
             </div>
           </>}
+
+          {/* ── Other group members (collapsed) ── */}
+          {otherMembers.length > 0 && (
+            <div style={{ marginBottom:12 }}>
+              <button
+                onClick={() => setShowOtherMembers(p => !p)}
+                style={{
+                  background:'none', border:'none', padding:0, cursor:'pointer',
+                  fontSize:12, color:'var(--accent)', fontWeight:600,
+                  display:'flex', alignItems:'center', gap:4,
+                  marginBottom: showOtherMembers ? 8 : 0,
+                }}>
+                <span style={{ fontSize:10 }}>{showOtherMembers ? '▲' : '▼'}</span>
+                {showOtherMembers ? 'Hide other players' : `Add other players (${otherMembers.filter(m => !selectedIds.includes(m.id)).length})`}
+              </button>
+              {showOtherMembers && (
+                <div style={{ display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:8 }}>
+                  {otherMembers.map(m => {
+                    const taken = selectedIds.includes(m.id)
+                    if (taken) return null
+                    return (
+                      <button key={m.id}
+                        onClick={() => handlePlayerTap(m.id)}
+                        style={{
+                          padding:'11px 6px', borderRadius:'var(--radius-sm)',
+                          border:'1.5px dashed var(--border2)',
+                          background:'var(--bg3)',
+                          color:'var(--text2)', fontSize:13, fontWeight:500,
+                          cursor:'pointer',
+                          textAlign:'center', lineHeight:1.3,
+                          fontFamily:"'Inter',sans-serif", transition:'all 0.15s',
+                        }}>
+                        {m.full_name?.split(' ')[0]}
+                        {m.id === user.id && <span style={{ display:'block', fontSize:10, color:'var(--text3)', marginTop:2 }}>you</span>}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* ── Confirmation toggle ── */}
           <div style={{
@@ -375,6 +435,7 @@ export default function RecordMatch() {
 
       </div>
       {toast && <div className="toast">{toast}</div>}
+      <GroupNav clubId={clubId} isMod={isMod} activeTab="session" />
     </div>
   )
 }

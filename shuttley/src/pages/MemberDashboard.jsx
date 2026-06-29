@@ -4,11 +4,15 @@ import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
 import { generateSchedule } from '../utils/scheduleGenerator'
 import { usePushNotifications } from '../hooks/usePushNotifications'
-import BottomNav from '../components/BottomNav'
+import GroupNav from '../components/GroupNav'
+import GroupWorldHeader from '../components/GroupWorldHeader'
+import Toast from '../components/Toast'
+import { useConfirm } from '../hooks/useConfirm'
+import { DashboardSkeleton } from '../components/Skeleton'
 
 export default function MemberDashboard() {
   const { clubId } = useParams()
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -19,7 +23,9 @@ export default function MemberDashboard() {
   const [membership, setMembership] = useState(null)
   const [loading, setLoading] = useState(true)
   const [toast, setToast] = useState('')
-  const [tab, setTab] = useState(searchParams.get('tab') || 'home')
+  const [confirmDialog, confirmModal] = useConfirm()
+  const [tab, setTab] = useState(searchParams.get('tab') || 'session')
+  const [sessions, setSessions] = useState([])
   const [membersExpanded, setMembersExpanded] = useState(true)
   const [guestsExpanded, setGuestsExpanded] = useState(false)
   const [showStartModal, setShowStartModal] = useState(false)
@@ -33,6 +39,8 @@ export default function MemberDashboard() {
   const [tileOpacity, setTileOpacity] = useState({ history:1, leaders:1, stats:1, polls:1, splits:1 })
   const tileTimers   = useRef({})
   const tileTransMs  = useRef({ history:2000, leaders:2000, stats:2000, polls:2000, splits:2000 })
+  // Capture before window.history.replaceState clears location state
+  const openPollIdRef = useRef(location.state?.openPollId)
   const [activePolls, setActivePolls] = useState([])
   const [myPollResponses, setMyPollResponses] = useState({})
   const [expandedPolls, setExpandedPolls] = useState({})
@@ -47,7 +55,10 @@ export default function MemberDashboard() {
   const [pollNotes, setPollNotes] = useState('')
   const [creatingPoll, setCreatingPoll] = useState(false)
   const { sendPush, subscribe } = usePushNotifications()
-  const [notifStatus, setNotifStatus] = useState(Notification.permission)
+  const [notifStatus, setNotifStatus] = useState(() =>
+    Notification.permission === 'granted' || localStorage.getItem('push_subscribed') === '1'
+      ? 'granted' : Notification.permission
+  )
   const [showNotifModal, setShowNotifModal] = useState(false)
   const [clubFeatures, setClubFeatures] = useState([])
   const [splitsItems, setSplitsItems] = useState([{ line1: 'Track expenses', line2: 'Split & settle up' }])
@@ -58,12 +69,33 @@ export default function MemberDashboard() {
   }
 
   useEffect(() => {
-    const t = location.state?.tab || searchParams.get('tab') || 'home'
+    const t = location.state?.tab || searchParams.get('tab') || 'session'
     setTab(t)
     setSearchParams({ tab: t }, { replace: true })
     window.history.replaceState({}, '')
     fetchData()
   }, [clubId, user])
+
+  // Sync tab when GroupNav changes ?tab= param on the same route
+  useEffect(() => {
+    const t = searchParams.get('tab')
+    if (t) setTab(t)
+  }, [searchParams])
+
+  // Handle navigation from Home: expand a specific poll
+  useEffect(() => {
+    if (activePolls.length === 0) return
+    if (openPollIdRef.current) {
+      const pollId = openPollIdRef.current
+      openPollIdRef.current = null // fire once
+      setExpandedPolls(prev => ({ ...prev, [pollId]: true }))
+      setTab('polls')
+      setSearchParams({ tab: 'polls' }, { replace: true })
+      setTimeout(() => {
+        document.querySelector(`[data-poll-id="${pollId}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }, 150)
+    }
+  }, [activePolls.length])
 
   useEffect(() => {
     if (loading) return  // eslint-disable-line
@@ -139,11 +171,11 @@ export default function MemberDashboard() {
   async function fetchData() {
     try {
     setClubFeatures([])
-    const { data: clubData } = await supabase.from('clubs').select('*').eq('id', clubId).single()
+    const [{ data: clubData }, { data: mem }] = await Promise.all([
+      supabase.from('clubs').select('*').eq('id', clubId).single(),
+      supabase.from('memberships').select('*').eq('club_id', clubId).eq('user_id', user.id).single(),
+    ])
     setClub(clubData)
-
-    const { data: mem } = await supabase.from('memberships').select('*')
-      .eq('club_id', clubId).eq('user_id', user.id).single()
     setMembership(mem)
 
     if (mem?.role === 'moderator' && mem?.status === 'approved') {
@@ -151,16 +183,34 @@ export default function MemberDashboard() {
       return
     }
 
-    const { data: mems } = await supabase
-      .from('memberships').select('*, profiles(*)').eq('club_id', clubId)
-      .order('joined_at', { ascending: false })
+    const today = new Date().toISOString().split('T')[0]
+
+    // Independent reads — fetched in parallel instead of one-by-one.
+    const [
+      { data: mems },
+      { data: matchData },
+      { data: session },
+      { data: winMatches },
+      { count: sCount },
+      { data: sessDetail },
+      { data: pollData },
+      { data: featuresData },
+    ] = await Promise.all([
+      supabase.from('memberships').select('*, profiles(*)').eq('club_id', clubId).order('joined_at', { ascending: false }),
+      mem?.status === 'approved'
+        ? supabase.from('matches').select('*, match_players(user_id, side, profiles(full_name))').eq('club_id', clubId).eq('status', 'pending')
+        : Promise.resolve({ data: null }),
+      supabase.from('sessions').select('*').eq('club_id', clubId).eq('status', 'active').maybeSingle(),
+      supabase.from('matches').select('winner_side, team1_score, team2_score, played_at, match_players(user_id, side, profiles(full_name))').eq('club_id', clubId).eq('status', 'confirmed'),
+      supabase.from('sessions').select('*', { count: 'exact', head: true }).eq('club_id', clubId),
+      supabase.from('sessions').select('id, name, status, started_at, ended_at, rotation_player_ids').eq('club_id', clubId).order('started_at', { ascending: false }),
+      supabase.from('session_polls').select('*, poll_responses(*)').eq('club_id', clubId).eq('status', 'open').or(`session_date.gte.${today},session_date.is.null`).order('session_date', { ascending: true, nullsFirst: false }),
+      supabase.from('club_features').select('*').eq('club_id', clubId),
+    ])
+
     setMembers(mems || [])
 
     if (mem?.status === 'approved') {
-      const { data: matchData } = await supabase
-        .from('matches')
-        .select('*, match_players(user_id, side, profiles(full_name))')
-        .eq('club_id', clubId).eq('status', 'pending')
       const toConfirm = (matchData || []).filter(match => {
         const isPlayer = match.match_players?.some(p => p.user_id === user.id)
         const isRecorder = match.recorded_by === user.id
@@ -169,14 +219,9 @@ export default function MemberDashboard() {
       setPendingMatches(toConfirm)
     }
 
-    const { data: session } = await supabase
-      .from('sessions').select('*').eq('club_id', clubId).eq('status', 'active').maybeSingle()
     setActiveSession(session || null)
+    setSessions((sessDetail || []).filter(s => s.status === 'ended'))
 
-    const { data: winMatches } = await supabase
-      .from('matches')
-      .select('winner_side, team1_score, team2_score, played_at, match_players(user_id, side, profiles(full_name))')
-      .eq('club_id', clubId).eq('status', 'confirmed')
     const wm = winMatches || []
     setMatchCount(wm.length)
 
@@ -272,10 +317,6 @@ export default function MemberDashboard() {
     const bestPartner = Object.entries(partnerCount).sort((a,b) => b[1]-a[1])[0]?.[0] || null
 
     // Sessions detail
-    const { count: sCount } = await supabase.from('sessions').select('*', { count:'exact', head:true }).eq('club_id', clubId)
-    const { data: sessDetail } = await supabase
-      .from('sessions').select('started_at, rotation_player_ids')
-      .eq('club_id', clubId).order('started_at', { ascending: false })
     const sd = sessDetail || []
     const lastSessionDate = sd[0] ? new Date(sd[0].started_at).toLocaleDateString('en-AU', { day:'numeric', month:'short' }) : null
     const moCount = {}
@@ -310,14 +351,6 @@ export default function MemberDashboard() {
     })
 
     // Active polls — only today or future (auto-expire by session date)
-    const today = new Date().toISOString().split('T')[0]
-    const { data: pollData } = await supabase
-      .from('session_polls')
-      .select('*, poll_responses(*)')
-      .eq('club_id', clubId)
-      .eq('status', 'open')
-      .gte('session_date', today)
-      .order('session_date', { ascending: true })
     const pd = pollData || []
     setActivePolls(pd)
     const myRespMap = {}
@@ -327,7 +360,6 @@ export default function MemberDashboard() {
     })
     setMyPollResponses(myRespMap)
 
-    const { data: featuresData } = await supabase.from('club_features').select('*').eq('club_id', clubId)
     setClubFeatures(featuresData || [])
 
     // Splits balance for live tile
@@ -402,14 +434,14 @@ export default function MemberDashboard() {
     const { data: existing } = await supabase
       .from('sessions').select('id, name').eq('club_id', clubId).eq('status', 'active').maybeSingle()
     if (existing) {
-      alert(`"${existing.name}" is still active. End it before starting a new session.`)
+      showToast(`"${existing.name}" is still active. End it before starting a new session.`)
       setShowStartModal(false); fetchData(); return
     }
 
     if (sessionMode === 'rotation') {
       const minPlayers = modalMatchType === 'doubles' ? 4 : 2
       if (selectedPlayerIds.length < minPlayers) {
-        alert(`Need at least ${minPlayers} players for ${modalMatchType}`); return
+        showToast(`Need at least ${minPlayers} players for ${modalMatchType}`); return
       }
     }
 
@@ -421,14 +453,20 @@ export default function MemberDashboard() {
       match_type: modalMatchType,
       rotation_player_ids: sessionMode === 'rotation' ? selectedPlayerIds : []
     }).select().single()
-    if (error) { alert('Error: ' + error.message); return }
+    if (error) { showToast('Error: ' + error.message); return }
 
     if (sessionMode === 'rotation') {
       const schedule = generateSchedule(selectedPlayerIds, modalMatchType)
       if (schedule.length > 0) {
-        await supabase.from('rotation_matches').insert(
+        const { error: rmError } = await supabase.from('rotation_matches').insert(
           schedule.map((m, i) => ({ ...m, session_id: sess.id, club_id: clubId, seq: i + 1, status: 'pending' }))
         )
+        if (rmError) {
+          await supabase.from('sessions').delete().eq('id', sess.id)
+          showToast('Could not generate schedule — session not started: ' + rmError.message)
+          fetchData()
+          return
+        }
       }
     }
 
@@ -441,7 +479,7 @@ export default function MemberDashboard() {
     const sessionPending = pendingMatches.filter(m => m.session_id === activeSession.id)
     if (sessionPending.length > 0) {
       const word = sessionPending.length === 1 ? '1 match is' : `${sessionPending.length} matches are`
-      if (!confirm(`${word} still pending. End session anyway?`)) return
+      if (!(await confirmDialog(`${word} still pending. End session anyway?`))) return
     }
     const { error } = await supabase
       .from('sessions')
@@ -487,7 +525,7 @@ export default function MemberDashboard() {
   }
 
   async function deletePoll(pollId) {
-    if (!window.confirm('Are you sure you want to delete this poll? This cannot be undone.')) return
+    if (!(await confirmDialog('Are you sure you want to delete this poll? This cannot be undone.'))) return
     const { error } = await supabase.from('session_polls').delete().eq('id', pollId)
     if (error) { showToast('Error deleting poll'); return }
     showToast('Poll deleted')
@@ -542,25 +580,142 @@ export default function MemberDashboard() {
     fetchData()
   }
 
-  if (loading) return <div className="splash"><div className="splash-logo">S</div></div>
+  if (loading) return <DashboardSkeleton />
 
   const approved = members.filter(m => m.status === 'approved')
+
+  const firstName = profile?.full_name?.split(' ')[0] || ''
 
   return (
     <div className="page">
       {/* Top nav */}
       <div className="topnav">
-        <div style={{ width:64 }} />
-        <div style={{ textAlign:'center' }}>
-          <div style={{ fontFamily:"'Plus Jakarta Sans',sans-serif", fontSize:17, fontWeight:600 }}>{club?.name}</div>
-          <div style={{ fontSize:11, color:'var(--text3)', fontWeight:500 }}>Member</div>
-        </div>
-        <div style={{ width:64 }} />
+        <GroupWorldHeader clubId={clubId} groupName={club?.name} isMod={false} activeTab={tab} />
       </div>
 
       <div className="content">
 
-        {/* ── HOME ── */}
+        {/* ── SESSION ── */}
+        {tab === 'session' && <>
+
+          {membership?.status === 'pending' && (
+            <div style={{ textAlign:'center', padding:'60px 0' }}>
+              <div style={{ fontSize:48, marginBottom:20 }}>⏳</div>
+              <h2 style={{ fontSize:24, marginBottom:10 }}>Pending approval</h2>
+              <p style={{ color:'var(--text2)', fontSize:14, lineHeight:1.6 }}>
+                Your request to join <strong>{club?.name}</strong> is waiting for the moderator to approve you.
+              </p>
+            </div>
+          )}
+
+          {membership?.status === 'rejected' && (
+            <div style={{ textAlign:'center', padding:'60px 0' }}>
+              <div style={{ fontSize:48, marginBottom:20 }}>❌</div>
+              <h2 style={{ fontSize:24, marginBottom:10 }}>Request declined</h2>
+              <p style={{ color:'var(--text2)', fontSize:14 }}>Your request to join was not approved.</p>
+              <button className="btn btn-ghost" style={{ marginTop:24 }} onClick={() => navigate('/')}>Go back home</button>
+            </div>
+          )}
+
+          {membership?.status === 'approved' && <>
+
+            {/* Pending match confirmations */}
+            {pendingMatches.length > 0 && (
+              <div style={{
+                background:'rgba(255,200,50,0.07)', border:'1px solid rgba(255,200,50,0.3)',
+                borderRadius:'var(--radius)', padding:'14px 16px', marginBottom:16,
+              }}>
+                <div style={{ fontSize:11, color:'#ffc832', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:10 }}>
+                  ⏳ {pendingMatches.length} match{pendingMatches.length !== 1 ? 'es' : ''} awaiting your confirmation
+                </div>
+                {pendingMatches.slice(0, 1).map(match => {
+                  const team1Won = match.winner_side === 'team1'
+                  return (
+                    <div key={match.id}>
+                      <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10 }}>
+                        <div style={{ flex:1, fontSize:13, fontWeight: team1Won ? 600 : 400 }}>{getTeamNames(match, 'team1')}</div>
+                        <div style={{ fontFamily:'monospace', fontSize:18, fontWeight:700, color:'var(--text)' }}>{match.team1_score}–{match.team2_score}</div>
+                        <div style={{ flex:1, textAlign:'right', fontSize:13, fontWeight: !team1Won ? 600 : 400 }}>{getTeamNames(match, 'team2')}</div>
+                      </div>
+                      <div style={{ display:'flex', gap:8 }}>
+                        <button className="btn btn-primary btn-sm" style={{ flex:1 }} onClick={() => confirmMatch(match.id)}>✔ Confirm</button>
+                        <button className="btn btn-danger btn-sm" style={{ flex:1 }} onClick={() => disputeMatch(match.id)}>✕ Dispute</button>
+                      </div>
+                    </div>
+                  )
+                })}
+                {pendingMatches.length > 1 && (
+                  <div style={{ fontSize:12, color:'var(--text3)', marginTop:8, textAlign:'center' }}>
+                    +{pendingMatches.length - 1} more pending
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Session hero */}
+            {activeSession ? (
+              <div style={{ background:'var(--accent)', borderRadius:'var(--radius)', padding:'20px', marginBottom:16, color:'#fff' }}>
+                <div style={{ fontSize:11, fontWeight:700, opacity:0.7, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:6 }}>● Session in Progress</div>
+                <div style={{ fontSize:22, fontWeight:700, marginBottom:4, fontFamily:"'Plus Jakarta Sans',sans-serif" }}>{activeSession.name}</div>
+                <div style={{ fontSize:13, opacity:0.75, marginBottom:16, lineHeight:1.4 }}>A session is currently running. Tap to continue.</div>
+                <button
+                  onClick={() => navigate(`/club/${clubId}/session/${activeSession.id}/rotation`)}
+                  style={{ width:'100%', background:'#fff', color:'var(--accent)', border:'none', borderRadius:'var(--radius-sm)', padding:'11px', fontWeight:700, fontSize:14, cursor:'pointer', fontFamily:"'Inter',sans-serif" }}>
+                  Open Current Session →
+                </button>
+              </div>
+            ) : (
+              <div style={{ background:'var(--accent)', borderRadius:'var(--radius)', padding:'20px', marginBottom:16, color:'#fff' }}>
+                <div style={{ fontSize:11, fontWeight:600, opacity:0.65, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:6 }}>Ready to play?</div>
+                <div style={{ fontSize:22, fontWeight:700, marginBottom:6, fontFamily:"'Plus Jakarta Sans',sans-serif" }}>Start a Session</div>
+                <div style={{ fontSize:13, opacity:0.75, marginBottom:16, lineHeight:1.5 }}>Track live matches, scores and court rotations</div>
+                <button
+                  onClick={() => { setSelectedPlayerIds([]); setSessionMode('free'); setModalStep(1); setShowStartModal(true) }}
+                  style={{ width:'100%', background:'#fff', color:'var(--accent)', border:'none', borderRadius:'var(--radius-sm)', padding:'11px', fontWeight:700, fontSize:14, cursor:'pointer', fontFamily:"'Inter',sans-serif" }}>
+                  ▶  Start Session
+                </button>
+              </div>
+            )}
+
+            {/* Past sessions */}
+            {sessions.length > 0 && (
+              <div>
+                <div className="section-label">Past sessions</div>
+                {sessions.slice(0, 8).map(s => (
+                  <div key={s.id} onClick={() => navigate(`/club/${clubId}/session/${s.id}`)}
+                    style={{ display:'flex', alignItems:'center', gap:12, padding:'11px 0', borderBottom:'0.5px solid var(--border)', cursor:'pointer' }}>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontSize:14, fontWeight:500, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{s.name || 'Session'}</div>
+                      <div style={{ fontSize:12, color:'var(--text3)', marginTop:2 }}>
+                        {s.rotation_player_ids?.length > 0 ? `${s.rotation_player_ids.length} players` : '—'}
+                      </div>
+                    </div>
+                    <div style={{ fontSize:12, color:'var(--text3)', flexShrink:0 }}>
+                      {s.ended_at ? new Date(s.ended_at).toLocaleDateString('en-AU', { day:'numeric', month:'short' }) : '—'}
+                    </div>
+                    <span style={{ fontSize:16, color:'var(--text3)', flexShrink:0 }}>›</span>
+                  </div>
+                ))}
+                {sessions.length > 8 && (
+                  <div onClick={() => navigate(`/club/${clubId}/matches?tab=sessions`)}
+                    style={{ fontSize:13, color:'var(--accent)', fontWeight:600, textAlign:'center', padding:'14px 0', cursor:'pointer' }}>
+                    View all {sessions.length} sessions →
+                  </div>
+                )}
+              </div>
+            )}
+
+            {sessions.length === 0 && !activeSession && (
+              <div className="empty">
+                <div className="empty-icon">🏸</div>
+                <p>No past sessions yet.</p>
+              </div>
+            )}
+
+          </>}
+        </>}
+
+        {/* ── HOME (legacy — tiles dashboard) ── */}
         {tab === 'home' && <>
 
           {membership?.status === 'pending' && (
@@ -623,13 +778,14 @@ export default function MemberDashboard() {
                 background:'var(--accent)', borderRadius:'var(--radius)',
                 padding:'20px', marginBottom:16, color:'#fff',
               }}>
-                <div style={{ fontSize:11, fontWeight:700, opacity:0.7, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:6 }}>● Live Session</div>
-                <div style={{ fontSize:22, fontWeight:700, marginBottom:16, fontFamily:"'Plus Jakarta Sans',sans-serif" }}>{activeSession.name}</div>
+                <div style={{ fontSize:11, fontWeight:700, opacity:0.7, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:6 }}>● Session in Progress</div>
+                <div style={{ fontSize:22, fontWeight:700, marginBottom:4, fontFamily:"'Plus Jakarta Sans',sans-serif" }}>{activeSession.name}</div>
+                <div style={{ fontSize:13, opacity:0.75, marginBottom:16, lineHeight:1.4 }}>A session is currently running. Tap to continue.</div>
                 <div style={{ display:'flex', gap:8 }}>
                   <button
                     onClick={() => navigate(`/club/${clubId}/session/${activeSession.id}/rotation`)}
                     style={{ flex:1, background:'#fff', color:'var(--accent)', border:'none', borderRadius:'var(--radius-sm)', padding:'10px', fontWeight:700, fontSize:13, cursor:'pointer', fontFamily:"'Inter',sans-serif" }}>
-                    View Schedule
+                    Open Current Session →
                   </button>
                   <button
                     onClick={endSession}
@@ -730,7 +886,7 @@ export default function MemberDashboard() {
                       const tally = [yes && `${yes} Yes`, no && `${no} No`, maybe && `${maybe} Maybe`].filter(Boolean).join(' · ')
                       return (
                         <div style={{ flex:1, opacity: tileOpacity.polls, transition: `opacity ${tileTransMs.current.polls}ms ease`, textAlign:'center' }}>
-                          <div style={{ fontSize:13, fontWeight:600, color:'var(--text)', lineHeight:1.3 }}>{formatPollDate(poll.session_date)}</div>
+                          <div style={{ fontSize:13, fontWeight:600, color:'var(--text)', lineHeight:1.3 }}>{poll.session_date ? formatPollDate(poll.session_date) : 'Custom poll'}</div>
                           <div style={{ fontSize:11, color:'var(--text3)', marginTop:2, minHeight:15 }}>{tally}</div>
                         </div>
                       )
@@ -763,8 +919,8 @@ export default function MemberDashboard() {
                       style={{ ...tileStyle, animationDelay:'410ms' }}>
                       <div style={{ fontSize:12, fontWeight:700, letterSpacing:'0.06em', textTransform:'uppercase', color:'var(--text)', width:76, flexShrink:0 }}>Chat</div>
                       <div style={{ flex:1, textAlign:'center' }}>
-                        <div style={{ fontSize:13, fontWeight:600, color:'var(--text)', lineHeight:1.3 }}>Club chat</div>
-                        <div style={{ fontSize:11, color:'var(--text3)', marginTop:2, minHeight:15 }}>Message your club</div>
+                        <div style={{ fontSize:13, fontWeight:600, color:'var(--text)', lineHeight:1.3 }}>Group chat</div>
+                        <div style={{ fontSize:11, color:'var(--text3)', marginTop:2, minHeight:15 }}>Message your group</div>
                       </div>
                       <span style={{ fontSize:16, color:'var(--text)', marginLeft:8, flexShrink:0 }}>›</span>
                     </div>
@@ -812,37 +968,83 @@ export default function MemberDashboard() {
             ) : activePolls.map(poll => {
               const responseMap = {}
               poll.poll_responses?.forEach(r => { responseMap[r.user_id] = r.response })
-              const yes   = poll.poll_responses?.filter(r => r.response === 'yes').length   || 0
-              const no    = poll.poll_responses?.filter(r => r.response === 'no').length    || 0
-              const maybe = poll.poll_responses?.filter(r => r.response === 'maybe').length || 0
-              const dateLabel = formatPollDate(poll.session_date)
+              const isCustom = !poll.session_date
+
+              // Parse JSON custom poll notes
+              let parsedCustom = null
+              if (isCustom && poll.notes) {
+                try {
+                  const p = JSON.parse(poll.notes)
+                  if (p.q) parsedCustom = { question: p.q, options: Array.isArray(p.opts) && p.opts.length >= 2 ? p.opts : null, note: p.note || null }
+                } catch {}
+                if (!parsedCustom) {
+                  const parts = poll.notes.split('\n')
+                  parsedCustom = { question: parts[0], options: null, note: parts.slice(1).join('\n') || null }
+                }
+              }
+
+              const hasCustomOpts = !!parsedCustom?.options
+              const dateLabel = isCustom ? null : formatPollDate(poll.session_date)
               const myResp = myPollResponses[poll.id]
               const regularMembers = approved.filter(m => !m.is_guest)
               const pendingCount = regularMembers.filter(m => !responseMap[m.user_id]).length
               const isExpanded = !!expandedPolls[poll.id]
+
+              const yes   = poll.poll_responses?.filter(r => r.response === 'yes').length   || 0
+              const no    = poll.poll_responses?.filter(r => r.response === 'no').length    || 0
+              const maybe = poll.poll_responses?.filter(r => r.response === 'maybe').length || 0
+              const optionCounts = hasCustomOpts
+                ? Object.fromEntries(parsedCustom.options.map(opt => [
+                    opt, poll.poll_responses?.filter(r => r.response === opt).length || 0
+                  ]))
+                : null
+
               return (
-                <div key={poll.id} style={{
+                <div key={poll.id} data-poll-id={poll.id} style={{
                   background:'var(--bg2)', border:'1px solid var(--border)',
-                  borderLeft:'4px solid #b04400',
+                  borderLeft:`4px solid ${isCustom ? 'var(--accent)' : '#b04400'}`,
                   borderRadius:'var(--radius)', marginBottom:10, overflow:'hidden',
                 }}>
-                  {/* ── Collapsed header (always visible, tap to expand) ── */}
+                  {/* ── Collapsed header ── */}
                   <div onClick={() => setExpandedPolls(prev => ({ ...prev, [poll.id]: !prev[poll.id] }))}
                     style={{ padding:'13px 14px', cursor:'pointer', display:'flex', alignItems:'flex-start', gap:8 }}>
                     <div style={{ flex:1 }}>
-                      <div style={{ fontSize:14, fontWeight:700, marginBottom: poll.session_time ? 2 : 7 }}>
-                        Coming {dateLabel}?
-                      </div>
-                      {poll.session_time && (
-                        <div style={{ fontSize:12, color:'var(--text2)', marginBottom: poll.notes ? 2 : 7 }}>{poll.session_time}</div>
-                      )}
-                      {poll.notes && (
-                        <div style={{ fontSize:11, color:'var(--text3)', marginBottom:7 }}>{poll.notes}</div>
+                      {isCustom ? (
+                        <>
+                          <div style={{ fontSize:14, fontWeight:700, marginBottom: parsedCustom?.note ? 2 : 7 }}>
+                            {parsedCustom?.question || 'Custom Poll'}
+                          </div>
+                          {parsedCustom?.note && (
+                            <div style={{ fontSize:11, color:'var(--text3)', marginBottom:7 }}>{parsedCustom.note}</div>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          <div style={{ fontSize:14, fontWeight:700, marginBottom: poll.session_time ? 2 : 7 }}>
+                            Coming {dateLabel}?
+                          </div>
+                          {poll.session_time && (
+                            <div style={{ fontSize:12, color:'var(--text2)', marginBottom: poll.notes ? 2 : 7 }}>{poll.session_time}</div>
+                          )}
+                          {poll.notes && (
+                            <div style={{ fontSize:11, color:'var(--text3)', marginBottom:7 }}>{poll.notes}</div>
+                          )}
+                        </>
                       )}
                       <div style={{ display:'flex', gap:5, flexWrap:'wrap' }}>
-                        <span style={{ padding:'2px 9px', borderRadius:99, fontSize:11, fontWeight:700, background:'rgba(42,140,85,0.1)', color:'#2a8c55' }}>{yes} Yes</span>
-                        <span style={{ padding:'2px 9px', borderRadius:99, fontSize:11, fontWeight:700, background:'rgba(224,85,85,0.1)', color:'#e05555' }}>{no} No</span>
-                        {maybe > 0 && <span style={{ padding:'2px 9px', borderRadius:99, fontSize:11, fontWeight:700, background:'rgba(255,200,50,0.1)', color:'#a07800' }}>{maybe} Maybe</span>}
+                        {hasCustomOpts ? (
+                          parsedCustom.options.map(opt => (
+                            <span key={opt} style={{ padding:'2px 9px', borderRadius:99, fontSize:11, fontWeight:700, background:'rgba(122,164,196,0.12)', color:'var(--accent)' }}>
+                              {optionCounts[opt]} · {opt}
+                            </span>
+                          ))
+                        ) : (
+                          <>
+                            <span style={{ padding:'2px 9px', borderRadius:99, fontSize:11, fontWeight:700, background:'rgba(42,140,85,0.1)', color:'#2a8c55' }}>{yes} Yes</span>
+                            <span style={{ padding:'2px 9px', borderRadius:99, fontSize:11, fontWeight:700, background:'rgba(224,85,85,0.1)', color:'#e05555' }}>{no} No</span>
+                            {maybe > 0 && <span style={{ padding:'2px 9px', borderRadius:99, fontSize:11, fontWeight:700, background:'rgba(255,200,50,0.1)', color:'#a07800' }}>{maybe} Maybe</span>}
+                          </>
+                        )}
                         {pendingCount > 0 && <span style={{ padding:'2px 9px', borderRadius:99, fontSize:11, fontWeight:600, background:'var(--bg3)', color:'var(--text3)' }}>{pendingCount} Pending</span>}
                       </div>
                     </div>
@@ -852,51 +1054,65 @@ export default function MemberDashboard() {
                   {/* ── Expanded body ── */}
                   {isExpanded && (
                     <div style={{ padding:'12px 14px 16px', borderTop:'0.5px solid var(--border)' }}>
-                      {/* Your response */}
                       <div style={{ fontSize:11, color:'var(--text3)', marginBottom:6, textTransform:'uppercase', fontWeight:700, letterSpacing:'0.07em' }}>
                         {myResp ? 'Update your response' : 'Your response'}
                       </div>
-                      <div style={{ display:'flex', gap:8, marginBottom:16 }}>
-                        {[
-                          { key:'yes',   label:'Yes',   color:'#2a8c55', bg:'rgba(42,140,85,0.1)',  border:'rgba(42,140,85,0.3)'  },
-                          { key:'no',    label:'No',    color:'#e05555', bg:'rgba(224,85,85,0.1)',  border:'rgba(224,85,85,0.3)'  },
-                          { key:'maybe', label:'Maybe', color:'#a07800', bg:'rgba(255,200,50,0.1)', border:'rgba(220,175,20,0.3)' },
-                        ].map(opt => (
-                          <button key={opt.key} onClick={() => updatePollResponse(poll.id, opt.key)} style={{
-                            flex:1, padding:'9px 4px', borderRadius:'var(--radius-sm)',
-                            fontSize:13, fontWeight: myResp === opt.key ? 700 : 500,
-                            cursor:'pointer', fontFamily:"'Inter',sans-serif",
-                            background: myResp === opt.key ? opt.bg : 'transparent',
-                            color: myResp === opt.key ? opt.color : 'var(--text2)',
-                            border: `1.5px solid ${myResp === opt.key ? opt.border : 'var(--border)'}`,
-                            transition:'all 0.15s ease',
-                          }}>{opt.label}</button>
-                        ))}
-                      </div>
+
+                      {hasCustomOpts ? (
+                        <div style={{ display:'flex', flexDirection:'column', gap:6, marginBottom:16 }}>
+                          {parsedCustom.options.map(opt => (
+                            <button key={opt} onClick={() => updatePollResponse(poll.id, opt)} style={{
+                              padding:'9px 14px', borderRadius:'var(--radius-sm)', textAlign:'left',
+                              fontSize:13, fontWeight: myResp === opt ? 700 : 500,
+                              cursor:'pointer', fontFamily:"'Inter',sans-serif",
+                              background: myResp === opt ? 'rgba(122,164,196,0.15)' : 'transparent',
+                              color: myResp === opt ? 'var(--accent)' : 'var(--text2)',
+                              border: `1.5px solid ${myResp === opt ? 'var(--accent)' : 'var(--border)'}`,
+                              display:'flex', alignItems:'center', justifyContent:'space-between',
+                            }}>
+                              <span>{opt}</span>
+                              {myResp === opt && <span style={{ fontSize:11 }}>✓</span>}
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <div style={{ display:'flex', gap:8, marginBottom:16 }}>
+                          {[
+                            { key:'yes',   label:'Yes',   color:'#2a8c55', bg:'rgba(42,140,85,0.1)',  border:'rgba(42,140,85,0.3)'  },
+                            { key:'no',    label:'No',    color:'#e05555', bg:'rgba(224,85,85,0.1)',  border:'rgba(224,85,85,0.3)'  },
+                            { key:'maybe', label:'Maybe', color:'#a07800', bg:'rgba(255,200,50,0.1)', border:'rgba(220,175,20,0.3)' },
+                          ].map(opt => (
+                            <button key={opt.key} onClick={() => updatePollResponse(poll.id, opt.key)} style={{
+                              flex:1, padding:'9px 4px', borderRadius:'var(--radius-sm)',
+                              fontSize:13, fontWeight: myResp === opt.key ? 700 : 500,
+                              cursor:'pointer', fontFamily:"'Inter',sans-serif",
+                              background: myResp === opt.key ? opt.bg : 'transparent',
+                              color: myResp === opt.key ? opt.color : 'var(--text2)',
+                              border: `1.5px solid ${myResp === opt.key ? opt.border : 'var(--border)'}`,
+                            }}>{opt.label}</button>
+                          ))}
+                        </div>
+                      )}
 
                       {/* Grouped responses */}
-                      {[
-                        { key:'yes',   label:'Yes',            color:'#2a8c55', bg:'rgba(42,140,85,0.1)'  },
-                        { key:'no',    label:'No',             color:'#e05555', bg:'rgba(224,85,85,0.1)'  },
-                        { key:'maybe', label:'Maybe',          color:'#a07800', bg:'rgba(255,200,50,0.1)' },
-                        { key:null,    label:"Didn't respond", color:'var(--text3)', bg:'var(--bg3)'       },
-                      ].map(group => {
-                        const groupMembers = regularMembers.filter(m =>
-                          group.key ? responseMap[m.user_id] === group.key : !responseMap[m.user_id]
-                        )
-                        if (groupMembers.length === 0) return null
-                        return (
-                          <div key={group.key || 'none'} style={{ marginBottom:12 }}>
-                            <div style={{
-                              display:'inline-flex', alignItems:'center',
-                              padding:'2px 10px', borderRadius:99, marginBottom:6,
-                              background:group.bg, color:group.color, fontSize:11, fontWeight:700,
-                            }}>
-                              {group.label} · {groupMembers.length}
-                            </div>
-                            {groupMembers.map(m => {
-                              const isMe = m.user_id === user.id
-                              return (
+                      {hasCustomOpts ? (
+                        [...parsedCustom.options, null].map(opt => {
+                          const groupMembers = regularMembers.filter(m =>
+                            opt ? responseMap[m.user_id] === opt : !responseMap[m.user_id]
+                          )
+                          if (groupMembers.length === 0) return null
+                          return (
+                            <div key={opt || 'none'} style={{ marginBottom:12 }}>
+                              <div style={{
+                                display:'inline-flex', alignItems:'center',
+                                padding:'2px 10px', borderRadius:99, marginBottom:6,
+                                background: opt ? 'rgba(122,164,196,0.12)' : 'var(--bg3)',
+                                color: opt ? 'var(--accent)' : 'var(--text3)',
+                                fontSize:11, fontWeight:700,
+                              }}>
+                                {opt || "Didn't respond"} · {groupMembers.length}
+                              </div>
+                              {groupMembers.map(m => (
                                 <div key={m.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'6px 4px', borderBottom:'0.5px solid var(--border)' }}>
                                   <div style={{ width:26, height:26, borderRadius:'50%', flexShrink:0, background:'var(--bg3)', overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:600, color:'var(--accent)' }}>
                                     {m.profiles?.avatar_url
@@ -905,16 +1121,51 @@ export default function MemberDashboard() {
                                   </div>
                                   <div style={{ flex:1, fontSize:13, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
                                     {m.profiles?.full_name}
-                                    {isMe && <span style={{ fontSize:11, color:'var(--accent)', marginLeft:4 }}>· you</span>}
+                                    {m.user_id === user.id && <span style={{ fontSize:11, color:'var(--accent)', marginLeft:4 }}>· you</span>}
                                   </div>
                                 </div>
-                              )
-                            })}
-                          </div>
-                        )
-                      })}
+                              ))}
+                            </div>
+                          )
+                        })
+                      ) : (
+                        [
+                          { key:'yes',   label:'Yes',            color:'#2a8c55', bg:'rgba(42,140,85,0.1)'  },
+                          { key:'no',    label:'No',             color:'#e05555', bg:'rgba(224,85,85,0.1)'  },
+                          { key:'maybe', label:'Maybe',          color:'#a07800', bg:'rgba(255,200,50,0.1)' },
+                          { key:null,    label:"Didn't respond", color:'var(--text3)', bg:'var(--bg3)'       },
+                        ].map(group => {
+                          const groupMembers = regularMembers.filter(m =>
+                            group.key ? responseMap[m.user_id] === group.key : !responseMap[m.user_id]
+                          )
+                          if (groupMembers.length === 0) return null
+                          return (
+                            <div key={group.key || 'none'} style={{ marginBottom:12 }}>
+                              <div style={{
+                                display:'inline-flex', alignItems:'center',
+                                padding:'2px 10px', borderRadius:99, marginBottom:6,
+                                background:group.bg, color:group.color, fontSize:11, fontWeight:700,
+                              }}>
+                                {group.label} · {groupMembers.length}
+                              </div>
+                              {groupMembers.map(m => (
+                                <div key={m.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'6px 4px', borderBottom:'0.5px solid var(--border)' }}>
+                                  <div style={{ width:26, height:26, borderRadius:'50%', flexShrink:0, background:'var(--bg3)', overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:600, color:'var(--accent)' }}>
+                                    {m.profiles?.avatar_url
+                                      ? <img src={m.profiles.avatar_url} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+                                      : (m.profiles?.full_name||'?')[0]}
+                                  </div>
+                                  <div style={{ flex:1, fontSize:13, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+                                    {m.profiles?.full_name}
+                                    {m.user_id === user.id && <span style={{ fontSize:11, color:'var(--accent)', marginLeft:4 }}>· you</span>}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )
+                        })
+                      )}
 
-                      {/* Delete poll — only visible to the creator */}
                       {poll.created_by === user.id && (
                         <button onClick={() => deletePoll(poll.id)} style={{
                           marginTop:4, width:'100%', padding:'9px',
@@ -990,9 +1241,51 @@ export default function MemberDashboard() {
             </>
           })()}
 
+        {/* ── MORE ── */}
+        {tab === 'more' && (
+          <div>
+            <div className="section-label">Group</div>
+            <div onClick={() => changeTab('members')} style={{
+              display: 'flex', alignItems: 'center', gap: 12,
+              background: 'var(--bg2)', border: '0.5px solid var(--border)',
+              borderRadius: 'var(--radius)', padding: '14px 16px', marginBottom: 8,
+              cursor: 'pointer',
+            }}>
+              <span style={{ flex: 1, fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>Members</span>
+              <span style={{ fontSize: 18, color: 'var(--text3)' }}>›</span>
+            </div>
+
+            <div style={{ marginTop: 24 }}>
+              <button
+                onClick={async () => {
+                  const ok = await confirmDialog('Leave this group?')
+                  if (!ok) return
+                  const myMem = members.find(m => m.user_id === user.id)
+                  if (myMem) {
+                    await supabase.from('memberships').delete().eq('id', myMem.id)
+                  }
+                  navigate('/groups')
+                }}
+                style={{
+                  width: '100%', padding: '13px',
+                  background: 'transparent', border: '1px solid rgba(224,85,85,0.3)',
+                  borderRadius: 'var(--radius)', color: '#e05555',
+                  fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: "'Inter',sans-serif",
+                }}>
+                Leave Group
+              </button>
+            </div>
+          </div>
+        )}
+
       </div>
 
-      <BottomNav clubId={clubId} activeTab="home" />
+      <GroupNav clubId={clubId} isMod={false} activeTab={
+        tab === 'polls'                          ? 'polls'
+        : tab === 'more' || tab === 'members'    ? 'more'
+        : tab === 'session' || tab === 'home'    ? 'session'
+        : 'session'
+      } />
 
       {/* Start session modal */}
       {showStartModal && (
@@ -1116,7 +1409,8 @@ export default function MemberDashboard() {
         </div>
       )}
 
-      {toast && <div className="toast">{toast}</div>}
+      <Toast message={toast} />
+      {confirmModal}
 
       {/* ── Notification permission modal ── */}
       {showNotifModal && (
@@ -1139,7 +1433,7 @@ export default function MemberDashboard() {
               onClick={async () => {
                 setShowNotifModal(false)
                 const ok = await subscribe(user.id)
-                setNotifStatus(Notification.permission)
+                setNotifStatus(ok ? 'granted' : Notification.permission)
                 if (ok) showToast('🔔 Notifications enabled!')
               }}>
               Enable Notifications
