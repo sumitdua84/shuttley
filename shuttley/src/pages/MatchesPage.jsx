@@ -7,6 +7,8 @@ import GroupWorldHeader from '../components/GroupWorldHeader'
 import Toast from '../components/Toast'
 import { useConfirm } from '../hooks/useConfirm'
 
+const getMatchType = m => m.match_type || m.type || 'doubles'
+
 export default function MatchesPage() {
   const { clubId } = useParams()
   const { user } = useAuth()
@@ -202,7 +204,7 @@ export default function MatchesPage() {
       if (streakType === null) { streakType = won ? 'W' : 'L'; streak = 1 }
       else if ((won && streakType === 'W') || (!won && streakType === 'L')) streak++
 
-      if (match.match_type === 'doubles') { if (won) doublesWins++; else doublesLosses++ }
+      if (getMatchType(match) === 'doubles') { if (won) doublesWins++; else doublesLosses++ }
       else { if (won) singlesWins++; else singlesLosses++ }
 
       // Margin stats
@@ -229,7 +231,7 @@ export default function MatchesPage() {
         else opponents[p.user_id].losses++
       })
 
-      if (match.match_type === 'doubles') {
+      if (getMatchType(match) === 'doubles') {
         match.match_players?.filter(p => p.side === myTeam && p.user_id !== playerId).forEach(p => {
           if (!partners[p.user_id]) partners[p.user_id] = { name: p.profiles?.full_name, wins: 0, losses: 0 }
           if (won) partners[p.user_id].wins++
@@ -303,7 +305,7 @@ export default function MatchesPage() {
 
   function calcPartnerships() {
     const pairs = {}
-    confirmedMatches.filter(m => m.match_type === 'doubles').forEach(match => {
+    confirmedMatches.filter(m => getMatchType(m) === 'doubles').forEach(match => {
       ['team1', 'team2'].forEach(side => {
         const sideTeam = getTeam(match, side)
         if (sideTeam.length !== 2) return
@@ -762,7 +764,7 @@ export default function MatchesPage() {
 
               // Session pairings (min 2 matches together)
               const sessPairsMap = {}
-              sessionConfirmed.filter(m => m.match_type === 'doubles').forEach(match => {
+              sessionConfirmed.filter(m => getMatchType(m) === 'doubles').forEach(match => {
                 ['team1','team2'].forEach(side => {
                   const sideTeam = getTeam(match, side)
                   if (sideTeam.length !== 2) return
