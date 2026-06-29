@@ -438,15 +438,14 @@ export default function HomePage() {
           {(liveSessions.length > 0 || upcomingPolls.length > 0) && (
             <div style={{ marginBottom: 24 }}>
               <div className="section-label">Sessions</div>
-              <div style={{
-                background: 'var(--bg2)', border: '0.5px solid var(--border)',
-                borderLeft: '3px solid var(--accent)', borderRadius: 'var(--radius)',
-                overflow: 'hidden',
-              }}>
-                {sessionClubGroups.map((group, groupIdx) => {
-                  const isLastGroup = groupIdx === sessionClubGroups.length - 1
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {sessionClubGroups.map((group) => {
                   return (
-                    <div key={group.clubId}>
+                    <div key={group.clubId} style={{
+                      background: 'var(--bg2)', border: '0.5px solid var(--border)',
+                      borderLeft: '3px solid var(--accent)', borderRadius: 'var(--radius)',
+                      overflow: 'hidden',
+                    }}>
                       {/* Active session — group name lives inside the teal block */}
                       {group.liveSession && (
                         <>
@@ -594,7 +593,6 @@ export default function HomePage() {
                         )
                       })}
 
-                      {!isLastGroup && <div style={{ borderTop: '0.5px solid var(--border)' }} />}
                     </div>
                   )
                 })}
