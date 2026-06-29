@@ -162,10 +162,18 @@ export default function MatchesPage() {
 
     return Object.values(stats)
       .sort((a, b) => {
+        const aTotal = a.wins + a.losses
+        const bTotal = b.wins + b.losses
+        const aRanked = aTotal >= 10
+        const bRanked = bTotal >= 10
+        if (aRanked !== bRanked) return aRanked ? -1 : 1
+        if (aTotal === 0 && bTotal === 0) return (a.name || '').localeCompare(b.name || '')
+        const aRate = aTotal > 0 ? a.wins / aTotal : 0
+        const bRate = bTotal > 0 ? b.wins / bTotal : 0
+        if (Math.abs(bRate - aRate) > 0.0001) return bRate - aRate
+        if (bTotal !== aTotal) return bTotal - aTotal
         if (b.wins !== a.wins) return b.wins - a.wins
-        const aRate = a.wins + a.losses > 0 ? a.wins / (a.wins + a.losses) : 0
-        const bRate = b.wins + b.losses > 0 ? b.wins / (b.wins + b.losses) : 0
-        return bRate - aRate
+        return (a.name || '').localeCompare(b.name || '')
       })
   }
 
@@ -476,7 +484,8 @@ export default function MatchesPage() {
               const s = selectedPlayer ? getPlayerStats(selectedPlayer) : null
               const rate = s && s.total > 0 ? Math.round(s.wins / s.total * 100) : 0
               const playerName = properCase(members.find(m => m.id === selectedPlayer)?.full_name || '')
-              const rankedPlayers = leaderboard.filter(p => p.wins + p.losses > 0)
+              const rankedPlayers = leaderboard.filter(p => p.wins + p.losses >= 10)
+              const allPlayedPlayers = leaderboard.filter(p => p.wins + p.losses > 0)
               const rank = rankedPlayers.findIndex(p => p.id === selectedPlayer)
 
               const StatMini = ({ label, value, sub, color='var(--accent)' }) => (
@@ -505,7 +514,7 @@ export default function MatchesPage() {
                             {selectedPlayer === user.id && <span style={{ fontSize:11, color:'var(--accent)', marginLeft:8, fontWeight:600 }}>You</span>}
                           </div>
                           <div style={{ fontSize:12, color:'var(--text3)', marginTop:2 }}>
-                            {rank >= 0 ? `#${rank+1} of ${rankedPlayers.length} / ` : ''}{s.total} match{s.total !== 1 ? 'es' : ''}
+                            {rank >= 0 ? `#${rank+1} of ${rankedPlayers.length} · ` : s.total > 0 && s.total < 10 ? `Unranked · ` : ''}{s.total} match{s.total !== 1 ? 'es' : ''}
                           </div>
                         </div>
                         <div style={{ textAlign:'right', flexShrink:0 }}>
@@ -571,15 +580,17 @@ export default function MatchesPage() {
                   )}
 
                   {/*  Player Rankings  */}
-                  {rankedPlayers.length > 0 && (
+                  {allPlayedPlayers.length > 0 && (
                     <div style={{ background:'var(--bg2)', border:'0.5px solid var(--border)', borderRadius:'var(--radius)', marginBottom:10, overflow:'hidden' }}>
                       <div style={{ padding:'12px 14px 8px', borderBottom:'0.5px solid var(--border)' }}>
                         <div style={{ fontSize:11, fontWeight:700, color:'var(--text3)', textTransform:'uppercase', letterSpacing:'0.07em' }}>Player Rankings</div>
                       </div>
-                      {rankedPlayers.map((p, i) => {
+                      {allPlayedPlayers.map((p) => {
                         const isSelected = p.id === selectedPlayer
                         const total = p.wins + p.losses
-                        const pct = Math.round(p.wins / total * 100)
+                        const isRanked = total >= 10
+                        const rankIdx = isRanked ? rankedPlayers.findIndex(r => r.id === p.id) : -1
+                        const pct = total > 0 ? Math.round(p.wins / total * 100) : 0
                         const medals = ['1st','2nd','3rd']
                         return (
                           <div key={p.id} onClick={() => setSelectedPlayer(p.id)} style={{
@@ -587,17 +598,17 @@ export default function MatchesPage() {
                             background: isSelected ? 'var(--accent-dim)' : 'none',
                             borderBottom:'0.5px solid var(--border)', cursor:'pointer',
                           }}>
-                            <div style={{ width:22, textAlign:'center', flexShrink:0, fontSize: i < 3 ? 15 : 12, color: i >= 3 ? 'var(--text3)' : 'inherit', fontWeight: i >= 3 ? 600 : 'inherit' }}>
-                              {i < 3 ? medals[i] : `#${i+1}`}
+                            <div style={{ width:22, textAlign:'center', flexShrink:0, fontSize: isRanked && rankIdx < 3 ? 15 : 12, color: !isRanked || rankIdx >= 3 ? 'var(--text3)' : 'inherit', fontWeight: !isRanked || rankIdx >= 3 ? 600 : 'inherit' }}>
+                              {isRanked ? (rankIdx < 3 ? medals[rankIdx] : `#${rankIdx+1}`) : '—'}
                             </div>
-                            <div style={{ flex:1, fontSize:13, fontWeight: isSelected ? 700 : 500, color: isSelected ? 'var(--accent)' : 'var(--text)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                            <div style={{ flex:1, fontSize:13, fontWeight: isSelected ? 700 : 500, color: isSelected ? 'var(--accent)' : isRanked ? 'var(--text)' : 'var(--text3)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                               {properCase(p.name)}{p.streakType === 'W' && p.streak >= 3 ? ' ' : ''}
                             </div>
                             <div style={{ fontSize:12, color:'var(--text2)', whiteSpace:'nowrap', flexShrink:0 }}>
                               {p.wins}W / {p.losses}L
                             </div>
                             <div style={{ width:38, textAlign:'right', flexShrink:0 }}>
-                              <span style={{ fontSize:13, fontWeight:700, color: pct >= 50 ? 'var(--accent)' : '#ff5c5c' }}>{pct}%</span>
+                              <span style={{ fontSize:13, fontWeight:700, color: isRanked ? (pct >= 50 ? 'var(--accent)' : '#ff5c5c') : 'var(--text3)' }}>{pct}%</span>
                             </div>
                           </div>
                         )

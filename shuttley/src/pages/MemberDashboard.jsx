@@ -302,7 +302,12 @@ export default function MemberDashboard() {
     // Personal stats
     const myPS = ps[user.id] || { wins: 0, total: 0 }
     const myWinRate = myPS.total > 0 ? Math.round(myPS.wins / myPS.total * 100) : null
-    const ranked = Object.entries(ps).filter(([,p]) => p.total >= 3).sort((a,b) => b[1].wins - a[1].wins)
+    const ranked = Object.entries(ps).filter(([,p]) => p.total >= 10).sort((a,b) => {
+      const aRate = a[1].total > 0 ? a[1].wins / a[1].total : 0
+      const bRate = b[1].total > 0 ? b[1].wins / b[1].total : 0
+      if (Math.abs(bRate - aRate) > 0.0001) return bRate - aRate
+      return b[1].total - a[1].total
+    })
     const myRankIdx = ranked.findIndex(([uid]) => uid === user.id)
     const myRank = myRankIdx >= 0 ? myRankIdx + 1 : null
     const partnerCount = {}
