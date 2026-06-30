@@ -2,7 +2,8 @@
 
 Date: 2026-06-30
 Branch at closeout: main
-Current production commit: a56d509 - fix: add Google Play app signing key to assetlinks.json
+Current production commit: c530631 - docs: close V1 production release before V2
+App-code state (last functional change before this docs closeout commit): a56d509 - fix: add Google Play app signing key to assetlinks.json
 Production domain: https://www.shuttley.club
 Staging domain: https://dev.shuttley.club
 
@@ -28,6 +29,7 @@ V1 can remain in production while V2 planning and implementation begins separate
 - `505d91c` - fix: reorder GroupNav tabs to Home, Chat, Session, Stats, More
 - `2cfbc6b` - fix: separate Sessions card into per-group cards for visual clarity
 - `a56d509` - fix: add Google Play app signing key to assetlinks.json
+- `c530631` - docs: close V1 production release before V2 (docs-only, no app code change)
 
 ## Verification completed
 
@@ -74,7 +76,7 @@ Shuttley V2 planning session.
 Current production state:
 - V1 app-feel is live in production.
 - Current production branch: `main`.
-- Current production commit: `a56d509`.
+- Current production commit: `c530631` (docs closeout; app-code state `a56d509`).
 - Production domain: `https://www.shuttley.club`.
 - Staging domain: `https://dev.shuttley.club`.
 - Production Supabase: `wuvwvrgxbfcyhqsyoswd`.

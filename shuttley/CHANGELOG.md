@@ -1,9 +1,18 @@
 # Shuttley — Changelog
 
+## 2026-06-30 - V1 production release closeout docs
+
+**Branch:** `main`
+**Commit:** `c530631` - docs: close V1 production release before V2 (docs-only, no app code change)
+
+**Summary:** Closed out V1 production release documentation. No app code, Supabase, SQL, schema, or Vercel changes. App-code state remains `a56d509`.
+
+---
+
 ## 2026-06-30 - V1 app-feel live in production
 
 **Branch:** `main`  
-**Current production commit:** `a56d509`
+**Current production commit (app code):** `a56d509`
 
 **Summary:** V1 app-feel release is live in production. The release was staged on `dev.shuttley.club`, promoted to `main`, and verified on `www.shuttley.club`. No production Supabase SQL, schema migration, RLS change, or data migration was run.
 
