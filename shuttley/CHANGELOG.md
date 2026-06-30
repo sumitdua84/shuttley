@@ -1,5 +1,25 @@
 # Shuttley — Changelog
 
+## 2026-06-30 - V1 app-feel live in production
+
+**Branch:** `main`  
+**Current production commit:** `a56d509`
+
+**Summary:** V1 app-feel release is live in production. The release was staged on `dev.shuttley.club`, promoted to `main`, and verified on `www.shuttley.club`. No production Supabase SQL, schema migration, RLS change, or data migration was run.
+
+**Production follow-up fixes now on `main`:**
+- `681cf8a` - support production `matches.type` column in stats via frontend fallback.
+- `2b7fad1` - Home Sessions poll UI: View Attendance + Start Session.
+- `8a6e5cd` - Stats ranking by win percentage with 10-match minimum.
+- `505d91c` - Bottom nav order: Home, Chat, Session, Stats, More.
+- `2cfbc6b` - Separate Home Sessions into clearer per-group cards.
+- `a56d509` - Add Google Play app signing key to `assetlinks.json`; Android toolbar issue fixed.
+
+**Verification:** Production loads, bundle points to production Supabase (`wuvwvrgxbfcyhqsyoswd`), service worker/manifest smoke checks passed, user verified Matches/Stats and Android shell fix.
+
+**V2:** Not started. V2 should begin from current `main` in a new branch/session.
+
+---
 ## 2026-06-29 — V1 app-feel upgrade merged to develop (PR #2)
 
 **Branch:** `feature/shuttley-app-feel-upgrade` → `develop`

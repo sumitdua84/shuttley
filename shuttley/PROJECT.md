@@ -10,6 +10,13 @@ Repo: `sumitdua84/shuttley` on GitHub. Local path:
 `C:\Users\sumit\Projects\Shuttley\shuttley`. See [CLAUDE.md](CLAUDE.md) for
 commands and [docs/STAGING.md](docs/STAGING.md) for environment history.
 
+## Current Production Status - V1 LIVE (2026-06-30)
+
+V1 app-feel is live on production `main` at commit `a56d509`. Production domain `https://www.shuttley.club` is verified. Staging remains available at `https://dev.shuttley.club` and points to shuttley-dev Supabase. No production Supabase SQL, schema migration, RLS change, or data migration was run for the V1 release.
+
+V2 has not started. Begin V2 separately from current `main`.
+
+Full closeout context: `SHUTTLEY - V1 PRODUCTION RELEASE CLOSEOUT HANDOVER.md`.
 ## Branches
 
 - `main` — production, live App Store/Play Store build. Do not touch directly

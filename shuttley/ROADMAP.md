@@ -1,5 +1,12 @@
 # Shuttley — Roadmap
 
+## Status: LIVE IN PRODUCTION - 2026-06-30
+
+V1 app-feel is live in production at `a56d509`. V2 has not started; begin V2 from current `main` in a separate branch/session.
+
+Full closeout context: `SHUTTLEY - V1 PRODUCTION RELEASE CLOSEOUT HANDOVER.md`.
+
+---
 ## Status: MERGED to develop — 2026-06-29
 
 `feature/shuttley-app-feel-upgrade` merged to `develop` via PR #2 (merge commit `73860e9`).
