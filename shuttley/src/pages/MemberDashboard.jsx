@@ -682,6 +682,48 @@ export default function MemberDashboard() {
               </div>
             )}
 
+            {/* ── Session Polls ── */}
+            <div style={{ marginBottom:16 }}>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8 }}>
+                <div className="section-label" style={{ margin:0 }}>Session Polls</div>
+                <button onClick={() => { setPollDate(''); setPollStartH(''); setPollStartM('00'); setPollStartAP('PM'); setPollEndH(''); setPollEndM('00'); setPollEndAP('PM'); setPollNotes(''); setShowPollModal(true) }} style={{
+                  padding:'5px 10px', background:'transparent', border:'1px dashed var(--border2)',
+                  borderRadius:'var(--radius-sm)', color:'var(--accent)', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:"'Inter',sans-serif",
+                }}>+ New Poll</button>
+              </div>
+              {activePolls.length === 0 ? (
+                <div style={{
+                  background:'var(--bg2)', border:'0.5px solid var(--border)',
+                  borderRadius:'var(--radius)', padding:'14px 16px',
+                  fontSize:13, color:'var(--text3)', textAlign:'center',
+                }}>No active polls — create one to check who's coming</div>
+              ) : (
+                <div style={{ background:'var(--bg2)', border:'0.5px solid var(--border)', borderRadius:'var(--radius)', overflow:'hidden' }}>
+                  {activePolls.map((poll, idx) => {
+                    const myResp = poll.poll_responses?.find(r => r.user_id === user.id)?.response
+                    const isCustom = !poll.session_date
+                    const label = isCustom ? 'Custom Poll' : `Coming ${formatPollDate(poll.session_date)}?`
+                    const respColor = myResp === 'yes' ? '#2a8c55' : myResp === 'no' ? '#e05555' : myResp === 'maybe' ? '#a07800' : 'var(--text3)'
+                    const respLabel = myResp ? myResp.charAt(0).toUpperCase() + myResp.slice(1) : 'Respond'
+                    return (
+                      <div key={poll.id}
+                        onClick={() => { setExpandedPolls(prev => ({ ...prev, [poll.id]: true })); changeTab('polls') }}
+                        style={{ display:'flex', alignItems:'center', gap:10, padding:'11px 14px', borderBottom: idx < activePolls.length - 1 ? '0.5px solid var(--border)' : 'none', cursor:'pointer' }}>
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div style={{ fontSize:13, fontWeight:600, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{label}</div>
+                          <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>
+                            {poll.poll_responses?.length || 0} response{poll.poll_responses?.length !== 1 ? 's' : ''}
+                          </div>
+                        </div>
+                        <span style={{ fontSize:12, fontWeight:700, color:respColor, flexShrink:0 }}>{respLabel}</span>
+                        <span style={{ fontSize:16, color:'var(--text3)', flexShrink:0 }}>›</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
             {/* Past sessions */}
             {sessions.length > 0 && (
               <div>
