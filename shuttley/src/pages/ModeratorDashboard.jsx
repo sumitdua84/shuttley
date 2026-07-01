@@ -767,6 +767,51 @@ export default function ModeratorDashboard() {
         {/* ── SESSION ── */}
         {tab === 'session' && <>
 
+          {/* ── Session Polls card ── */}
+          <div style={{ background:'var(--bg2)', border:'0.5px solid var(--border)', borderLeft:'3px solid var(--accent)', borderRadius:'var(--radius)', padding:'18px 16px', marginBottom:16 }}>
+            <div style={{ fontSize:18, fontWeight:700, marginBottom:4, fontFamily:"'Plus Jakarta Sans',sans-serif" }}>Session Polls</div>
+            <div style={{ fontSize:13, color:'var(--text2)', marginBottom:14, lineHeight:1.45 }}>Plan who's coming before the session starts</div>
+            <div style={{ display:'flex', gap:8, marginBottom: activePolls.length > 0 ? 14 : 0 }}>
+              <button onClick={() => { setPollDate(''); setPollStartH(''); setPollStartM('00'); setPollStartAP('PM'); setPollEndH(''); setPollEndM('00'); setPollEndAP('PM'); setPollNotes(''); setShowPollModal(true) }} style={{
+                flex:1, padding:'10px', background:'var(--accent)', border:'none',
+                borderRadius:'var(--radius-sm)', color:'#fff',
+                fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:"'Inter',sans-serif",
+              }}>+ Session Poll</button>
+              <button onClick={() => { setCustomPollQ(''); setCustomPollNotes(''); setCustomPollOptions(['', '']); setShowCustomPollModal(true) }} style={{
+                flex:1, padding:'10px', background:'transparent', border:'1.5px solid var(--accent)',
+                borderRadius:'var(--radius-sm)', color:'var(--accent)',
+                fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:"'Inter',sans-serif",
+              }}>+ Custom Poll</button>
+            </div>
+            {activePolls.length > 0 && (
+              <div style={{ borderTop:'0.5px solid var(--border)', marginLeft:-16, marginRight:-16, paddingLeft:16, paddingRight:16 }}>
+                {activePolls.map((poll, idx) => {
+                  const isCustom = !poll.session_date
+                  const yes   = poll.poll_responses?.filter(r => r.response === 'yes').length   || 0
+                  const no    = poll.poll_responses?.filter(r => r.response === 'no').length    || 0
+                  const maybe = poll.poll_responses?.filter(r => r.response === 'maybe').length || 0
+                  const label = isCustom
+                    ? (parseCustomPollNotes(poll.notes)?.question || 'Custom Poll')
+                    : `Coming ${formatPollDate(poll.session_date)}?`
+                  const tally = isCustom
+                    ? `${poll.poll_responses?.length || 0} response${poll.poll_responses?.length !== 1 ? 's' : ''}`
+                    : [yes && `${yes} Yes`, no && `${no} No`, maybe && `${maybe} Maybe`].filter(Boolean).join(' · ') || 'No responses yet'
+                  return (
+                    <div key={poll.id}
+                      onClick={() => { setExpandedPolls(prev => ({ ...prev, [poll.id]: true })); changeTab('polls') }}
+                      style={{ display:'flex', alignItems:'center', gap:10, paddingTop:11, paddingBottom:11, borderBottom: idx < activePolls.length - 1 ? '0.5px solid var(--border)' : 'none', cursor:'pointer' }}>
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ fontSize:13, fontWeight:600, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{label}</div>
+                        <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>{tally}</div>
+                      </div>
+                      <span style={{ fontSize:16, color:'var(--text3)', flexShrink:0 }}>›</span>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
           {/* Session hero card */}
           {activeSession ? (
             <div style={{ background:'var(--accent)', borderRadius:'var(--radius)', padding:'20px', marginBottom:16, color:'#fff' }}>
@@ -837,56 +882,6 @@ export default function ModeratorDashboard() {
               <span style={{ color:'var(--text3)', fontSize:18 }}>›</span>
             </div>
           )}
-
-          {/* ── Session Polls ── */}
-          <div style={{ marginBottom:16 }}>
-            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8 }}>
-              <div className="section-label" style={{ margin:0 }}>Session Polls</div>
-              <div style={{ display:'flex', gap:6 }}>
-                <button onClick={() => { setPollDate(''); setPollStartH(''); setPollStartM('00'); setPollStartAP('PM'); setPollEndH(''); setPollEndM('00'); setPollEndAP('PM'); setPollNotes(''); setShowPollModal(true) }} style={{
-                  padding:'5px 10px', background:'transparent', border:'1px dashed var(--border2)',
-                  borderRadius:'var(--radius-sm)', color:'var(--accent)', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:"'Inter',sans-serif",
-                }}>+ Session Poll</button>
-                <button onClick={() => { setCustomPollQ(''); setCustomPollNotes(''); setCustomPollOptions(['', '']); setShowCustomPollModal(true) }} style={{
-                  padding:'5px 10px', background:'transparent', border:'1px dashed var(--border2)',
-                  borderRadius:'var(--radius-sm)', color:'var(--accent)', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:"'Inter',sans-serif",
-                }}>+ Custom</button>
-              </div>
-            </div>
-            {activePolls.length === 0 ? (
-              <div style={{
-                background:'var(--bg2)', border:'0.5px solid var(--border)',
-                borderRadius:'var(--radius)', padding:'14px 16px',
-                fontSize:13, color:'var(--text3)', textAlign:'center',
-              }}>No active polls — create one to check who's coming</div>
-            ) : (
-              <div style={{ background:'var(--bg2)', border:'0.5px solid var(--border)', borderRadius:'var(--radius)', overflow:'hidden' }}>
-                {activePolls.map((poll, idx) => {
-                  const isCustom = !poll.session_date
-                  const yes   = poll.poll_responses?.filter(r => r.response === 'yes').length   || 0
-                  const no    = poll.poll_responses?.filter(r => r.response === 'no').length    || 0
-                  const maybe = poll.poll_responses?.filter(r => r.response === 'maybe').length || 0
-                  const label = isCustom
-                    ? (parseCustomPollNotes(poll.notes)?.question || 'Custom Poll')
-                    : `Coming ${formatPollDate(poll.session_date)}?`
-                  const tally = isCustom
-                    ? `${poll.poll_responses?.length || 0} response${poll.poll_responses?.length !== 1 ? 's' : ''}`
-                    : [yes && `${yes} Yes`, no && `${no} No`, maybe && `${maybe} Maybe`].filter(Boolean).join(' · ') || 'No responses yet'
-                  return (
-                    <div key={poll.id}
-                      onClick={() => { setExpandedPolls(prev => ({ ...prev, [poll.id]: true })); changeTab('polls') }}
-                      style={{ display:'flex', alignItems:'center', gap:10, padding:'11px 14px', borderBottom: idx < activePolls.length - 1 ? '0.5px solid var(--border)' : 'none', cursor:'pointer' }}>
-                      <div style={{ flex:1, minWidth:0 }}>
-                        <div style={{ fontSize:13, fontWeight:600, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{label}</div>
-                        <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>{tally}</div>
-                      </div>
-                      <span style={{ fontSize:16, color:'var(--text3)', flexShrink:0 }}>›</span>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
 
           {/* Past sessions */}
           {sessions.filter(s => s.status === 'ended').length > 0 && (
