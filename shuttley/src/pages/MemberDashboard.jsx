@@ -521,6 +521,16 @@ export default function MemberDashboard() {
     setTimeout(() => setToast(''), 2500)
   }
 
+  function startSessionFromPoll(poll) {
+    const yesVoters = poll.poll_responses
+      ?.filter(r => r.response === 'yes')
+      .map(r => r.user_id) || []
+    setSelectedPlayerIds(yesVoters)
+    setSessionMode('free')
+    setModalStep(1)
+    setShowStartModal(true)
+  }
+
   function formatPollDate(dateStr) {
     const d = new Date(dateStr + 'T00:00:00')
     return d.toLocaleDateString('en-AU', { weekday:'short', day:'numeric', month:'short' })
@@ -693,76 +703,80 @@ export default function MemberDashboard() {
               </div>
             )}
 
-            {/* ── Two compact equal action cards ── */}
-            {(() => {
-              const cardStyle = {
-                background:'var(--bg2)', border:'0.5px solid var(--border)',
-                borderLeft:'3px solid var(--accent)', borderRadius:'var(--radius)',
-                padding:'11px 14px', marginBottom:8,
-              }
-              const btnFilled = { padding:'6px 11px', background:'var(--accent)', border:'none', borderRadius:'var(--radius-sm)', color:'#fff', fontSize:12, fontWeight:700, cursor:'pointer', fontFamily:"'Inter',sans-serif", whiteSpace:'nowrap' }
-              const btnOutline = { padding:'6px 11px', background:'transparent', border:'1.5px solid var(--accent)', borderRadius:'var(--radius-sm)', color:'var(--accent)', fontSize:12, fontWeight:700, cursor:'pointer', fontFamily:"'Inter',sans-serif", whiteSpace:'nowrap' }
-              return (
-                <>
-                  {/* Polls card */}
-                  <div style={cardStyle}>
-                    <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                      <div style={{ fontSize:14, fontWeight:700, flex:1, minWidth:0 }}>Polls</div>
-                      <button onClick={() => { setPollDate(''); setPollStartH(''); setPollStartM('00'); setPollStartAP('PM'); setPollEndH(''); setPollEndM('00'); setPollEndAP('PM'); setPollNotes(''); setShowPollModal(true) }} style={btnFilled}>+ Session</button>
-                      <button onClick={() => { setCustomPollQ(''); setCustomPollNotes(''); setCustomPollOptions(['', '']); setShowCustomPollModal(true) }} style={btnOutline}>+ Custom</button>
-                    </div>
-                    {activePolls.length > 0 && (
-                      <div style={{ borderTop:'0.5px solid var(--border)', marginTop:10, marginLeft:-14, marginRight:-14, paddingLeft:14, paddingRight:14 }}>
-                        {activePolls.map((poll, idx) => {
-                          const myResp = poll.poll_responses?.find(r => r.user_id === user.id)?.response
-                          const isCustom = !poll.session_date
-                          const label = isCustom ? 'Custom Poll' : `Coming ${formatPollDate(poll.session_date)}?`
-                          const respColor = myResp === 'yes' ? '#2a8c55' : myResp === 'no' ? '#e05555' : myResp === 'maybe' ? '#a07800' : 'var(--text3)'
-                          const respLabel = myResp ? myResp.charAt(0).toUpperCase() + myResp.slice(1) : 'Respond →'
-                          return (
-                            <div key={poll.id}
-                              onClick={() => { setExpandedPolls(prev => ({ ...prev, [poll.id]: true })); changeTab('polls') }}
-                              style={{ display:'flex', alignItems:'center', gap:10, paddingTop:9, paddingBottom:9, borderBottom: idx < activePolls.length - 1 ? '0.5px solid var(--border)' : 'none', cursor:'pointer' }}>
-                              <div style={{ flex:1, minWidth:0 }}>
-                                <div style={{ fontSize:13, fontWeight:600, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{label}</div>
-                                <div style={{ fontSize:11, color:'var(--text3)', marginTop:1 }}>
-                                  {poll.poll_responses?.length || 0} response{poll.poll_responses?.length !== 1 ? 's' : ''}
-                                </div>
-                              </div>
-                              <span style={{ fontSize:12, fontWeight:700, color:respColor, flexShrink:0 }}>{respLabel}</span>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Start Session / Session in Progress card */}
-                  {activeSession ? (
-                    <div style={{ ...cardStyle, marginBottom:16 }}>
-                      <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+            {/* ── Polls section ── */}
+            <div className="section-label">Polls</div>
+            <div style={{ display:'flex', gap:8, marginBottom: activePolls.length > 0 ? 14 : 20 }}>
+              <button
+                onClick={() => { setPollDate(''); setPollStartH(''); setPollStartM('00'); setPollStartAP('PM'); setPollEndH(''); setPollEndM('00'); setPollEndAP('PM'); setPollNotes(''); setShowPollModal(true) }}
+                style={{ flex:1, padding:'9px', background:'var(--accent)', border:'none', borderRadius:'var(--radius-sm)', color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:"'Inter',sans-serif" }}>
+                + Session Poll
+              </button>
+              <button
+                onClick={() => { setCustomPollQ(''); setCustomPollNotes(''); setCustomPollOptions(['', '']); setShowCustomPollModal(true) }}
+                style={{ flex:1, padding:'9px', background:'transparent', border:'1.5px solid var(--accent)', borderRadius:'var(--radius-sm)', color:'var(--accent)', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:"'Inter',sans-serif" }}>
+                + Custom Poll
+              </button>
+            </div>
+            {activePolls.length > 0 && (
+              <div style={{ marginBottom:20 }}>
+                {activePolls.map((poll, idx) => {
+                  const myResp = poll.poll_responses?.find(r => r.user_id === user.id)?.response
+                  const isCustom = !poll.session_date
+                  const label = isCustom ? (poll.notes ? (JSON.parse(poll.notes)?.q || 'Custom Poll') : 'Custom Poll') : `Coming ${formatPollDate(poll.session_date)}?`
+                  const respColor = myResp === 'yes' ? '#2a8c55' : myResp === 'no' ? '#e05555' : myResp === 'maybe' ? '#a07800' : 'var(--text3)'
+                  const respLabel = myResp ? myResp.charAt(0).toUpperCase() + myResp.slice(1) : 'Respond →'
+                  return (
+                    <div key={poll.id} style={{ paddingTop:10, paddingBottom:10, borderBottom: idx < activePolls.length - 1 ? '0.5px solid var(--border)' : 'none' }}>
+                      <div
+                        onClick={() => { setExpandedPolls(prev => ({ ...prev, [poll.id]: true })); changeTab('polls') }}
+                        style={{ display:'flex', alignItems:'center', gap:10, cursor:'pointer' }}>
                         <div style={{ flex:1, minWidth:0 }}>
-                          <div style={{ fontSize:11, fontWeight:700, color:'var(--accent)', textTransform:'uppercase', letterSpacing:'0.08em' }}>● Live</div>
-                          <div style={{ fontSize:14, fontWeight:700, marginTop:1, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{activeSession.name}</div>
+                          <div style={{ fontSize:13, fontWeight:600, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{label}</div>
+                          <div style={{ fontSize:11, color:'var(--text3)', marginTop:1 }}>
+                            {poll.poll_responses?.length || 0} response{poll.poll_responses?.length !== 1 ? 's' : ''}
+                          </div>
                         </div>
-                        <button onClick={() => navigate(`/club/${clubId}/session/${activeSession.id}/rotation`)} style={btnFilled}>Open →</button>
+                        <span style={{ fontSize:12, fontWeight:700, color:respColor, flexShrink:0 }}>{respLabel}</span>
                       </div>
+                      {!isCustom && (
+                        activeSession ? (
+                          <button
+                            onClick={() => navigate(`/club/${clubId}/session/${activeSession.id}/rotation`)}
+                            style={{ marginTop:7, width:'100%', padding:'7px', background:'var(--accent)', border:'none', borderRadius:'var(--radius-sm)', color:'#fff', fontSize:12, fontWeight:700, cursor:'pointer', fontFamily:"'Inter',sans-serif" }}>
+                            Open Current Session →
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => startSessionFromPoll(poll)}
+                            style={{ marginTop:7, width:'100%', padding:'7px', background:'transparent', border:'1.5px solid var(--accent)', borderRadius:'var(--radius-sm)', color:'var(--accent)', fontSize:12, fontWeight:700, cursor:'pointer', fontFamily:"'Inter',sans-serif" }}>
+                            ▶ Start Session from this Poll
+                          </button>
+                        )
+                      )}
                     </div>
-                  ) : (
-                    <div style={{ ...cardStyle, marginBottom:16 }}>
-                      <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                        <div style={{ fontSize:14, fontWeight:700, flex:1 }}>Start Session</div>
-                        <button
-                          onClick={() => { setSelectedPlayerIds([]); setSessionMode('free'); setModalStep(1); setShowStartModal(true) }}
-                          style={btnFilled}>▶ Start</button>
-                      </div>
-                    </div>
-                  )}
-                </>
-              )
-            })()}
+                  )
+                })}
+              </div>
+            )}
 
-            {/* Past sessions */}
+            {/* ── Sessions section ── */}
+            <div className="section-label">Sessions</div>
+            {activeSession ? (
+              <div style={{ display:'flex', gap:8, marginBottom:16 }}>
+                <button
+                  onClick={() => navigate(`/club/${clubId}/session/${activeSession.id}/rotation`)}
+                  style={{ flex:1, padding:'10px', background:'var(--accent)', border:'none', borderRadius:'var(--radius-sm)', color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:"'Inter',sans-serif" }}>
+                  ● {activeSession.name} — Open →
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => { setSelectedPlayerIds([]); setSessionMode('free'); setModalStep(1); setShowStartModal(true) }}
+                style={{ width:'100%', padding:'10px', background:'var(--accent)', border:'none', borderRadius:'var(--radius-sm)', color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:"'Inter',sans-serif", marginBottom:16 }}>
+                ▶ Start Session
+              </button>
+            )}
+
             {sessions.length > 0 && (
               <div>
                 <div className="section-label">Past sessions</div>
