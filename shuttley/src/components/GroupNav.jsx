@@ -37,11 +37,13 @@ const IconPolls = ({ active }) => (
   </svg>
 )
 
-const IconChat = ({ active }) => (
+const IconSplits = ({ active }) => (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
     stroke={active ? 'var(--accent)' : 'var(--text2)'}
     strokeWidth={active ? 2.5 : 1.8} strokeLinecap="round" strokeLinejoin="round">
-    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+    <line x1="12" y1="3" x2="12" y2="21"/>
+    <path d="M3 9l9-6 9 6"/>
+    <path d="M3 15l9 6 9-6"/>
   </svg>
 )
 
@@ -59,10 +61,9 @@ export default function GroupNav({ clubId, isMod, activeTab }) {
 
   const tabs = [
     { id: 'home',    label: 'Home',    Icon: IconHome,    action: () => navigate('/') },
-    { id: 'stats',   label: 'Stats',   Icon: IconStats,   action: () => navigate(`/club/${clubId}/matches?tab=stats`) },
+    { id: 'splits',  label: 'Splits',  Icon: IconSplits,  action: () => navigate(`/club/${clubId}/splits`) },
     { id: 'session', label: 'Session', Icon: IconSession, action: () => navigate(`${dashPath}?tab=session`) },
-    { id: 'polls',   label: 'Polls',   Icon: IconPolls,   action: () => navigate(`${dashPath}?tab=polls`) },
-    { id: 'chat',    label: 'Chat',    Icon: IconChat,    action: () => navigate(`/club/${clubId}/chat`) },
+    { id: 'stats',   label: 'Stats',   Icon: IconStats,   action: () => navigate(`/club/${clubId}/matches?tab=stats`) },
     { id: 'more',    label: 'More',    Icon: IconMore,    action: () => navigate(`${dashPath}?tab=more`) },
   ]
 

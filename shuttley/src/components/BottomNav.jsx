@@ -7,13 +7,18 @@ const IconHome = ({ active }) => (
   </svg>
 )
 
+const IconChat = ({ active }) => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={active ? 'var(--accent)' : 'var(--text2)'} strokeWidth={active ? 2.5 : 1.8} strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+  </svg>
+)
+
 const IconGroups = ({ active }) => (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={active ? 'var(--accent)' : 'var(--text2)'} strokeWidth={active ? 2.5 : 1.8} strokeLinecap="round" strokeLinejoin="round">
-    <path d="M8 21h8M12 17v4"/>
-    <path d="M5 4h14v7a7 7 0 0 1-14 0V4z"/>
-    <path d="M5 7H2a3 3 0 0 0 3 3"/>
-    <path d="M19 7h3a3 3 0 0 1-3 3"/>
-    <line x1="8" y1="21" x2="16" y2="21"/>
+    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+    <circle cx="9" cy="7" r="4"/>
+    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
   </svg>
 )
 
@@ -29,7 +34,8 @@ export default function BottomNav({ activeTab }) {
 
   const tabs = [
     { id: 'home',   label: 'Home',   Icon: IconHome,   action: () => navigate('/') },
-    { id: 'groups', label: 'Groups', Icon: IconGroups, action: () => navigate('/groups') },
+    { id: 'chat',   label: 'Chat',   Icon: IconChat,   action: () => navigate('/chat') },
+    { id: 'groups', label: 'Groups', Icon: IconGroups, action: () => navigate('/my-groups') },
     { id: 'me',     label: 'Me',     Icon: IconMe,     action: () => navigate('/profile') },
   ]
 

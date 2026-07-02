@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
 import { usePushNotifications } from '../hooks/usePushNotifications'
@@ -46,6 +46,7 @@ export default function ChatPage() {
   const { clubId } = useParams()
   const { user }   = useAuth()
   const navigate   = useNavigate()
+  const location   = useLocation()
 
   const [status, setStatus]           = useState('loading') // 'loading'|'error'|'ready'
   const [errorMsg, setErrorMsg]       = useState('')
@@ -196,7 +197,11 @@ export default function ChatPage() {
 
     const all = allConv ? [allConv, ...others] : others
     setConversations(all)
-    if (allConv) setActiveConv(allConv)
+    const requestedConv = location.state?.openConvId
+      ? all.find(c => c.id === location.state.openConvId)
+      : null
+    if (requestedConv) setActiveConv(requestedConv)
+    else if (allConv) setActiveConv(allConv)
     setStatus('ready')
 
     // ── Club-wide realtime: update conversation previews for ANY new message ──

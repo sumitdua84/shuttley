@@ -27,6 +27,8 @@ const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'))
 const TermsOfService = lazy(() => import('./pages/TermsOfService'))
 const DeleteAccount = lazy(() => import('./pages/DeleteAccount'))
 const ProfilePage = lazy(() => import('./pages/ProfilePage'))
+const GlobalChatPage = lazy(() => import('./pages/GlobalChatPage'))
+const GroupsPage = lazy(() => import('./pages/GroupsPage'))
 
 function RouteFallback() {
   return (
@@ -102,6 +104,8 @@ function AppRoutes() {
             <Route path="/terms" element={<TermsOfService />} />
             <Route path="/delete-account" element={<DeleteAccount />} />
             <Route path="/profile" element={user ? <ProfilePage /> : <Navigate to="/login" />} />
+            <Route path="/chat" element={user ? <GlobalChatPage /> : <Navigate to="/login" />} />
+            <Route path="/my-groups" element={user ? <GroupsPage /> : <Navigate to="/login" />} />
           </Routes>
         </RouteTransition>
       </Suspense>
