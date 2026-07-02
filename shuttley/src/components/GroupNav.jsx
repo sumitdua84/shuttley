@@ -61,10 +61,9 @@ export default function GroupNav({ clubId, isMod, activeTab }) {
 
   const tabs = [
     { id: 'home',    label: 'Home',    Icon: IconHome,    action: () => navigate('/') },
-    { id: 'stats',   label: 'Stats',   Icon: IconStats,   action: () => navigate(`/club/${clubId}/matches?tab=stats`) },
-    { id: 'session', label: 'Session', Icon: IconSession, action: () => navigate(`${dashPath}?tab=session`) },
-    { id: 'polls',   label: 'Polls',   Icon: IconPolls,   action: () => navigate(`${dashPath}?tab=polls`) },
     { id: 'splits',  label: 'Splits',  Icon: IconSplits,  action: () => navigate(`/club/${clubId}/splits`) },
+    { id: 'session', label: 'Session', Icon: IconSession, action: () => navigate(`${dashPath}?tab=session`) },
+    { id: 'stats',   label: 'Stats',   Icon: IconStats,   action: () => navigate(`/club/${clubId}/matches?tab=stats`) },
     { id: 'more',    label: 'More',    Icon: IconMore,    action: () => navigate(`${dashPath}?tab=more`) },
   ]
 
