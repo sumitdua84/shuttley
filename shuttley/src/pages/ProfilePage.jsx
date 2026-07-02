@@ -4,6 +4,7 @@ import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
 import Toast from '../components/Toast'
 import { useConfirm } from '../hooks/useConfirm'
+import BottomNav from '../components/BottomNav'
 
 const SUPER_ADMINS = ['sumit@shuttley.club', 'sumitdua84@gmail.com']
 
@@ -87,22 +88,11 @@ export default function ProfilePage() {
   return (
     <div className="page">
       <div className="topnav">
-        <button onClick={() => navigate('/')} style={{
-          background: 'none', border: 'none', cursor: 'pointer',
-          display: 'flex', alignItems: 'center', gap: 4,
-          color: 'var(--accent)', fontSize: 14, fontWeight: 600,
-          fontFamily: "'Inter',sans-serif", padding: 0,
-        }}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M15 18l-6-6 6-6"/>
-          </svg>
-          Home
-        </button>
-        <span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontSize: 18 }}>Me</span>
-        <div style={{ width: 60 }} />
+        <span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontSize: 18, fontWeight: 600, color: 'var(--text)' }}>Me</span>
+        <div style={{ width: 40 }} />
       </div>
 
-      <div className="content" style={{ paddingBottom: 24 }}>
+      <div className="content">
 
         {/* Avatar + name */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '24px 0 20px' }}>
@@ -224,6 +214,7 @@ export default function ProfilePage() {
 
       <Toast message={toast} />
       {confirmModal}
+      <BottomNav activeTab="me" />
     </div>
   )
 }
