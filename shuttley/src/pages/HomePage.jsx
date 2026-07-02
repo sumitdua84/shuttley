@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
 import Toast from '../components/Toast'
+import BottomNav from '../components/BottomNav'
 
 export default function HomePage() {
   const { user, profile } = useAuth()
@@ -249,20 +250,12 @@ export default function HomePage() {
     }))
 
   return (
-    <div className="page" style={{ paddingBottom: 'calc(20px + env(safe-area-inset-bottom, 0px))' }}>
+    <div className="page">
       <div className="topnav">
         <div style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontSize: 20, fontWeight: 600, color: 'var(--text)' }}>
           {greeting}, {firstName}
         </div>
-        <button onClick={() => navigate('/profile')} style={{
-          background: 'none', border: 'none', cursor: 'pointer', padding: 4,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-        }} aria-label="Profile">
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--text2)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="8" r="4"/>
-            <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
-          </svg>
-        </button>
+        <div style={{ width: 40 }} />
       </div>
 
       <div className="content">
@@ -679,6 +672,7 @@ export default function HomePage() {
       </div>
 
       <Toast message={toast} />
+      <BottomNav activeTab="home" />
     </div>
   )
 }
