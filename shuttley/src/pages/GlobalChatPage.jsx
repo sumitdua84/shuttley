@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
@@ -26,6 +26,7 @@ export default function GlobalChatPage() {
   const [contacts, setContacts] = useState([])
   const [loading, setLoading] = useState(true)
   const [opening, setOpening] = useState(null)
+  const [search, setSearch] = useState('')
 
   useEffect(() => {
     if (!user) return
@@ -53,10 +54,11 @@ export default function GlobalChatPage() {
       .eq('status', 'approved')
       .neq('user_id', user.id)
 
-    // 3. Deduplicate into a contact map — only expose users who share a club
+    // 3. Deduplicate into a contact map — skip guests and deleted accounts
     const contactMap = {}
     for (const mem of (otherMems || [])) {
       if (!mem.profiles || mem.is_guest) continue
+      if (mem.profiles.full_name?.startsWith('deleted_')) continue
       if (!contactMap[mem.user_id]) {
         contactMap[mem.user_id] = {
           id: mem.user_id,
@@ -74,6 +76,15 @@ export default function GlobalChatPage() {
     setLoading(false)
   }
 
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return contacts
+    return contacts.filter(c =>
+      c.full_name?.toLowerCase().includes(q) ||
+      c.sharedClubs.some(cl => cl.name?.toLowerCase().includes(q))
+    )
+  }, [contacts, search])
+
   async function openChat(contact) {
     if (opening) return
     setOpening(contact.id)
@@ -87,7 +98,6 @@ export default function GlobalChatPage() {
     const myIds = (myConvIds || []).map(m => m.conversation_id)
 
     let convId = null
-    let convClubId = primaryClubId
 
     if (myIds.length > 0) {
       const { data: shared } = await supabase
@@ -99,14 +109,12 @@ export default function GlobalChatPage() {
           .eq('id', conversation_id).eq('type', 'dm').maybeSingle()
         if (c && sharedClubIds.includes(c.club_id)) {
           convId = c.id
-          convClubId = c.club_id
           break
         }
       }
     }
 
     if (!convId) {
-      // Create new DM in the first shared club context
       const { data: nc } = await supabase
         .from('chat_conversations')
         .insert({ club_id: primaryClubId, type: 'dm', created_by: user.id })
@@ -122,7 +130,7 @@ export default function GlobalChatPage() {
 
     setOpening(null)
     if (convId) {
-      navigate(`/club/${convClubId}/chat`, { state: { openConvId: convId } })
+      navigate(`/chat/${convId}`, { state: { contact } })
     }
   }
 
@@ -140,6 +148,18 @@ export default function GlobalChatPage() {
       </div>
 
       <div className="content">
+        {/* Search input */}
+        <div style={{ marginBottom: 16 }}>
+          <input
+            className="input"
+            type="search"
+            placeholder="Search by name or group…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            style={{ width: '100%', padding: '10px 14px', fontSize: 14, borderRadius: 'var(--radius)' }}
+          />
+        </div>
+
         {loading ? (
           <div style={{ color: 'var(--text3)', fontSize: 14, padding: '20px 0' }}>Loading…</div>
         ) : contacts.length === 0 ? (
@@ -150,6 +170,10 @@ export default function GlobalChatPage() {
               Find a group
             </button>
           </div>
+        ) : filtered.length === 0 ? (
+          <div style={{ color: 'var(--text3)', fontSize: 14, padding: '20px 0', textAlign: 'center' }}>
+            No results for "{search}"
+          </div>
         ) : (
           <>
             <div style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
@@ -159,7 +183,7 @@ export default function GlobalChatPage() {
               background: 'var(--bg2)', border: '0.5px solid var(--border)',
               borderRadius: 'var(--radius)', overflow: 'hidden',
             }}>
-              {contacts.map((c, idx) => (
+              {filtered.map((c, idx) => (
                 <div key={c.id}>
                   <div
                     onClick={() => openChat(c)}
@@ -181,7 +205,7 @@ export default function GlobalChatPage() {
                     </div>
                     <span style={{ fontSize: 18, color: 'var(--text3)', flexShrink: 0 }}>›</span>
                   </div>
-                  {idx < contacts.length - 1 && (
+                  {idx < filtered.length - 1 && (
                     <div style={{ borderTop: '0.5px solid var(--border)', marginLeft: 72 }} />
                   )}
                 </div>
