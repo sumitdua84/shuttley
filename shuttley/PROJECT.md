@@ -10,16 +10,17 @@ Repo: `sumitdua84/shuttley` on GitHub. Local path:
 `C:\Users\sumit\Projects\Shuttley\shuttley`. See [CLAUDE.md](CLAUDE.md) for
 commands and [docs/STAGING.md](docs/STAGING.md) for environment history.
 
-## Current Production Status - V1 LIVE + Hotfixes (2026-07-03)
+## Current Production Status - V1 LIVE + Hotfixes (2026-07-04)
 
 V1 app-feel live on production `main` at commit `d543222` (latest hotfix batch: polls privacy, global chat routing, navigation, mobile UI). Production domain `https://www.shuttley.club` verified and serving hotfixed code. Staging remains available at `https://dev.shuttley.club` pointing to shuttley-dev Supabase.
 
-**Recent hotfixes (2026-07-03):**
+**Recent hotfixes (2026-07-03 onwards):**
 - Guest poll exclusion: guests completely hidden from polls, not in response counts or notifications
 - Global chat improvements: search, deleted/guest filtering, `/chat/:conversationId` routing, GlobalDMPage with shared groups
 - Navigation: Groups button now goes to `/groups` (join) not `/my-groups` (yours)
 - Moderator workflows: session poll start button visible regardless of personal response
 - Mobile UI: bottom nav icons positioned lower on iPhone
+- Groups page: OnboardingPage (/groups browse/join) now shows floating bottom nav with Groups tab highlighted, matching HomePage/GroupsPage UI (commit e7b3e32, 2026-07-04)
 
 No production Supabase SQL, schema migration, RLS change, or data migration was run for hotfixes. V2 has not started.
 
