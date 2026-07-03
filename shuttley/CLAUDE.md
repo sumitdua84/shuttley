@@ -15,7 +15,12 @@ Migrated here from Google Drive (`Shared drives/Shuttley/App/shuttley`) on
 2026-06-19 — see [docs/STAGING.md](docs/STAGING.md) for why and what's still
 on Drive.
 
-Active branch: `develop`.
+Active branch: `main` (production, live at `https://www.shuttley.club`, currently at
+`03a800c`; V1 docs closeout `c530631`; app-code state `a56d509`). `develop` is the
+staging/integration branch, served at `https://dev.shuttley.club`. V1
+app-feel is live in production; V2 has not started. See
+[PROJECT.md](PROJECT.md) and
+`SHUTTLEY - V1 PRODUCTION RELEASE CLOSEOUT HANDOVER.md` for full status.
 
 ## Stack
 
@@ -43,5 +48,7 @@ npm run preview   # preview the production build
 - Largest pages (`MemberDashboard.jsx`, `ModeratorDashboard.jsx`,
   `MatchesPage.jsx`) are 1000+ lines each, fetch data via sequential
   (non-parallelized) Supabase `await` chains, and have no memoization.
-- No staging/test Supabase project yet — see
+- Staging exists: `develop` branch deploys to `https://dev.shuttley.club`
+  against the `shuttley-dev` Supabase project (`ecdibuhrgdmsdvovmlvl`),
+  separate from production Supabase (`wuvwvrgxbfcyhqsyoswd`) — see
   [docs/STAGING.md](docs/STAGING.md) before making major UI/perf/PWA changes.

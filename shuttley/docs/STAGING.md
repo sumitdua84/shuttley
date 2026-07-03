@@ -61,4 +61,21 @@ app directory for `npm run dev` etc. is:
 C:\Users\sumit\Projects\Shuttley\shuttley
 ```
 
-Active branch: `develop` (tracks `origin/develop`).
+Active branch: `main` (production, tracks `origin/main`). `develop` (tracks
+`origin/develop`) is the staging/integration branch.
+
+---
+
+## Staging is now live (as of 2026-06-29/30)
+
+The "must exist before major changes" setup described above is now in place:
+
+- **Staging domain:** `https://dev.shuttley.club`, deploying from `develop`
+  via the `shuttley-dev` Vercel project, connected only to the
+  `shuttley-dev` Supabase project (`https://ecdibuhrgdmsdvovmlvl.supabase.co`).
+- **Production domain:** `https://www.shuttley.club`, deploying from `main`
+  via the `shuttley` Vercel project, connected only to production Supabase
+  (`https://wuvwvrgxbfcyhqsyoswd.supabase.co`).
+- V1 app-feel shipped to production through this path on 2026-06-30. See
+  `PROJECT.md`, `ROADMAP.md`, and
+  `SHUTTLEY - V1 PRODUCTION RELEASE CLOSEOUT HANDOVER.md` for full detail.
