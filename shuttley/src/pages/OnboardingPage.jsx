@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
 import { usePushNotifications } from '../hooks/usePushNotifications'
+import BottomNav from '../components/BottomNav'
 export default function OnboardingPage() {
   const { user, profile, signOut } = useAuth()
   const navigate = useNavigate()
@@ -426,6 +427,7 @@ export default function OnboardingPage() {
           </button>
         </div>
       )}
+      <BottomNav activeTab="groups" />
     </div>
   )
 }
