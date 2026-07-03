@@ -196,8 +196,9 @@ export default function HomePage() {
   async function fetchAttendance(poll) {
     if (attendanceMap[poll.id]) return
     setAttendanceMap(prev => ({ ...prev, [poll.id]: { loading: true } }))
+    // Fetch members but exclude guests
     const { data: memberData } = await supabase
-      .from('memberships').select('user_id').eq('club_id', poll.club_id).eq('status', 'approved')
+      .from('memberships').select('user_id').eq('club_id', poll.club_id).eq('status', 'approved').eq('is_guest', false)
     const memberIds = (memberData || []).map(m => m.user_id)
     const { data: profileData } = memberIds.length > 0
       ? await supabase.from('profiles').select('id, full_name').in('id', memberIds)
