@@ -35,7 +35,7 @@ export default function BottomNav({ activeTab }) {
   const tabs = [
     { id: 'home',   label: 'Home',   Icon: IconHome,   action: () => navigate('/') },
     { id: 'chat',   label: 'Chat',   Icon: IconChat,   action: () => navigate('/chat') },
-    { id: 'groups', label: 'Groups', Icon: IconGroups, action: () => navigate('/my-groups') },
+    { id: 'groups', label: 'Groups', Icon: IconGroups, action: () => navigate('/groups') },
     { id: 'me',     label: 'Me',     Icon: IconMe,     action: () => navigate('/profile') },
   ]
 
