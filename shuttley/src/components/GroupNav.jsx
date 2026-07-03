@@ -70,7 +70,7 @@ export default function GroupNav({ clubId, isMod, activeTab }) {
   ]
 
   return (
-    <div className="tabbar">
+    <div className="tabbar tabbar-group">
       {tabs.map(t => {
         const active = activeTab === t.id
         return (

@@ -40,7 +40,7 @@ export default function BottomNav({ activeTab }) {
   ]
 
   return (
-    <div className="tabbar">
+    <div className="tabbar tabbar-global">
       {tabs.map(t => {
         const active = activeTab === t.id
         return (
