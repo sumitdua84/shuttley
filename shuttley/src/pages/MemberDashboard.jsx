@@ -522,8 +522,9 @@ export default function MemberDashboard() {
   }
 
   function startSessionFromPoll(poll) {
+    const guestUserIds = new Set(members.filter(m => m.is_guest).map(m => m.user_id))
     const yesVoters = poll.poll_responses
-      ?.filter(r => r.response === 'yes')
+      ?.filter(r => r.response === 'yes' && !guestUserIds.has(r.user_id))
       .map(r => r.user_id) || []
     setSelectedPlayerIds(yesVoters)
     setSessionMode('free')
@@ -582,7 +583,7 @@ export default function MemberDashboard() {
     }).select().single()
     if (error) { setCreatingPoll(false); showToast('Error creating poll'); return }
 
-    const memberUserIds = members.filter(m => m.status === 'approved').map(m => m.user_id)
+    const memberUserIds = members.filter(m => m.status === 'approved' && !m.is_guest).map(m => m.user_id)
     if (memberUserIds.length > 0) {
       const dateLabel = new Date(pollDate + 'T00:00:00').toLocaleDateString('en-AU', { weekday:'short', day:'numeric', month:'short' })
       await sendPush(
@@ -620,7 +621,7 @@ export default function MemberDashboard() {
       notes: notesContent,
     })
     if (!error) {
-      const memberUserIds = members.filter(m => m.status === 'approved').map(m => m.user_id)
+      const memberUserIds = members.filter(m => m.status === 'approved' && !m.is_guest).map(m => m.user_id)
       if (memberUserIds.length > 0) {
         await sendPush(memberUserIds, `${club?.name} — Poll`, customPollQ.trim(), '/')
       }
@@ -634,6 +635,8 @@ export default function MemberDashboard() {
   if (loading) return <DashboardSkeleton />
 
   const approved = members.filter(m => m.status === 'approved')
+  const guestUserIds = new Set(members.filter(m => m.is_guest).map(m => m.user_id))
+  const memberResponses = (poll) => (poll.poll_responses || []).filter(r => !guestUserIds.has(r.user_id))
 
   const firstName = profile?.full_name?.split(' ')[0] || ''
 
@@ -966,8 +969,8 @@ export default function MemberDashboard() {
                     )
                   })}
 
-                  {/* ── Polls tile ── */}
-                  <div onClick={() => changeTab('polls')}
+                  {/* ── Polls tile — hidden for guests ── */}
+                  {!membership?.is_guest && <div onClick={() => changeTab('polls')}
                     style={{ ...tileStyle, animationDelay:'280ms' }}>
                     <div style={{ fontSize:12, fontWeight:700, letterSpacing:'0.06em', textTransform:'uppercase', color:'var(--text)', width:76, flexShrink:0 }}>
                       Polls
@@ -979,9 +982,10 @@ export default function MemberDashboard() {
                       </div>
                     ) : (() => {
                       const poll = activePolls[tileIndices.polls % activePolls.length]
-                      const yes   = poll.poll_responses?.filter(r => r.response === 'yes').length   || 0
-                      const no    = poll.poll_responses?.filter(r => r.response === 'no').length    || 0
-                      const maybe = poll.poll_responses?.filter(r => r.response === 'maybe').length || 0
+                      const mResp = memberResponses(poll)
+                      const yes   = mResp.filter(r => r.response === 'yes').length   || 0
+                      const no    = mResp.filter(r => r.response === 'no').length    || 0
+                      const maybe = mResp.filter(r => r.response === 'maybe').length || 0
                       const tally = [yes && `${yes} Yes`, no && `${no} No`, maybe && `${maybe} Maybe`].filter(Boolean).join(' · ')
                       return (
                         <div style={{ flex:1, opacity: tileOpacity.polls, transition: `opacity ${tileTransMs.current.polls}ms ease`, textAlign:'center' }}>
@@ -991,7 +995,7 @@ export default function MemberDashboard() {
                       )
                     })()}
                     <span style={{ fontSize:16, color:'var(--text)', marginLeft:8, flexShrink:0 }}>›</span>
-                  </div>
+                  </div>}
 
                   {/* ── Splits tile ── */}
                   {(() => { const f = clubFeatures.find(x => x.feature === 'splits'); return f?.unlocked && f?.enabled })() && (
@@ -1049,7 +1053,7 @@ export default function MemberDashboard() {
         </>}
 
         {/* ── POLLS ── */}
-        {tab === 'polls' && (
+        {tab === 'polls' && !membership?.is_guest && (
           <div>
             <button onClick={() => { setPollDate(''); setPollStartH(''); setPollStartM('00'); setPollStartAP('PM'); setPollEndH(''); setPollEndM('00'); setPollEndAP('PM'); setPollNotes(''); setShowPollModal(true) }} style={{
               width:'100%', marginBottom:16, padding:'11px',
@@ -1089,12 +1093,13 @@ export default function MemberDashboard() {
               const pendingCount = regularMembers.filter(m => !responseMap[m.user_id]).length
               const isExpanded = !!expandedPolls[poll.id]
 
-              const yes   = poll.poll_responses?.filter(r => r.response === 'yes').length   || 0
-              const no    = poll.poll_responses?.filter(r => r.response === 'no').length    || 0
-              const maybe = poll.poll_responses?.filter(r => r.response === 'maybe').length || 0
+              const mResp = memberResponses(poll)
+              const yes   = mResp.filter(r => r.response === 'yes').length   || 0
+              const no    = mResp.filter(r => r.response === 'no').length    || 0
+              const maybe = mResp.filter(r => r.response === 'maybe').length || 0
               const optionCounts = hasCustomOpts
                 ? Object.fromEntries(parsedCustom.options.map(opt => [
-                    opt, poll.poll_responses?.filter(r => r.response === opt).length || 0
+                    opt, mResp.filter(r => r.response === opt).length || 0
                   ]))
                 : null
 

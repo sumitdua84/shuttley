@@ -62,7 +62,7 @@ export default function HomePage() {
 
     const { data: mems } = await supabase
       .from('memberships')
-      .select('club_id, role, status, clubs(id, name)')
+      .select('club_id, role, status, is_guest, clubs(id, name)')
       .eq('user_id', user.id)
       .eq('status', 'approved')
 
@@ -71,6 +71,8 @@ export default function HomePage() {
 
     const clubIds = memList.map(m => m.club_id)
     const modClubIds = memList.filter(m => m.role === 'moderator').map(m => m.club_id)
+    // Guests should not see polls — only fetch polls for non-guest club memberships
+    const pollClubIds = memList.filter(m => !m.is_guest).map(m => m.club_id)
     const clubNameMap = Object.fromEntries(memList.map(m => [m.club_id, m.clubs?.name]))
 
     if (clubIds.length === 0) { setLoading(false); return }
@@ -79,13 +81,15 @@ export default function HomePage() {
     const today = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`
 
     const [{ data: pollData }, { data: liveData }, pendingResult, { data: myMpData }] = await Promise.all([
-      supabase.from('session_polls')
-        .select('id, club_id, session_date, session_time, notes, poll_responses(user_id, response)')
-        .in('club_id', clubIds)
-        .eq('status', 'open')
-        .or(`session_date.gte.${today},session_date.is.null`)
-        .order('session_date', { ascending: true, nullsFirst: false })
-        .order('session_time', { ascending: true, nullsFirst: true }),
+      pollClubIds.length > 0
+        ? supabase.from('session_polls')
+            .select('id, club_id, session_date, session_time, notes, poll_responses(user_id, response)')
+            .in('club_id', pollClubIds)
+            .eq('status', 'open')
+            .or(`session_date.gte.${today},session_date.is.null`)
+            .order('session_date', { ascending: true, nullsFirst: false })
+            .order('session_time', { ascending: true, nullsFirst: true })
+        : Promise.resolve({ data: [] }),
       supabase.from('sessions')
         .select('id, name, club_id, started_at, match_type')
         .in('club_id', clubIds)

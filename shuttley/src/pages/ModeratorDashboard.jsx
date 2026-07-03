@@ -430,9 +430,9 @@ export default function ModeratorDashboard() {
     }).select().single()
     if (error) { setCreatingPoll(false); return }
 
-    // Send push to all approved members including the creator
+    // Send push to approved non-guest members only
     const memberUserIds = members
-      .filter(m => m.status === 'approved')
+      .filter(m => m.status === 'approved' && !m.is_guest)
       .map(m => m.user_id)
     if (memberUserIds.length > 0) {
       const dateLabel = new Date(pollDate + 'T00:00:00').toLocaleDateString('en-AU', { weekday:'short', day:'numeric', month:'short' })
@@ -479,7 +479,7 @@ export default function ModeratorDashboard() {
       notes: notesContent,
     })
     if (!error) {
-      const memberUserIds = members.filter(m => m.status === 'approved').map(m => m.user_id)
+      const memberUserIds = members.filter(m => m.status === 'approved' && !m.is_guest).map(m => m.user_id)
       if (memberUserIds.length > 0) {
         await sendPush(memberUserIds, `${club?.name} — Poll`, customPollQ.trim(), '/')
       }
@@ -493,8 +493,9 @@ export default function ModeratorDashboard() {
   }
 
   function startSessionFromPoll(poll) {
+    const guestUserIds = new Set(members.filter(m => m.is_guest).map(m => m.user_id))
     const yesVoters = poll.poll_responses
-      ?.filter(r => r.response === 'yes')
+      ?.filter(r => r.response === 'yes' && !guestUserIds.has(r.user_id))
       .map(r => r.user_id) || []
     setSelectedPlayerIds(yesVoters)
     setModalSessionName(weekdaySessionName())
@@ -751,6 +752,9 @@ export default function ModeratorDashboard() {
 
   const pending = members.filter(m => m.status === 'pending')
   const approved = members.filter(m => m.status === 'approved' && !m.profiles?.full_name?.startsWith('deleted_'))
+  const guestUserIds = new Set(members.filter(m => m.is_guest).map(m => m.user_id))
+  // Returns poll responses excluding guests — used for all count/tally displays
+  const memberResponses = (poll) => (poll.poll_responses || []).filter(r => !guestUserIds.has(r.user_id))
   const alertCount = disputedMatches.length + pendingMatches.length
   const firstName = profile?.full_name?.split(' ')[0] || ''
 
@@ -785,14 +789,15 @@ export default function ModeratorDashboard() {
             <div style={{ marginBottom:20 }}>
               {activePolls.map((poll, idx) => {
                 const isCustom = !poll.session_date
-                const yes   = poll.poll_responses?.filter(r => r.response === 'yes').length   || 0
-                const no    = poll.poll_responses?.filter(r => r.response === 'no').length    || 0
-                const maybe = poll.poll_responses?.filter(r => r.response === 'maybe').length || 0
+                const mResp = memberResponses(poll)
+                const yes   = mResp.filter(r => r.response === 'yes').length   || 0
+                const no    = mResp.filter(r => r.response === 'no').length    || 0
+                const maybe = mResp.filter(r => r.response === 'maybe').length || 0
                 const label = isCustom
                   ? (parseCustomPollNotes(poll.notes)?.question || 'Custom Poll')
                   : `Coming ${formatPollDate(poll.session_date)}?`
                 const tally = isCustom
-                  ? `${poll.poll_responses?.length || 0} response${poll.poll_responses?.length !== 1 ? 's' : ''}`
+                  ? `${mResp.length} response${mResp.length !== 1 ? 's' : ''}`
                   : [yes && `${yes} Yes`, no && `${no} No`, maybe && `${maybe} Maybe`].filter(Boolean).join(' · ') || 'No responses yet'
                 return (
                   <div key={poll.id} style={{ paddingTop:10, paddingBottom:10, borderBottom: idx < activePolls.length - 1 ? '0.5px solid var(--border)' : 'none' }}>
@@ -1069,9 +1074,10 @@ export default function ModeratorDashboard() {
                     </div>
                   ) : (() => {
                     const poll = activePolls[tileIndices.polls % activePolls.length]
-                    const yes   = poll.poll_responses?.filter(r => r.response === 'yes').length   || 0
-                    const no    = poll.poll_responses?.filter(r => r.response === 'no').length    || 0
-                    const maybe = poll.poll_responses?.filter(r => r.response === 'maybe').length || 0
+                    const mResp = memberResponses(poll)
+                    const yes   = mResp.filter(r => r.response === 'yes').length   || 0
+                    const no    = mResp.filter(r => r.response === 'no').length    || 0
+                    const maybe = mResp.filter(r => r.response === 'maybe').length || 0
                     const tally = [yes && `${yes} Yes`, no && `${no} No`, maybe && `${maybe} Maybe`].filter(Boolean).join(' · ')
                     return (
                       <div style={{ flex:1, opacity: tileOpacity.polls, transition: `opacity ${tileTransMs.current.polls}ms ease`, textAlign:'center' }}>
@@ -1183,13 +1189,14 @@ export default function ModeratorDashboard() {
               const pendingCount = regularMembers.filter(m => !responseMap[m.user_id]).length
               const isExpanded = !!expandedPolls[poll.id]
 
-              // Vote counts (standard or custom options)
-              const yes   = poll.poll_responses?.filter(r => r.response === 'yes').length   || 0
-              const no    = poll.poll_responses?.filter(r => r.response === 'no').length    || 0
-              const maybe = poll.poll_responses?.filter(r => r.response === 'maybe').length || 0
+              // Vote counts — exclude guest responses
+              const mResp = memberResponses(poll)
+              const yes   = mResp.filter(r => r.response === 'yes').length   || 0
+              const no    = mResp.filter(r => r.response === 'no').length    || 0
+              const maybe = mResp.filter(r => r.response === 'maybe').length || 0
               const optionCounts = hasCustomOpts
                 ? Object.fromEntries(parsedCustom.options.map(opt => [
-                    opt, poll.poll_responses?.filter(r => r.response === opt).length || 0
+                    opt, mResp.filter(r => r.response === opt).length || 0
                   ]))
                 : null
 
@@ -1690,7 +1697,7 @@ export default function ModeratorDashboard() {
               disabled={!notifTitle.trim() || sendingNotif}
               onClick={async () => {
                 setSendingNotif(true)
-                const memberIds = members.filter(m => m.status === 'approved').map(m => m.user_id)
+                const memberIds = members.filter(m => m.status === 'approved' && !m.is_guest).map(m => m.user_id)
                 await sendPush(memberIds, notifTitle.trim(), notifBody.trim(), '/')
                 setSendingNotif(false)
                 setNotifTitle('')
