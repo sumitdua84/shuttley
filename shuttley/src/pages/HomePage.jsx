@@ -113,13 +113,27 @@ export default function HomePage() {
       const relevant = pollData
 
       const myResp = (p) => p.poll_responses?.find(r => r.user_id === user.id)?.response
+      const modClubIdSet = new Set(modClubIds)
 
-      // Session polls where I said yes → Upcoming Sessions
-      const yesPolls = relevant.filter(p => p.session_date && myResp(p) === 'yes')
-      // Unanswered polls (session + custom) — show all polls the user hasn't responded to
-      const unanswered = relevant.filter(p => !myResp(p))
+      // Sessions section:
+      //   - session polls the user answered yes (all clubs)
+      //   - session polls in mod clubs regardless of response (so mods can start a session)
+      const sessionPollMap = {}
+      for (const p of relevant) {
+        if (!p.session_date) continue
+        const resp = myResp(p)
+        if (resp === 'yes' || modClubIdSet.has(p.club_id)) {
+          sessionPollMap[p.id] = { ...p, clubName: clubNameMap[p.club_id], myResponse: resp || null }
+        }
+      }
+      setUpcomingPolls(Object.values(sessionPollMap))
 
-      setUpcomingPolls(yesPolls.map(p => ({ ...p, clubName: clubNameMap[p.club_id] })))
+      // Action Needed: unanswered polls, but skip session polls already shown in Sessions for mods
+      const unanswered = relevant.filter(p => {
+        if (myResp(p)) return false
+        if (p.session_date && modClubIdSet.has(p.club_id)) return false
+        return true
+      })
       setActivePolls(unanswered.map(p => ({ ...p, clubName: clubNameMap[p.club_id] })))
     }
 
@@ -209,7 +223,7 @@ export default function HomePage() {
       const poll = activePolls.find(p => p.id === pollId)
       if (poll?.session_date) {
         setActivePolls(prev => prev.filter(p => p.id !== pollId))
-        setUpcomingPolls(prev => [...prev, poll])
+        setUpcomingPolls(prev => [...prev, { ...poll, myResponse: 'yes' }])
       } else {
         // Custom poll answered yes — just remove from needing response
         setActivePolls(prev => prev.filter(p => p.id !== pollId))
@@ -497,9 +511,11 @@ export default function HomePage() {
                                   {formatPollDate(poll.session_date)}
                                   {poll.session_time ? ` · ${poll.session_time.slice(0, 5)}` : ''}
                                 </div>
-                                <div style={{ fontSize: 12, color: 'var(--success)', fontWeight: 600, marginTop: 2 }}>
-                                  You're in ✓
-                                </div>
+                                {poll.myResponse === 'yes' && (
+                                  <div style={{ fontSize: 12, color: 'var(--success)', fontWeight: 600, marginTop: 2 }}>
+                                    You're in ✓
+                                  </div>
+                                )}
                               </div>
                               {isMod && !liveClubIds.has(poll.club_id) ? (
                                 <>
