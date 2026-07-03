@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
-import BottomNav from '../components/BottomNav'
+import GroupNav from '../components/GroupNav'
 
 const SPLIT_TYPES = [
   { key: 'equal',      label: 'Equal',      icon: '⚖️' },
@@ -939,7 +939,7 @@ export default function SplitsPage() {
 
       {toast && <div className="toast">{toast}</div>}
 
-      <BottomNav clubId={clubId} activeTab="home" />
+      <GroupNav clubId={clubId} isMod={userRole === 'moderator'} activeTab="splits" />
     </div>
   )
 }
