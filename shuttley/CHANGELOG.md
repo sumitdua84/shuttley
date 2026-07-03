@@ -1,5 +1,29 @@
 # Shuttley — Changelog
 
+## 2026-07-03 — Production hotfixes: polls, global chat, navigation
+
+**Branch:** `main`  
+**Production commits (today):**
+- `d543222` — Bottom nav icons positioning on mobile (reduced top padding 10px→4px, adjusted .tab padding for lower icon placement on iPhone)
+- `ce5ffaf` — Groups nav tab should go to /groups (join) not /my-groups (yours)
+- `dc1a887` — Exclude guests from poll attendance display on Home (fetch non-guest members only for yes/no/maybe/no-response tallies)
+- `42fb4c8` — Global chat directory improvements (cherry-picked: search, deleted/guest filtering, `/chat/:conversationId` routing, GlobalDMPage with shared groups)
+- `a6c11b5` — Exclude guests from polls — visibility, counts, notifications (Home, Member/ModeratorDashboard)
+- `0edaace` — Restore Home session poll start visibility for moderators (mods see open session polls even if they haven't answered yes)
+
+**Summary:** Hotfix batch addressing poll privacy, guest visibility, chat routing, and mobile UI. All changes frontend-only; no schema/RLS/env changes.
+
+**What fixed:**
+1. **Poll privacy:** Guests completely excluded from polls (visibility, response counts, notifications). Members no longer see guest names in poll attendance tallies.
+2. **Chat routing:** Global DM directory now navigates to `/chat/:conversationId` (new global DM page) instead of `/club/:clubId/chat`. Search, deleted/guest filtering, and shared group names visible on DM page.
+3. **Navigation:** Groups button in bottom nav now goes to `/groups` (discover/join) instead of `/my-groups` (your groups list), consistent with Home behavior.
+4. **Mobile UI:** Bottom nav icons positioned lower on iPhone to match standard mobile app patterns.
+5. **Moderator workflows:** Home session poll start button now visible to moderators regardless of whether they've personally answered yes.
+
+**Validation:** npm run build passes (115 modules, 0 errors). No production Supabase queries, schema migrations, or env changes.
+
+---
+
 ## 2026-06-30 - V1 production release closeout docs
 
 **Branch:** `main`
