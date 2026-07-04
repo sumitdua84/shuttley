@@ -157,8 +157,13 @@ export default function GlobalChatPage() {
       return conv
     }))
 
+    // Filter out empty conversations (no messages)
+    const withMessages = enriched.filter(conv =>
+      conv.last_message_at && conv.last_message_preview
+    )
+
     // Sort by last_message_at DESC
-    const sorted = enriched.sort((a, b) => {
+    const sorted = withMessages.sort((a, b) => {
       const timeA = new Date(a.last_message_at || 0).getTime()
       const timeB = new Date(b.last_message_at || 0).getTime()
       return timeB - timeA

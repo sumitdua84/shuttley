@@ -681,10 +681,10 @@ export default function ChatPage() {
                 </div>
 
                 {/* Message input */}
-                <div style={{ display:'flex', gap:8, padding:'10px 16px',
+                <div style={{ display:'flex', gap:8, padding:'10px 16px 4px',
                   borderTop:'0.5px solid var(--border)', background:'var(--bg2)',
                   alignItems:'flex-end', flexShrink:0,
-                  paddingBottom:'calc(10px + env(safe-area-inset-bottom))' }}>
+                  marginBottom:'env(safe-area-inset-bottom)' }}>
                   <div style={{ flex:1, background:'var(--bg3)', borderRadius:22, padding:'9px 14px',
                     display:'flex', alignItems:'center', border:'0.5px solid var(--border)' }}>
                     <input ref={inputRef} value={inputText} onChange={e => setInputText(e.target.value)}

@@ -61,8 +61,14 @@ export default function GlobalDMPage() {
     }
   }, [user, conversationId])
 
+  // Scroll to bottom on messages change
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: 'smooth' })
+    // Initial load or when messages load: scroll immediately (auto)
+    // Subsequent message additions: scroll smoothly
+    const behavior = messages.length <= 10 ? 'auto' : 'smooth'
+    setTimeout(() => {
+      endRef.current?.scrollIntoView({ behavior })
+    }, 0)
   }, [messages])
 
   async function boot() {
@@ -229,7 +235,7 @@ export default function GlobalDMPage() {
       </div>
 
       {/* Input */}
-      <div style={{ padding: '8px 12px 12px', borderTop: '0.5px solid var(--border)', display: 'flex', gap: 8, alignItems: 'flex-end', background: 'var(--bg)' }}>
+      <div style={{ padding: '8px 12px 4px', borderTop: '0.5px solid var(--border)', display: 'flex', gap: 8, alignItems: 'flex-end', background: 'var(--bg)', marginBottom: 'env(safe-area-inset-bottom)' }}>
         <textarea
           ref={inputRef}
           rows={1}
