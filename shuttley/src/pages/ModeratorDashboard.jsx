@@ -771,66 +771,6 @@ export default function ModeratorDashboard() {
         {/* ── SESSION ── */}
         {tab === 'session' && <>
 
-          {/* ── Polls section ── */}
-          <div className="section-label">Polls</div>
-          <div style={{ display:'flex', gap:8, marginBottom: activePolls.length > 0 ? 14 : 20 }}>
-            <button
-              onClick={() => { setPollDate(''); setPollStartH(''); setPollStartM('00'); setPollStartAP('PM'); setPollEndH(''); setPollEndM('00'); setPollEndAP('PM'); setPollNotes(''); setShowPollModal(true) }}
-              style={{ flex:1, padding:'9px', background:'var(--accent)', border:'none', borderRadius:'var(--radius-sm)', color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:"'Inter',sans-serif" }}>
-              + Session Poll
-            </button>
-            <button
-              onClick={() => { setCustomPollQ(''); setCustomPollNotes(''); setCustomPollOptions(['', '']); setShowCustomPollModal(true) }}
-              style={{ flex:1, padding:'9px', background:'transparent', border:'1.5px solid var(--accent)', borderRadius:'var(--radius-sm)', color:'var(--accent)', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:"'Inter',sans-serif" }}>
-              + Custom Poll
-            </button>
-          </div>
-          {activePolls.length > 0 && (
-            <div style={{ marginBottom:20 }}>
-              {activePolls.map((poll, idx) => {
-                const isCustom = !poll.session_date
-                const mResp = memberResponses(poll)
-                const yes   = mResp.filter(r => r.response === 'yes').length   || 0
-                const no    = mResp.filter(r => r.response === 'no').length    || 0
-                const maybe = mResp.filter(r => r.response === 'maybe').length || 0
-                const label = isCustom
-                  ? (parseCustomPollNotes(poll.notes)?.question || 'Custom Poll')
-                  : `Coming ${formatPollDate(poll.session_date)}?`
-                const tally = isCustom
-                  ? `${mResp.length} response${mResp.length !== 1 ? 's' : ''}`
-                  : [yes && `${yes} Yes`, no && `${no} No`, maybe && `${maybe} Maybe`].filter(Boolean).join(' · ') || 'No responses yet'
-                return (
-                  <div key={poll.id} style={{ paddingTop:10, paddingBottom:10, borderBottom: idx < activePolls.length - 1 ? '0.5px solid var(--border)' : 'none' }}>
-                    <div
-                      onClick={() => { setExpandedPolls(prev => ({ ...prev, [poll.id]: true })); changeTab('polls') }}
-                      style={{ display:'flex', alignItems:'center', gap:10, cursor:'pointer' }}>
-                      <div style={{ flex:1, minWidth:0 }}>
-                        <div style={{ fontSize:13, fontWeight:600, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{label}</div>
-                        <div style={{ fontSize:11, color:'var(--text3)', marginTop:1 }}>{tally}</div>
-                      </div>
-                      <span style={{ fontSize:16, color:'var(--text3)', flexShrink:0 }}>›</span>
-                    </div>
-                    {!isCustom && (
-                      activeSession ? (
-                        <button
-                          onClick={() => navigate(`/club/${clubId}/session/${activeSession.id}/rotation`)}
-                          style={{ marginTop:7, width:'100%', padding:'7px', background:'var(--accent)', border:'none', borderRadius:'var(--radius-sm)', color:'#fff', fontSize:12, fontWeight:700, cursor:'pointer', fontFamily:"'Inter',sans-serif" }}>
-                          Open Current Session →
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => startSessionFromPoll(poll)}
-                          style={{ marginTop:7, width:'100%', padding:'7px', background:'transparent', border:'1.5px solid var(--accent)', borderRadius:'var(--radius-sm)', color:'var(--accent)', fontSize:12, fontWeight:700, cursor:'pointer', fontFamily:"'Inter',sans-serif" }}>
-                          ▶ Start Session from this Poll
-                        </button>
-                      )
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          )}
-
           {/* ── Sessions section ── */}
           <div className="section-label">Sessions</div>
           {activeSession ? (

@@ -706,62 +706,6 @@ export default function MemberDashboard() {
               </div>
             )}
 
-            {/* ── Polls section ── */}
-            <div className="section-label">Polls</div>
-            <div style={{ display:'flex', gap:8, marginBottom: activePolls.length > 0 ? 14 : 20 }}>
-              <button
-                onClick={() => { setPollDate(''); setPollStartH(''); setPollStartM('00'); setPollStartAP('PM'); setPollEndH(''); setPollEndM('00'); setPollEndAP('PM'); setPollNotes(''); setShowPollModal(true) }}
-                style={{ flex:1, padding:'9px', background:'var(--accent)', border:'none', borderRadius:'var(--radius-sm)', color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:"'Inter',sans-serif" }}>
-                + Session Poll
-              </button>
-              <button
-                onClick={() => { setCustomPollQ(''); setCustomPollNotes(''); setCustomPollOptions(['', '']); setShowCustomPollModal(true) }}
-                style={{ flex:1, padding:'9px', background:'transparent', border:'1.5px solid var(--accent)', borderRadius:'var(--radius-sm)', color:'var(--accent)', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:"'Inter',sans-serif" }}>
-                + Custom Poll
-              </button>
-            </div>
-            {activePolls.length > 0 && (
-              <div style={{ marginBottom:20 }}>
-                {activePolls.map((poll, idx) => {
-                  const myResp = poll.poll_responses?.find(r => r.user_id === user.id)?.response
-                  const isCustom = !poll.session_date
-                  const label = isCustom ? (poll.notes ? (JSON.parse(poll.notes)?.q || 'Custom Poll') : 'Custom Poll') : `Coming ${formatPollDate(poll.session_date)}?`
-                  const respColor = myResp === 'yes' ? '#2a8c55' : myResp === 'no' ? '#e05555' : myResp === 'maybe' ? '#a07800' : 'var(--text3)'
-                  const respLabel = myResp ? myResp.charAt(0).toUpperCase() + myResp.slice(1) : 'Respond →'
-                  return (
-                    <div key={poll.id} style={{ paddingTop:10, paddingBottom:10, borderBottom: idx < activePolls.length - 1 ? '0.5px solid var(--border)' : 'none' }}>
-                      <div
-                        onClick={() => { setExpandedPolls(prev => ({ ...prev, [poll.id]: true })); changeTab('polls') }}
-                        style={{ display:'flex', alignItems:'center', gap:10, cursor:'pointer' }}>
-                        <div style={{ flex:1, minWidth:0 }}>
-                          <div style={{ fontSize:13, fontWeight:600, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{label}</div>
-                          <div style={{ fontSize:11, color:'var(--text3)', marginTop:1 }}>
-                            {poll.poll_responses?.length || 0} response{poll.poll_responses?.length !== 1 ? 's' : ''}
-                          </div>
-                        </div>
-                        <span style={{ fontSize:12, fontWeight:700, color:respColor, flexShrink:0 }}>{respLabel}</span>
-                      </div>
-                      {!isCustom && (
-                        activeSession ? (
-                          <button
-                            onClick={() => navigate(`/club/${clubId}/session/${activeSession.id}/rotation`)}
-                            style={{ marginTop:7, width:'100%', padding:'7px', background:'var(--accent)', border:'none', borderRadius:'var(--radius-sm)', color:'#fff', fontSize:12, fontWeight:700, cursor:'pointer', fontFamily:"'Inter',sans-serif" }}>
-                            Open Current Session →
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => startSessionFromPoll(poll)}
-                            style={{ marginTop:7, width:'100%', padding:'7px', background:'transparent', border:'1.5px solid var(--accent)', borderRadius:'var(--radius-sm)', color:'var(--accent)', fontSize:12, fontWeight:700, cursor:'pointer', fontFamily:"'Inter',sans-serif" }}>
-                            ▶ Start Session from this Poll
-                          </button>
-                        )
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-
             {/* ── Sessions section ── */}
             <div className="section-label">Sessions</div>
             {activeSession ? (
@@ -1270,9 +1214,25 @@ export default function MemberDashboard() {
                         })
                       )}
 
+                      {!isCustom && (
+                        activeSession ? (
+                          <button
+                            onClick={() => navigate(`/club/${clubId}/session/${activeSession.id}/rotation`)}
+                            style={{ marginTop:12, width:'100%', padding:'9px', background:'var(--accent)', border:'none', borderRadius:'var(--radius-sm)', color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:"'Inter',sans-serif" }}>
+                            Open Current Session →
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => startSessionFromPoll(poll)}
+                            style={{ marginTop:12, width:'100%', padding:'9px', background:'transparent', border:'1.5px solid var(--accent)', borderRadius:'var(--radius-sm)', color:'var(--accent)', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:"'Inter',sans-serif" }}>
+                            ▶ Start Session from this Poll
+                          </button>
+                        )
+                      )}
+
                       {poll.created_by === user.id && (
                         <button onClick={() => deletePoll(poll.id)} style={{
-                          marginTop:4, width:'100%', padding:'9px',
+                          marginTop:8, width:'100%', padding:'9px',
                           background:'transparent', border:'1px solid rgba(224,85,85,0.35)',
                           borderRadius:'var(--radius-sm)', color:'#e05555',
                           fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:"'Inter',sans-serif",
