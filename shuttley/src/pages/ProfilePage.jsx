@@ -122,7 +122,7 @@ export default function ProfilePage() {
     const { error } = await saveNotificationPreference(user.id, { session_poll_notifications: next })
     if (!error) {
       setNotifPrefs(prev => ({ ...prev, session_poll_notifications: next }))
-      showToast(next ? 'Session poll notifications on' : 'Session poll notifications off')
+      showToast(next ? 'Poll notifications on' : 'Poll notifications off')
     } else {
       showToast('Could not save notification setting')
     }
@@ -239,7 +239,7 @@ export default function ProfilePage() {
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               cursor: savingNotif || notifStatus === 'unsupported' ? 'default' : 'pointer'
             }}>
-            <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>Session poll notifications</span>
+            <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>Poll notifications</span>
             <span style={{
               width: 44, height: 24, borderRadius: 999, padding: 2,
               background: notifPrefs.session_poll_notifications ? 'var(--accent)' : 'var(--border2)',

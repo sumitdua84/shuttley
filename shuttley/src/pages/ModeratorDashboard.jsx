@@ -1926,7 +1926,7 @@ export default function ModeratorDashboard() {
               Stay in the loop
             </div>
             <div style={{ fontSize:14, color:'var(--text2)', lineHeight:1.6, marginBottom:28 }}>
-              Get notified when a session poll is created, a match needs your confirmation, or results are posted.
+              Get notified when a poll is created, a match needs your confirmation, or results are posted.
             </div>
             <button className="btn btn-primary" style={{ marginBottom:10 }}
               onClick={async () => {
