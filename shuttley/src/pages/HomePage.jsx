@@ -132,10 +132,10 @@ export default function HomePage() {
       }
       setUpcomingPolls(Object.values(sessionPollMap))
 
-      // Action Needed: unanswered polls, but skip session polls already shown in Sessions for mods
+      // Action Needed: unanswered polls for everyone. Moderators may also see
+      // the same session poll in Sessions so they can manage attendance/start.
       const unanswered = relevant.filter(p => {
         if (myResp(p)) return false
-        if (p.session_date && modClubIdSet.has(p.club_id)) return false
         return true
       })
       setActivePolls(unanswered.map(p => ({ ...p, clubName: clubNameMap[p.club_id] })))
