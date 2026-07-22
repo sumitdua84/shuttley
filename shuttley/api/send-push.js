@@ -16,6 +16,7 @@ const APNS_TEAM_ID = process.env.APNS_TEAM_ID
 const APNS_BUNDLE_ID = process.env.APNS_BUNDLE_ID || 'club.shuttley'
 const APNS_PRIVATE_KEY = (process.env.APNS_PRIVATE_KEY || '').replace(/\\n/g, '\n')
 const APNS_SANDBOX = process.env.APNS_SANDBOX === 'true'
+const APNS_DEAD_REASONS = new Set(['BadDeviceToken', 'Unregistered'])
 
 function getAPNProvider() {
   // node-apn expects a file path — write key to a temp file
@@ -41,10 +42,18 @@ async function sendAPNs(token, title, body, url) {
     note.topic = APNS_BUNDLE_ID
     note.payload = { url }
     const result = await provider.send(note, token)
-    return result.sent.length > 0
+    provider.shutdown()
+    if (result.sent.length > 0) {
+      return { ok: true }
+    }
+    const failed = result.failed?.[0]
+    const reason = failed?.response?.reason || failed?.error?.message || 'Unknown APNs failure'
+    const status = failed?.status || failed?.response?.status
+    console.error('[APNs] rejected:', { reason, status, topic: APNS_BUNDLE_ID, sandbox: APNS_SANDBOX })
+    return { ok: false, reason, status, dead: APNS_DEAD_REASONS.has(reason) }
   } catch (e) {
     console.error('[APNs] error:', e.message)
-    return false
+    return { ok: false, reason: e.message || 'APNs exception' }
   }
 }
 
@@ -114,7 +123,10 @@ export default async function handler(req, res) {
 
   // Send APNs (iOS)
   let iosSent = 0
-  if (APNS_KEY_ID && APNS_TEAM_ID && APNS_PRIVATE_KEY) {
+  let iosAttempted = 0
+  const apnsFailures = []
+  const apnsConfigured = Boolean(APNS_KEY_ID && APNS_TEAM_ID && APNS_PRIVATE_KEY)
+  if (apnsConfigured) {
     const { data: apnsTokens } = await supabase
       .from('apns_tokens')
       .select('id, token')
@@ -123,9 +135,17 @@ export default async function handler(req, res) {
     if (apnsTokens?.length) {
       const deadIds = []
       for (const row of apnsTokens) {
-        const ok = await sendAPNs(row.token, title, body, url)
-        if (ok) {
+        iosAttempted++
+        const result = await sendAPNs(row.token, title, body, url)
+        if (result.ok) {
           iosSent++
+        } else {
+          apnsFailures.push({
+            id: row.id,
+            reason: result.reason,
+            status: result.status,
+          })
+          if (result.dead) deadIds.push(row.id)
         }
       }
       if (deadIds.length) {
@@ -134,6 +154,20 @@ export default async function handler(req, res) {
     }
   }
 
-  console.log(`[Push] web: ${webSent}, ios: ${iosSent}`)
-  res.json({ ok: true, sent: webSent + iosSent, web: webSent, ios: iosSent, requested: user_ids.length, eligible: eligibleUserIds.length })
+  console.log(`[Push] web: ${webSent}, ios: ${iosSent}/${iosAttempted}`)
+  res.json({
+    ok: true,
+    sent: webSent + iosSent,
+    web: webSent,
+    ios: iosSent,
+    requested: user_ids.length,
+    eligible: eligibleUserIds.length,
+    apns: {
+      configured: apnsConfigured,
+      sandbox: APNS_SANDBOX,
+      topic: APNS_BUNDLE_ID,
+      attempted: iosAttempted,
+      failures: apnsFailures.slice(0, 5),
+    },
+  })
 }
