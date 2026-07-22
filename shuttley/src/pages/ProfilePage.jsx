@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import Toast from '../components/Toast'
 import { useConfirm } from '../hooks/useConfirm'
 import BottomNav from '../components/BottomNav'
+import { getNotificationPermissionStatus, usePushNotifications } from '../hooks/usePushNotifications'
 
 const SUPER_ADMINS = ['sumit@shuttley.club', 'sumitdua84@gmail.com']
 
@@ -21,8 +22,12 @@ export default function ProfilePage() {
   const [fullName, setFullName] = useState('')
   const [uploading, setUploading] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [notifStatus, setNotifStatus] = useState(() => getNotificationPermissionStatus())
+  const [notifPrefs, setNotifPrefs] = useState({ session_poll_notifications: true })
+  const [savingNotif, setSavingNotif] = useState(false)
   const [toast, setToast] = useState('')
   const [confirmDialog, confirmModal] = useConfirm()
+  const { subscribe, saveNotificationPreference } = usePushNotifications()
   const fileRef = useRef()
 
   useEffect(() => { fetchProfile() }, [user])
@@ -32,6 +37,14 @@ export default function ProfilePage() {
     const { data: p } = await supabase.from('profiles').select('*').eq('id', user.id).single()
     setProfile(p)
     setFullName(p?.full_name || '')
+    setNotifStatus(getNotificationPermissionStatus())
+
+    const { data: prefs } = await supabase
+      .from('user_notification_preferences')
+      .select('session_poll_notifications')
+      .eq('user_id', user.id)
+      .maybeSingle()
+    if (prefs) setNotifPrefs(prefs)
 
     if (clubId) {
       const { data: mem } = await supabase.from('memberships').select('role').eq('club_id', clubId).eq('user_id', user.id).single()
@@ -78,12 +91,55 @@ export default function ProfilePage() {
     navigate('/login')
   }
 
+  async function enableNotifications() {
+    setSavingNotif(true)
+    const ok = await subscribe(user.id)
+    const nextStatus = getNotificationPermissionStatus()
+    setNotifStatus(ok ? 'granted' : nextStatus)
+    if (ok) {
+      await saveNotificationPreference(user.id, { session_poll_notifications: true })
+      setNotifPrefs(prev => ({ ...prev, session_poll_notifications: true }))
+      showToast('Notifications enabled')
+    } else {
+      showToast(nextStatus === 'denied' ? 'Notifications are blocked in settings' : 'Could not enable notifications')
+    }
+    setSavingNotif(false)
+  }
+
+  async function toggleSessionPollNotifications() {
+    const next = !notifPrefs.session_poll_notifications
+    setSavingNotif(true)
+    if (next && getNotificationPermissionStatus() !== 'granted') {
+      const ok = await subscribe(user.id)
+      setNotifStatus(getNotificationPermissionStatus())
+      if (!ok) {
+        setSavingNotif(false)
+        showToast('Enable device notifications first')
+        return
+      }
+    }
+
+    const { error } = await saveNotificationPreference(user.id, { session_poll_notifications: next })
+    if (!error) {
+      setNotifPrefs(prev => ({ ...prev, session_poll_notifications: next }))
+      showToast(next ? 'Session poll notifications on' : 'Session poll notifications off')
+    } else {
+      showToast('Could not save notification setting')
+    }
+    setSavingNotif(false)
+  }
+
   function showToast(msg) {
     setToast(msg)
     setTimeout(() => setToast(''), 2500)
   }
 
   const avatarUrl = profile?.avatar_url
+  const notificationStatusText =
+    notifStatus === 'granted' ? 'Notifications are enabled on this device'
+    : notifStatus === 'denied' ? 'Notifications are blocked in your browser or device settings'
+    : notifStatus === 'unsupported' ? 'Notifications are not supported on this device'
+    : 'Notifications are not enabled on this device'
 
   return (
     <div className="page">
@@ -157,6 +213,46 @@ export default function ProfilePage() {
               </div>
             </>
           ) : null}
+        </div>
+
+        {/* Notifications */}
+        <div style={{ background: 'var(--bg2)', borderRadius: 'var(--radius)', padding: '16px', marginBottom: 16 }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 8 }}>Notifications</div>
+          <div style={{ fontSize: 12, color: 'var(--text3)', lineHeight: 1.5, marginBottom: 12 }}>
+            {notificationStatusText}
+          </div>
+          {notifStatus !== 'granted' && notifStatus !== 'unsupported' && (
+            <button
+              className="btn btn-primary"
+              style={{ width: '100%', marginBottom: 12, fontSize: 13 }}
+              disabled={savingNotif || notifStatus === 'denied'}
+              onClick={enableNotifications}>
+              {notifStatus === 'denied' ? 'Blocked in settings' : savingNotif ? 'Enabling...' : 'Enable notifications'}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={toggleSessionPollNotifications}
+            disabled={savingNotif || notifStatus === 'unsupported'}
+            style={{
+              width: '100%', padding: '12px 0', background: 'none', border: 'none',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              cursor: savingNotif || notifStatus === 'unsupported' ? 'default' : 'pointer'
+            }}>
+            <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>Session poll notifications</span>
+            <span style={{
+              width: 44, height: 24, borderRadius: 999, padding: 2,
+              background: notifPrefs.session_poll_notifications ? 'var(--accent)' : 'var(--border2)',
+              transition: 'background 0.15s ease'
+            }}>
+              <span style={{
+                display: 'block', width: 20, height: 20, borderRadius: '50%',
+                background: '#fff',
+                transform: notifPrefs.session_poll_notifications ? 'translateX(20px)' : 'translateX(0)',
+                transition: 'transform 0.15s ease'
+              }} />
+            </span>
+          </button>
         </div>
 
         {/* Moderator / Admin settings */}

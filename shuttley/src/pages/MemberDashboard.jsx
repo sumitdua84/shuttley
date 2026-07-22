@@ -3,7 +3,7 @@ import { useParams, useNavigate, useLocation, useSearchParams } from 'react-rout
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
 import { generateSchedule } from '../utils/scheduleGenerator'
-import { usePushNotifications } from '../hooks/usePushNotifications'
+import { getNotificationPermissionStatus, usePushNotifications } from '../hooks/usePushNotifications'
 import GroupNav from '../components/GroupNav'
 import GroupWorldHeader from '../components/GroupWorldHeader'
 import Toast from '../components/Toast'
@@ -60,10 +60,7 @@ export default function MemberDashboard() {
   const [customPollOptions, setCustomPollOptions] = useState(['', ''])
   const [creatingCustomPoll, setCreatingCustomPoll] = useState(false)
   const { sendPush, subscribe } = usePushNotifications()
-  const [notifStatus, setNotifStatus] = useState(() =>
-    Notification.permission === 'granted' || localStorage.getItem('push_subscribed') === '1'
-      ? 'granted' : Notification.permission
-  )
+  const [notifStatus, setNotifStatus] = useState(() => getNotificationPermissionStatus())
   const [showNotifModal, setShowNotifModal] = useState(false)
   const [clubFeatures, setClubFeatures] = useState([])
   const [splitsItems, setSplitsItems] = useState([{ line1: 'Track expenses', line2: 'Split & settle up' }])
@@ -419,7 +416,7 @@ export default function MemberDashboard() {
     }
 
     // If permission already granted, silently ensure subscription exists in DB
-    if (Notification.permission === 'granted') {
+    if (getNotificationPermissionStatus() === 'granted') {
       subscribe(user.id)
       setNotifStatus('granted')
     }
@@ -427,7 +424,7 @@ export default function MemberDashboard() {
     // Show notification prompt if flagged on login
     if (localStorage.getItem('promptNotifications') === '1') {
       localStorage.removeItem('promptNotifications')
-      if (Notification.permission === 'default') setShowNotifModal(true)
+      if (getNotificationPermissionStatus() === 'default') setShowNotifModal(true)
     }
   }
 
@@ -590,7 +587,8 @@ export default function MemberDashboard() {
         memberUserIds,
         `${club?.name} — Coming ${dateLabel}?`,
         timeStr ? `Session at ${timeStr}` : 'Tap to respond',
-        '/'
+        '/',
+        'session_poll'
       )
     }
 
@@ -623,7 +621,7 @@ export default function MemberDashboard() {
     if (!error) {
       const memberUserIds = members.filter(m => m.status === 'approved' && !m.is_guest).map(m => m.user_id)
       if (memberUserIds.length > 0) {
-        await sendPush(memberUserIds, `${club?.name} — Poll`, customPollQ.trim(), '/')
+        await sendPush(memberUserIds, `${club?.name} — Poll`, customPollQ.trim(), '/', 'session_poll')
       }
     }
     setCreatingCustomPoll(false)
@@ -1497,7 +1495,7 @@ export default function MemberDashboard() {
               onClick={async () => {
                 setShowNotifModal(false)
                 const ok = await subscribe(user.id)
-                setNotifStatus(ok ? 'granted' : Notification.permission)
+                setNotifStatus(ok ? 'granted' : getNotificationPermissionStatus())
                 if (ok) showToast('🔔 Notifications enabled!')
               }}>
               Enable Notifications

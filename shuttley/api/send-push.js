@@ -48,22 +48,48 @@ async function sendAPNs(token, title, body, url) {
   }
 }
 
+async function filterEligibleUserIds(supabase, userIds, notificationType) {
+  if (notificationType !== 'session_poll') return userIds
+
+  const { data, error } = await supabase
+    .from('user_notification_preferences')
+    .select('user_id, session_poll_notifications')
+    .in('user_id', userIds)
+
+  if (error) {
+    console.error('[Push] preference filter failed, sending to all:', error.message)
+    return userIds
+  }
+
+  const disabled = new Set(
+    (data || [])
+      .filter(row => row.session_poll_notifications === false)
+      .map(row => row.user_id)
+  )
+  return userIds.filter(id => !disabled.has(id))
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end()
 
-  const { user_ids, title, body, url = '/' } = req.body
-  if (!user_ids?.length) return res.json({ ok: true, sent: 0 })
+  const { user_ids, title, body, url = '/', notification_type } = req.body
+  if (!user_ids?.length) return res.json({ ok: true, sent: 0, requested: 0, eligible: 0 })
 
   const supabase = createClient(
     process.env.SUPABASE_URL,
     process.env.SUPABASE_SERVICE_ROLE_KEY
   )
 
+  const eligibleUserIds = await filterEligibleUserIds(supabase, user_ids, notification_type)
+  if (!eligibleUserIds.length) {
+    return res.json({ ok: true, sent: 0, web: 0, ios: 0, requested: user_ids.length, eligible: 0 })
+  }
+
   // Send web push (VAPID)
   const { data: subs } = await supabase
     .from('push_subscriptions')
     .select('id, subscription')
-    .in('user_id', user_ids)
+    .in('user_id', eligibleUserIds)
 
   let webSent = 0
   if (subs?.length) {
@@ -92,7 +118,7 @@ export default async function handler(req, res) {
     const { data: apnsTokens } = await supabase
       .from('apns_tokens')
       .select('id, token')
-      .in('user_id', user_ids)
+      .in('user_id', eligibleUserIds)
 
     if (apnsTokens?.length) {
       const deadIds = []
@@ -109,5 +135,5 @@ export default async function handler(req, res) {
   }
 
   console.log(`[Push] web: ${webSent}, ios: ${iosSent}`)
-  res.json({ ok: true, sent: webSent + iosSent, web: webSent, ios: iosSent })
+  res.json({ ok: true, sent: webSent + iosSent, web: webSent, ios: iosSent, requested: user_ids.length, eligible: eligibleUserIds.length })
 }

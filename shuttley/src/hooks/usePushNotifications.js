@@ -19,6 +19,15 @@ async function storeAPNsToken(userId, token) {
   return { data, error }
 }
 
+export function getNotificationPermissionStatus() {
+  if (typeof navigator !== 'undefined' && /PWAShell/.test(navigator.userAgent)) {
+    return localStorage.getItem('push_subscribed') === '1' ? 'granted' : 'default'
+  }
+  if (typeof Notification === 'undefined') return 'unsupported'
+  if (localStorage.getItem('push_subscribed') === '1') return 'granted'
+  return Notification.permission
+}
+
 export function usePushNotifications() {
   /** Ask permission + subscribe, store in DB. Returns true if successful. */
   async function subscribe(userId) {
@@ -34,6 +43,7 @@ export function usePushNotifications() {
     const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY
     if (!vapidKey) return false
     try {
+      if (typeof Notification === 'undefined') return false
       const permission = await Notification.requestPermission()
       if (permission !== 'granted') return false
 
@@ -57,13 +67,23 @@ export function usePushNotifications() {
     }
   }
 
+  async function saveNotificationPreference(userId, patch) {
+    if (!userId) return { error: new Error('Missing user id') }
+    const { data, error } = await supabase.from('user_notification_preferences').upsert(
+      { user_id: userId, ...patch },
+      { onConflict: 'user_id' }
+    ).select().single()
+    if (error) console.error('[Push] saveNotificationPreference error:', error.message)
+    return { data, error }
+  }
+
   /** Send a push notification to one or more users via the Vercel API route. */
-  async function sendPush(userIds, title, body, url = '/') {
+  async function sendPush(userIds, title, body, url = '/', notificationType) {
     try {
       const res = await fetch('/api/send-push', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_ids: userIds, title, body, url }),
+        body: JSON.stringify({ user_ids: userIds, title, body, url, notification_type: notificationType }),
       })
       const json = await res.json().catch(() => null)
       console.error('[Push] status', res.status, json)
@@ -73,7 +93,7 @@ export function usePushNotifications() {
     }
   }
 
-  return { subscribe, sendPush, storeAPNsToken }
+  return { subscribe, sendPush, storeAPNsToken, saveNotificationPreference, getNotificationPermissionStatus }
 }
 
 /** Call this once at app root level to wire up the iOS push-token bridge */

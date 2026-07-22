@@ -1,13 +1,14 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { getNotificationPermissionStatus } from '../hooks/usePushNotifications'
 
 export default function AuthCallback() {
   const navigate = useNavigate()
 
   useEffect(() => {
     function handleSession(session) {
-      if (Notification.permission === 'default') {
+      if (getNotificationPermissionStatus() === 'default') {
         localStorage.setItem('promptNotifications', '1')
       }
       const pendingInviteCode = localStorage.getItem('pendingInviteCode')
